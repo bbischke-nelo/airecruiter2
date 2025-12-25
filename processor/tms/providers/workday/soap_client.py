@@ -243,7 +243,7 @@ class WorkdaySOAPClient:
         params = {
             "Request_Criteria": {
                 "Job_Requisition_Reference": {
-                    "ID": [{"@type": id_type, "_value_1": id_value}]
+                    "ID": [{"type": id_type, "_value_1": id_value}]
                 }
             },
             "Response_Filter": {
@@ -346,7 +346,7 @@ class WorkdaySOAPClient:
         params = {
             "Request_References": {
                 "Candidate_Attachment_Reference": {
-                    "ID": [{"@type": "Candidate_ID", "_value_1": candidate_id}]
+                    "ID": [{"type": "Candidate_ID", "_value_1": candidate_id}]
                 }
             },
             "Response_Filter": {
@@ -401,13 +401,13 @@ class WorkdaySOAPClient:
         params = {
             "Candidate_Attachment_Data": {
                 "Candidate_Reference": {
-                    "ID": [{"@type": "Candidate_ID", "_value_1": candidate_id}]
+                    "ID": [{"type": "Candidate_ID", "_value_1": candidate_id}]
                 },
                 "Attachment_Data": {
                     "File_Name": filename,
                     "File": encoded_content,
                     "Category_Reference": {
-                        "ID": [{"@type": "Attachment_Category_ID", "_value_1": category}]
+                        "ID": [{"type": "Attachment_Category_ID", "_value_1": category}]
                     },
                     "Comment": comment or "",
                 },
