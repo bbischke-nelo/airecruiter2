@@ -5,17 +5,33 @@ import base64
 from typing import Any, Dict, List, Optional
 
 import structlog
-from zeep import AsyncClient, Settings
+from zeep import AsyncClient, Settings, Plugin
 from zeep.plugins import HistoryPlugin
 from zeep.transports import AsyncTransport
-from zeep.wsse import BinarySignature
 from zeep.exceptions import Fault
-from lxml import etree
 
 from .config import WorkdayConfig
 from .auth import WorkdayAuth
 
 logger = structlog.get_logger()
+
+
+class WorkdayAuthPlugin(Plugin):
+    """Zeep plugin to add Bearer token authentication to SOAP requests."""
+
+    def __init__(self, auth: WorkdayAuth):
+        self.auth = auth
+        self._token: Optional[str] = None
+
+    def set_token(self, token: str) -> None:
+        """Update the token to use for subsequent requests."""
+        self._token = token
+
+    def egress(self, envelope, http_headers, operation, binding_options):
+        """Add Authorization header to outgoing requests."""
+        if self._token:
+            http_headers["Authorization"] = f"Bearer {self._token}"
+        return envelope, http_headers
 
 
 class WorkdaySOAPClient:
@@ -26,6 +42,7 @@ class WorkdaySOAPClient:
         self.auth = WorkdayAuth(config)
         self._client: Optional[AsyncClient] = None
         self._transport: Optional[AsyncTransport] = None
+        self._auth_plugin: Optional[WorkdayAuthPlugin] = None
         self._history = HistoryPlugin()
         self._last_call_time: float = 0
 
@@ -42,12 +59,15 @@ class WorkdaySOAPClient:
         # Create async transport
         self._transport = AsyncTransport(timeout=self.config.read_timeout)
 
+        # Create auth plugin
+        self._auth_plugin = WorkdayAuthPlugin(self.auth)
+
         # Load the WSDL
         self._client = AsyncClient(
             self.config.recruiting_wsdl_url,
             transport=self._transport,
             settings=settings,
-            plugins=[self._history],
+            plugins=[self._auth_plugin, self._history],
         )
 
         logger.info("Workday SOAP client initialized")
@@ -93,13 +113,9 @@ class WorkdaySOAPClient:
         await self._enforce_rate_limit()
 
         try:
-            # Get access token
+            # Get access token and set on auth plugin
             access_token = await self.auth.get_token()
-
-            # Set Authorization header on the transport session
-            # Workday uses HTTP Authorization header for Bearer token, not SOAP headers
-            if hasattr(self._transport, "session") and self._transport.session:
-                self._transport.session.headers["Authorization"] = f"Bearer {access_token}"
+            self._auth_plugin.set_token(access_token)
 
             # Get the service and call the operation
             service = self._client.service
