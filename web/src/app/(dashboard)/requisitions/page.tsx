@@ -87,7 +87,7 @@ export default function RequisitionsPage() {
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground">No requisitions found</p>
             <p className="text-sm text-muted-foreground mt-2">
-              Configure Workday credentials in Settings to sync requisitions
+              Click &quot;Sync All&quot; to fetch requisitions from Workday
             </p>
           </CardContent>
         </Card>

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { MessageSquare, Users, Mail } from 'lucide-react';
+import { MessageSquare, Users, Mail, FileText } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 const settingsPages = [
@@ -12,16 +12,22 @@ const settingsPages = [
     icon: MessageSquare,
   },
   {
+    title: 'Email Templates',
+    description: 'Configure email templates for interviews',
+    href: '/settings/email',
+    icon: Mail,
+  },
+  {
+    title: 'Report Templates',
+    description: 'Configure PDF report templates',
+    href: '/settings/reports',
+    icon: FileText,
+  },
+  {
     title: 'Recruiters',
     description: 'Manage recruiter accounts',
     href: '/settings/recruiters',
     icon: Users,
-  },
-  {
-    title: 'Email Settings',
-    description: 'Configure email templates and sending',
-    href: '/settings/email',
-    icon: Mail,
   },
 ];
 

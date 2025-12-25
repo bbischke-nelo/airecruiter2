@@ -33,6 +33,9 @@ from .activities import Activity
 from .email_templates import EmailTemplate
 from .email_log import EmailLog
 
+# Report templates
+from .report_templates import ReportTemplate
+
 __all__ = [
     "Base",
     # Core
@@ -57,4 +60,6 @@ __all__ = [
     # Email
     "EmailTemplate",
     "EmailLog",
+    # Reports
+    "ReportTemplate",
 ]
