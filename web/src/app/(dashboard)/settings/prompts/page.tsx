@@ -11,11 +11,20 @@ import {
   X,
   FileText,
   RotateCcw,
-  Filter,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { api } from '@/lib/api';
 import { formatDateTime } from '@/lib/utils';
 
@@ -59,6 +68,7 @@ export default function PromptsSettingsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
   const [isLoadingPrompt, setIsLoadingPrompt] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [newPrompt, setNewPrompt] = useState<Partial<Prompt>>({
     name: '',
     promptType: 'resume_analysis',
@@ -459,11 +469,7 @@ export default function PromptsSettingsPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => {
-                                    if (confirm('Delete this prompt?')) {
-                                      deletePromptMutation.mutate(prompt.id);
-                                    }
-                                  }}
+                                  onClick={() => setDeleteConfirm(prompt.id)}
                                 >
                                   <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
@@ -489,6 +495,31 @@ export default function PromptsSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirm !== null} onOpenChange={() => setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Prompt</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this prompt? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (deleteConfirm) {
+                  deletePromptMutation.mutate(deleteConfirm);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

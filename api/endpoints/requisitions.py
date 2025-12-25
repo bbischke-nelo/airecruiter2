@@ -174,9 +174,8 @@ async def sync_all_requisitions(
     user: dict = Depends(require_role(["admin", "recruiter"])),
 ):
     """Trigger sync for all active requisitions."""
-    # Create a sync_all job
+    # Create a sync_all job (no application_id needed for sync jobs)
     job = Job(
-        application_id=0,
         job_type="sync_all",
         priority=10,  # Higher priority for manual triggers
     )
@@ -204,12 +203,12 @@ async def sync_requisition(
     if not requisition:
         raise NotFoundError("Requisition", requisition_id)
 
-    # Create a sync job with requisition_payload
+    # Create a sync job for specific requisition
     job = Job(
-        application_id=0,
+        requisition_id=requisition_id,
         job_type="sync",
         priority=10,  # Higher priority for manual triggers
-        requisition_payload=json.dumps({"requisition_id": requisition_id}),
+        payload=json.dumps({"requisition_id": requisition_id}),
     )
     db.add(job)
     db.commit()

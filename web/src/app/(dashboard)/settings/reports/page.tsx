@@ -14,6 +14,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { api } from '@/lib/api';
 import { formatDateTime } from '@/lib/utils';
 
@@ -38,6 +48,8 @@ export default function ReportTemplatesSettingsPage() {
   const queryClient = useQueryClient();
   const [editingTemplate, setEditingTemplate] = useState<ReportTemplate | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [newTemplate, setNewTemplate] = useState<Partial<ReportTemplate>>({
     name: '',
     templateType: 'analysis',
@@ -46,11 +58,12 @@ export default function ReportTemplatesSettingsPage() {
     isDefault: false,
   });
 
-  // Fetch templates
+  // Fetch templates - filter by active unless showInactive is checked
   const { data: templates, isLoading } = useQuery<{ data: ReportTemplate[] }>({
-    queryKey: ['report-templates'],
+    queryKey: ['report-templates', showInactive],
     queryFn: async () => {
-      const response = await api.get('/report-templates');
+      const params = showInactive ? '' : '?is_active=true';
+      const response = await api.get(`/report-templates${params}`);
       return response.data;
     },
   });
@@ -141,7 +154,16 @@ export default function ReportTemplatesSettingsPage() {
             <FileText className="h-5 w-5" />
             PDF Report Templates
           </CardTitle>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="rounded border-input"
+              />
+              Show inactive
+            </label>
             <Button
               variant="outline"
               onClick={() => seedDefaultsMutation.mutate()}
@@ -381,11 +403,7 @@ export default function ReportTemplatesSettingsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => {
-                            if (confirm('Delete this template?')) {
-                              deleteTemplateMutation.mutate(template.id);
-                            }
-                          }}
+                          onClick={() => setDeleteConfirm(template.id)}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -410,6 +428,31 @@ export default function ReportTemplatesSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirm !== null} onOpenChange={() => setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Template</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this report template? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (deleteConfirm) {
+                  deleteTemplateMutation.mutate(deleteConfirm);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
