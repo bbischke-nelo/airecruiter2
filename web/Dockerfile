@@ -30,6 +30,34 @@ COPY web/ .
 # Build the application
 RUN npm run build
 
+# Debug: Check what files exist after build
+RUN echo "=== Checking build output ===" && \
+    echo "Root directory:" && ls -la . | head -20 && \
+    echo "Checking for .next directory:" && ls -la .next/ 2>/dev/null || echo "No .next directory" && \
+    echo "Checking .next/standalone:" && ls -la .next/standalone/ 2>/dev/null || echo "No .next/standalone" && \
+    echo "Checking .next/server:" && ls -la .next/server/ 2>/dev/null || echo "No .next/server"
+
+# Ensure server files are in the standalone build (fix for Next.js tracing issues)
+RUN echo "=== Copying server files to standalone ===" && \
+    if [ -d .next/server/app ]; then \
+      echo "Found .next/server/app, copying to standalone..." && \
+      mkdir -p .next/standalone/.next/server/app && \
+      cp -r .next/server/app/* .next/standalone/.next/server/app/ && \
+      echo "Copied app server files"; \
+    else \
+      echo "No .next/server/app directory found"; \
+    fi && \
+    if [ -d .next/server/pages ]; then \
+      echo "Found .next/server/pages, copying to standalone..." && \
+      mkdir -p .next/standalone/.next/server/pages && \
+      cp -r .next/server/pages/* .next/standalone/.next/server/pages/ && \
+      echo "Copied pages server files"; \
+    else \
+      echo "No .next/server/pages directory found"; \
+    fi && \
+    echo "Final .next/standalone/.next/server contents:" && \
+    ls -la .next/standalone/.next/server/ 2>/dev/null || echo "No .next/standalone/.next/server"
+
 # Production stage
 FROM node:20-alpine
 
