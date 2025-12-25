@@ -232,10 +232,8 @@ class WorkdaySOAPClient:
 
         params = {
             "Request_Criteria": {
-                "Field_And_Parameter_Criteria_Data": {
-                    "Provider_Reference": {
-                        "ID": [{"type": "Job_Requisition_ID", "_value_1": requisition_id}]
-                    }
+                "Job_Requisition_Reference": {
+                    "ID": [{"type": "Job_Requisition_ID", "_value_1": requisition_id}]
                 }
             },
             "Response_Filter": {
