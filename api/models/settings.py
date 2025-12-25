@@ -2,6 +2,7 @@
 
 from sqlalchemy import Column, Integer, String, DateTime, Text, Index
 from sqlalchemy import func
+from sqlalchemy.sql.elements import quoted_name
 
 from api.config.database import Base
 
@@ -17,21 +18,21 @@ class Setting(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
-    # Using 'setting_key' instead of 'key' to avoid SQL Server reserved word issues
-    setting_key = Column(String(100), nullable=False, unique=True)
+    # Use quoted_name to properly escape 'key' which is a SQL Server reserved word
+    key = Column(quoted_name('key', quote=True), String(100), nullable=False, unique=True)
     value = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
 
     created_at = Column(DateTime, default=func.getutcdate())
     updated_at = Column(DateTime, onupdate=func.getutcdate())
 
-    # Indexes
+    # Indexes - use quoted_name for index too
     __table_args__ = (
-        Index("idx_settings_key", "setting_key"),
+        Index("idx_settings_key", quoted_name('key', quote=True)),
     )
 
     def __repr__(self) -> str:
-        return f"<Setting(key={self.setting_key})>"
+        return f"<Setting(key={self.key})>"
 
 
 # Default settings to seed

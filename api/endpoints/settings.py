@@ -15,7 +15,7 @@ router = APIRouter()
 
 def get_setting_value(db: Session, key: str, default: str = "") -> str:
     """Get a setting value from database."""
-    setting = db.query(Setting).filter(Setting.setting_key == key).first()
+    setting = db.query(Setting).filter(Setting.key == key).first()
     if setting:
         return setting.value
     return DEFAULT_SETTINGS.get(key, (default, ""))[0]
@@ -23,12 +23,12 @@ def get_setting_value(db: Session, key: str, default: str = "") -> str:
 
 def set_setting_value(db: Session, key: str, value: str) -> None:
     """Set a setting value in database."""
-    setting = db.query(Setting).filter(Setting.setting_key == key).first()
+    setting = db.query(Setting).filter(Setting.key == key).first()
     if setting:
         setting.value = value
     else:
         description = DEFAULT_SETTINGS.get(key, ("", ""))[1]
-        setting = Setting(setting_key=key, value=value, description=description)
+        setting = Setting(key=key, value=value, description=description)
         db.add(setting)
 
 
@@ -74,10 +74,10 @@ async def seed_settings(
     user: dict = Depends(require_admin),
 ):
     """Seed default settings if not present."""
-    for key, (value, description) in DEFAULT_SETTINGS.items():
-        existing = db.query(Setting).filter(Setting.setting_key == key).first()
+    for setting_key, (value, description) in DEFAULT_SETTINGS.items():
+        existing = db.query(Setting).filter(Setting.key == setting_key).first()
         if not existing:
-            setting = Setting(setting_key=key, value=value, description=description)
+            setting = Setting(key=setting_key, value=value, description=description)
             db.add(setting)
 
     db.commit()
