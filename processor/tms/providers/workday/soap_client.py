@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import time
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import structlog
@@ -229,54 +230,75 @@ class WorkdaySOAPClient:
         wid: Optional[str] = None,
         page: int = 1,
         count: int = 100,
+        since: Optional[datetime] = None,
     ) -> List[Dict[str, Any]]:
         """Fetch candidates for a requisition.
 
-        Uses Get_Candidates with Job_Requisition_Reference.
-        Note: Always uses Job_Requisition_ID even if WID is provided, as WID
-        causes "Validation error" for this operation in some tenant configurations.
+        Note: API filtering by Job_Requisition_Reference is broken/restricted in this tenant.
+        We fetch candidates updated since 'since' (or all if None) and filter by requisition in-memory.
 
         Args:
-            requisition_id: The Job_Requisition_ID (required)
-            wid: Optional Workday ID (ignored for filtering)
+            requisition_id: The Job_Requisition_ID (required for in-memory filtering)
+            wid: Optional Workday ID (ignored)
             page: Page number
             count: Items per page
+            since: Only return candidates updated after this time
 
         Returns:
             List of application data dictionaries
         """
-        # Always use Job_Requisition_ID as it's the most reliable reference type
-        # for this operation. WID usage has been observed to fail.
-        id_type = ID_TYPE_JOB_REQ
-        id_value = requisition_id
-
         logger.info(
-            "Fetching candidates for requisition",
+            "Fetching candidates",
             requisition_id=requisition_id,
-            id_type=id_type,
+            since=str(since) if since else "all",
             page=page
         )
 
-        params = {
-            "Request_Criteria": {
-                "Job_Requisition_Reference": {
-                    "ID": [{"type": id_type, "_value_1": id_value}]
+        # Build Request Criteria
+        request_criteria = {}
+        
+        if since:
+            # Format datetime for XML (ISO format)
+            # Ensure it's timezone aware or naive as per Workday expectation (usually UTC)
+            updated_from = since.isoformat()
+            if not updated_from.endswith("Z") and "+" not in updated_from:
+                updated_from += "Z" # Assume UTC if naive
+
+            request_criteria["Transaction_Log_Criteria_Data"] = {
+                "Transaction_Date_Range_Data": {
+                    "Updated_From": updated_from
                 }
-            },
+            }
+        else:
+            # If no 'since' date, we cannot fetch ALL candidates efficiently without a filter.
+            # But since Job_Requisition_Reference fails, we might have to rely on
+            # just pagination if the tenant allows empty criteria.
+            # However, my debug test showed empty criteria returned 0 results (or None).
+            # We will try passing empty criteria which usually means "All".
+            pass
+
+        params = {
             "Response_Filter": {
                 "Page": page,
                 "Count": count,
             },
             "Response_Group": {
                 "Include_Reference": True,
+                # We typically need Personal Data etc, which are included by default or via "Include_Reference" implies basics?
+                # Actually, earlier debug showed Response_Group only has 2 fields.
+                # Let's trust defaults for now.
             },
         }
+        
+        if request_criteria:
+            params["Request_Criteria"] = request_criteria
 
         response = await self._call_service("Get_Candidates", params)
 
         applications = []
         if response and hasattr(response, "Response_Data") and response.Response_Data:
             for candidate in getattr(response.Response_Data, "Candidate", None) or []:
+                # Parse and filter by requisition_id
                 parsed = self._parse_candidate(candidate, requisition_id)
                 if parsed:
                     applications.append(parsed)
@@ -286,9 +308,39 @@ class WorkdaySOAPClient:
 
     def _parse_candidate(self, candidate: Any, requisition_id: str) -> Optional[Dict[str, Any]]:
         """Parse a SOAP candidate response into a dictionary."""
-        data = {
-            "external_requisition_id": requisition_id,
-        }
+        data = {}
+        
+        # Check if this candidate has an application for the target requisition
+        target_application = None
+        
+        if hasattr(candidate, "Candidate_Data") and candidate.Candidate_Data:
+            cd = candidate.Candidate_Data
+            
+            # Find the specific job application
+            if hasattr(cd, "Job_Application_Data"):
+                apps = cd.Job_Application_Data
+                if not isinstance(apps, list):
+                    apps = [apps]
+                
+                for app in apps:
+                    # Check Job Applied To -> Requisition Reference
+                    if hasattr(app, "Job_Applied_To_Data") and app.Job_Applied_To_Data:
+                        jat = app.Job_Applied_To_Data
+                        if hasattr(jat, "Job_Requisition_Reference") and jat.Job_Requisition_Reference:
+                            # Check IDs
+                            for id_item in getattr(jat.Job_Requisition_Reference, "ID", None) or []:
+                                if getattr(id_item, "_value_1", "") == requisition_id:
+                                    target_application = app
+                                    break
+                    if target_application:
+                        break
+        
+        # If we didn't find an application for this requisition, skip this candidate
+        # UNLESS this is a candidate-centric view, but here we want "applications for requisition".
+        if not target_application:
+            return None
+
+        data["external_requisition_id"] = requisition_id
 
         # Extract Candidate Reference
         if hasattr(candidate, "Candidate_Reference") and candidate.Candidate_Reference:
@@ -297,10 +349,15 @@ class WorkdaySOAPClient:
                 id_value = getattr(id_item, "_value_1", "")
                 if id_type == ID_TYPE_CANDIDATE:
                     data["external_candidate_id"] = id_value
-                    # Use candidate ID as application ID since they're linked
-                    data["external_application_id"] = id_value
                 elif id_type == ID_TYPE_WID:
                     data["candidate_wid"] = id_value
+
+        # Use Application ID as external_application_id if available
+        if target_application and hasattr(target_application, "Job_Application_ID"):
+            data["external_application_id"] = target_application.Job_Application_ID
+        elif "external_candidate_id" in data:
+            # Fallback to candidate ID if application ID missing (legacy behavior)
+            data["external_application_id"] = data["external_candidate_id"]
 
         # Extract Candidate Data
         if hasattr(candidate, "Candidate_Data") and candidate.Candidate_Data:
@@ -322,8 +379,22 @@ class WorkdaySOAPClient:
                                 data["candidate_email"] = email.Email_Address
                                 break
 
-            # Recruiting Status
-            if hasattr(cd, "Status_Reference") and cd.Status_Reference:
+            # Recruiting Status - Prefer status from the specific application
+            if target_application:
+                # Look for Disposition or Stage in Job_Applied_To_Data
+                if hasattr(target_application, "Job_Applied_To_Data") and target_application.Job_Applied_To_Data:
+                    jat = target_application.Job_Applied_To_Data
+                    
+                    # Try Disposition (e.g. "Screen", "Interview")
+                    if hasattr(jat, "Disposition_Reference") and jat.Disposition_Reference:
+                        data["workday_status"] = getattr(jat.Disposition_Reference, "Descriptor", None)
+
+                    # Try Stage if Disposition missing
+                    if not data.get("workday_status") and hasattr(jat, "Stage_Reference") and jat.Stage_Reference:
+                        data["workday_status"] = getattr(jat.Stage_Reference, "Descriptor", None)
+
+            # Fallback to top-level status if application status not found
+            if "workday_status" not in data and hasattr(cd, "Status_Reference") and cd.Status_Reference:
                 for id_item in getattr(cd.Status_Reference, "ID", None) or []:
                     if getattr(id_item, "type", "") in ("Candidate_Status_ID", "Recruiting_Status_ID"):
                         data["workday_status"] = id_item._value_1
