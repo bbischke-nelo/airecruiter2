@@ -1,7 +1,6 @@
 """Fix settings key column name.
 
-The initial migration incorrectly created the column as '[key]' (with literal brackets)
-instead of properly quoting the reserved word 'key'. This migration renames it.
+Rename 'key' column to 'setting_key' to avoid SQL Server reserved word issues.
 
 Revision ID: 00007
 """
@@ -17,11 +16,9 @@ depends_on = None
 
 
 def upgrade():
-    # The column was created with literal brackets in the name: [key]
-    # We need to rename it to setting_key
-    # Use quoted identifier syntax for the column with brackets in its name
-    op.execute("EXEC sp_rename 'settings.[[key]]', 'setting_key', 'COLUMN'")
+    # Rename 'key' to 'setting_key' to avoid reserved word issues
+    op.execute("EXEC sp_rename 'settings.[key]', 'setting_key', 'COLUMN'")
 
 
 def downgrade():
-    op.execute("EXEC sp_rename 'settings.setting_key', '[[key]]', 'COLUMN'")
+    op.execute("EXEC sp_rename 'settings.setting_key', 'key', 'COLUMN'")
