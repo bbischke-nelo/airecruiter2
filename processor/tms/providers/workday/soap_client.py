@@ -25,6 +25,7 @@ class WorkdaySOAPClient:
         self.config = config
         self.auth = WorkdayAuth(config)
         self._client: Optional[AsyncClient] = None
+        self._transport: Optional[AsyncTransport] = None
         self._history = HistoryPlugin()
         self._last_call_time: float = 0
 
@@ -38,13 +39,13 @@ class WorkdaySOAPClient:
             xml_huge_tree=True,  # Allow large responses
         )
 
-        # Create async transport with auth
-        transport = AsyncTransport(timeout=self.config.read_timeout)
+        # Create async transport
+        self._transport = AsyncTransport(timeout=self.config.read_timeout)
 
         # Load the WSDL
         self._client = AsyncClient(
             self.config.recruiting_wsdl_url,
-            transport=transport,
+            transport=self._transport,
             settings=settings,
             plugins=[self._history],
         )
@@ -67,14 +68,6 @@ class WorkdaySOAPClient:
             await asyncio.sleep(self.config.rate_limit_delay - elapsed)
         self._last_call_time = time.time()
 
-    def _get_auth_header(self, access_token: str) -> Dict[str, Any]:
-        """Build WS-Security header with Bearer token."""
-        return {
-            "Security": {
-                "BinarySecurityToken": f"Bearer {access_token}"
-            }
-        }
-
     async def _call_service(
         self,
         operation: str,
@@ -94,7 +87,7 @@ class WorkdaySOAPClient:
         Raises:
             WorkdaySOAPError: If the call fails after retries
         """
-        if not self._client:
+        if not self._client or not self._transport:
             raise WorkdaySOAPError("Client not initialized. Call initialize() first.")
 
         await self._enforce_rate_limit()
@@ -103,16 +96,15 @@ class WorkdaySOAPClient:
             # Get access token
             access_token = await self.auth.get_token()
 
-            # Get the service
+            # Set Authorization header on the transport session
+            # Workday uses HTTP Authorization header for Bearer token, not SOAP headers
+            if hasattr(self._transport, "session") and self._transport.session:
+                self._transport.session.headers["Authorization"] = f"Bearer {access_token}"
+
+            # Get the service and call the operation
             service = self._client.service
-
-            # Add auth header
-            # Note: zeep handles WS-Security differently, we'll use _soapheaders
-            auth_header = self._get_auth_header(access_token)
-
-            # Call the operation
             op = getattr(service, operation)
-            response = await op(_soapheaders=auth_header, **params)
+            response = await op(**params)
 
             return response
 
