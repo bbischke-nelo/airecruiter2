@@ -174,9 +174,9 @@ async def sync_all_requisitions(
     user: dict = Depends(require_role(["admin", "recruiter"])),
 ):
     """Trigger sync for all active requisitions."""
-    # Create a sync_all job (no application_id needed for sync jobs)
+    # Create a sync job without requisition_id - processor will sync all
     job = Job(
-        job_type="sync_all",
+        job_type="sync",
         priority=10,  # Higher priority for manual triggers
     )
     db.add(job)
