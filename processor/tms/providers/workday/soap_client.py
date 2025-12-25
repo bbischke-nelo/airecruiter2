@@ -199,7 +199,11 @@ class WorkdaySOAPClient:
 
         requisitions = []
         if response and hasattr(response, "Response_Data"):
-            for req in response.Response_Data.Job_Requisition or []:
+            # Debug: log the first raw requisition
+            reqs = response.Response_Data.Job_Requisition or []
+            if reqs:
+                logger.debug("Raw requisition sample", raw=str(reqs[0])[:500])
+            for req in reqs:
                 requisitions.append(self._parse_requisition(req))
 
         logger.info("Fetched requisitions", count=len(requisitions))
@@ -211,7 +215,11 @@ class WorkdaySOAPClient:
         page: int = 1,
         count: int = 100,
     ) -> List[Dict[str, Any]]:
-        """Fetch job applications for a requisition.
+        """Fetch candidates for a requisition.
+
+        Note: Workday's Get_Applicants is for internal workers, not job applicants.
+        Use Get_Candidates to fetch candidate data, but filtering by requisition
+        requires using Field_And_Parameter_Criteria_Data.
 
         Args:
             requisition_id: The requisition external ID
@@ -221,33 +229,61 @@ class WorkdaySOAPClient:
         Returns:
             List of application data dictionaries
         """
-        logger.info("Fetching job applications", requisition_id=requisition_id, page=page)
+        logger.info("Fetching candidates", requisition_id=requisition_id, page=page)
 
+        # Get_Candidates Response_Group only supports: Include_Reference, Exclude_All_Attachments
         params = {
-            "Request_Criteria": {
-                "Job_Requisition_Reference": {
-                    "ID": [{"type": "Job_Requisition_ID", "_value_1": requisition_id}]
-                }
-            },
             "Response_Filter": {
                 "Page": page,
                 "Count": count,
             },
             "Response_Group": {
                 "Include_Reference": True,
-                "Include_Job_Application_Data": True,
+                "Exclude_All_Attachments": False,  # Include attachments
             },
         }
 
-        response = await self._call_service("Get_Job_Applications", params)
+        response = await self._call_service("Get_Candidates", params)
 
         applications = []
-        if response and hasattr(response, "Response_Data"):
-            for app in response.Response_Data.Job_Application or []:
-                applications.append(self._parse_application(app))
+        if response and hasattr(response, "Response_Data") and response.Response_Data:
+            for candidate in getattr(response.Response_Data, "Candidate", None) or []:
+                applications.append(self._parse_candidate(candidate))
 
-        logger.info("Fetched applications", count=len(applications))
+        logger.info("Fetched candidates", count=len(applications))
         return applications
+
+    def _parse_candidate(self, candidate: Any) -> Dict[str, Any]:
+        """Parse a SOAP candidate response into a dictionary."""
+        data = {}
+
+        # Extract candidate ID
+        if hasattr(candidate, "Candidate_Reference") and candidate.Candidate_Reference:
+            for id_item in candidate.Candidate_Reference.ID or []:
+                if getattr(id_item, "type", "") == "Candidate_ID":
+                    data["external_candidate_id"] = id_item._value_1
+                    break
+
+        # Extract candidate data
+        if hasattr(candidate, "Candidate_Data") and candidate.Candidate_Data:
+            cd = candidate.Candidate_Data
+
+            # Personal data
+            if hasattr(cd, "Personal_Data") and cd.Personal_Data:
+                pd = cd.Personal_Data
+                if hasattr(pd, "Name_Data") and pd.Name_Data:
+                    first = getattr(pd.Name_Data, "First_Name", "") or ""
+                    last = getattr(pd.Name_Data, "Last_Name", "") or ""
+                    data["candidate_name"] = f"{first} {last}".strip()
+
+                if hasattr(pd, "Contact_Data") and pd.Contact_Data:
+                    if hasattr(pd.Contact_Data, "Email_Address_Data"):
+                        for email in pd.Contact_Data.Email_Address_Data or []:
+                            if hasattr(email, "Email_Address"):
+                                data["candidate_email"] = email.Email_Address
+                                break
+
+        return data
 
     async def get_candidate_attachments(
         self,
@@ -263,26 +299,26 @@ class WorkdaySOAPClient:
         """
         logger.info("Fetching candidate attachments", candidate_id=candidate_id)
 
+        # Use Get_Candidate_Attachments operation directly
         params = {
             "Request_References": {
-                "Candidate_Reference": {
+                "Candidate_Attachment_Reference": {
                     "ID": [{"type": "Candidate_ID", "_value_1": candidate_id}]
                 }
             },
-            "Response_Group": {
-                "Include_Attachment_Data": True,
+            "Response_Filter": {
+                "Page": 1,
+                "Count": 100,
             },
         }
 
-        response = await self._call_service("Get_Candidates", params)
+        response = await self._call_service("Get_Candidate_Attachments", params)
 
         attachments = []
-        if response and hasattr(response, "Response_Data"):
-            for candidate in response.Response_Data.Candidate or []:
-                if hasattr(candidate, "Candidate_Data") and candidate.Candidate_Data:
-                    if hasattr(candidate.Candidate_Data, "Resume") and candidate.Candidate_Data.Resume:
-                        for resume in candidate.Candidate_Data.Resume or []:
-                            attachments.append(self._parse_attachment(resume))
+        if response and hasattr(response, "Response_Data") and response.Response_Data:
+            # Get_Candidate_Attachments returns Candidate_Attachment objects
+            for attachment in getattr(response.Response_Data, "Candidate_Attachment", None) or []:
+                attachments.append(self._parse_attachment(attachment))
 
         logger.info("Fetched attachments", count=len(attachments))
         return attachments
@@ -363,24 +399,37 @@ class WorkdaySOAPClient:
         # Extract data fields
         if hasattr(req, "Job_Requisition_Data") and req.Job_Requisition_Data:
             rd = req.Job_Requisition_Data
-            data["name"] = getattr(rd, "Job_Posting_Title", None)
-            data["description"] = getattr(rd, "Job_Description_Summary", None)
-            data["detailed_description"] = getattr(rd, "Job_Qualifications", None)
 
-            # Location
-            if hasattr(rd, "Position_Data") and rd.Position_Data:
-                if hasattr(rd.Position_Data, "Location_Reference") and rd.Position_Data.Location_Reference:
-                    data["location"] = getattr(rd.Position_Data.Location_Reference, "Descriptor", None)
+            # Job details are nested under Job_Requisition_Detail_Data
+            if hasattr(rd, "Job_Requisition_Detail_Data") and rd.Job_Requisition_Detail_Data:
+                detail = rd.Job_Requisition_Detail_Data
+                data["name"] = getattr(detail, "Job_Posting_Title", None)
+                data["description"] = getattr(detail, "Job_Description", None)
+                # Job_Description contains HTML, strip for summary if needed
 
-            # Recruiter
-            if hasattr(rd, "Recruiting_Data") and rd.Recruiting_Data:
-                if hasattr(rd.Recruiting_Data, "Primary_Recruiter_Reference") and rd.Recruiting_Data.Primary_Recruiter_Reference:
-                    data["recruiter_name"] = getattr(rd.Recruiting_Data.Primary_Recruiter_Reference, "Descriptor", None)
-
-            # Status
+            # Status - extract from Job_Requisition_Status_Reference
             if hasattr(rd, "Job_Requisition_Status_Reference") and rd.Job_Requisition_Status_Reference:
-                status = getattr(rd.Job_Requisition_Status_Reference, "Descriptor", "Unknown")
-                data["is_active"] = status.lower() == "open"
+                status_ref = rd.Job_Requisition_Status_Reference
+                # Try Descriptor first, then look in ID array
+                status = getattr(status_ref, "Descriptor", None)
+                if not status and hasattr(status_ref, "ID"):
+                    for id_item in status_ref.ID or []:
+                        if getattr(id_item, "type", "") == "Job_Requisition_Status_ID":
+                            status = id_item._value_1
+                            break
+                data["is_active"] = (status or "").upper() == "OPEN"
+
+            # Location - check Position_Data array
+            if hasattr(rd, "Position_Data") and rd.Position_Data:
+                positions = rd.Position_Data if isinstance(rd.Position_Data, list) else [rd.Position_Data]
+                for pos in positions:
+                    if hasattr(pos, "Location_Reference") and pos.Location_Reference:
+                        loc_ref = pos.Location_Reference
+                        if isinstance(loc_ref, list):
+                            loc_ref = loc_ref[0] if loc_ref else None
+                        if loc_ref:
+                            data["location"] = getattr(loc_ref, "Descriptor", None)
+                            break
 
         return data
 
