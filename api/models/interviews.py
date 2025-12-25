@@ -42,7 +42,7 @@ class Interview(Base):
     completed_at = Column(DateTime, nullable=True)
 
     # Extra context
-    metadata = Column(Text, nullable=True)  # JSON
+    extra_data = Column(Text, nullable=True)  # JSON
 
     # Relationships
     application = relationship("Application", back_populates="interviews")
