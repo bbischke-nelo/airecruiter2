@@ -86,33 +86,40 @@ class QueueManager:
         Returns:
             Job data dict or None if no jobs available
         """
-        # SQL Server doesn't allow ORDER BY in UPDATE...OUTPUT
-        # Use a subquery to select the ID first, then update by that ID
-        query = text("""
+        # Step 1: Find and lock the next pending job
+        select_query = text("""
+            SELECT TOP(1) id FROM jobs WITH (UPDLOCK, READPAST)
+            WHERE status = 'pending'
+              AND scheduled_for <= GETUTCDATE()
+            ORDER BY priority DESC, created_at ASC
+        """)
+
+        result = self.db.execute(select_query)
+        row = result.fetchone()
+
+        if not row:
+            return None
+
+        job_id = row.id
+
+        # Step 2: Update the job status and get full job data
+        update_query = text("""
             UPDATE jobs
             SET status = 'running',
                 started_at = GETUTCDATE(),
                 attempts = attempts + 1
-            OUTPUT
-                INSERTED.id,
-                INSERTED.job_type,
-                INSERTED.application_id,
-                INSERTED.requisition_id,
-                INSERTED.priority,
-                INSERTED.payload,
-                INSERTED.attempts,
-                INSERTED.max_attempts,
-                INSERTED.created_at,
-                INSERTED.scheduled_for
-            WHERE id = (
-                SELECT TOP(1) id FROM jobs WITH (UPDLOCK, READPAST)
-                WHERE status = 'pending'
-                  AND scheduled_for <= GETUTCDATE()
-                ORDER BY priority DESC, created_at ASC
-            )
+            WHERE id = :job_id
         """)
+        self.db.execute(update_query, {"job_id": job_id})
 
-        result = self.db.execute(query)
+        # Step 3: Fetch the updated job data
+        fetch_query = text("""
+            SELECT id, job_type, application_id, requisition_id, priority,
+                   payload, attempts, max_attempts, created_at, scheduled_for
+            FROM jobs
+            WHERE id = :job_id
+        """)
+        result = self.db.execute(fetch_query, {"job_id": job_id})
         self.db.commit()
 
         row = result.fetchone()
