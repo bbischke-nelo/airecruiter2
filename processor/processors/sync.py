@@ -173,10 +173,11 @@ class SyncProcessor(BaseProcessor):
             # Insert new
             insert_query = text("""
                 INSERT INTO requisitions (external_id, name, description, detailed_description,
-                                         location, is_active, sync_enabled, workday_data, created_at)
+                                         location, is_active, sync_enabled, sync_interval_minutes,
+                                         auto_send_interview, workday_data, created_at)
                 OUTPUT INSERTED.id
                 VALUES (:external_id, :name, :description, :detailed_description,
-                        :location, :is_active, 1, :workday_data, GETUTCDATE())
+                        :location, :is_active, 1, 15, 0, :workday_data, GETUTCDATE())
             """)
             result = self.db.execute(
                 insert_query,
