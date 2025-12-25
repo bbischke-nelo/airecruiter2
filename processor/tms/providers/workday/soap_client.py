@@ -182,7 +182,7 @@ class WorkdaySOAPClient:
         params = {
             "Request_Criteria": {
                 "Job_Requisition_Status_Reference": {
-                    "ID": [{"@type": "Job_Requisition_Status_ID", "_value_1": status}]
+                    "ID": [{"type": "Job_Requisition_Status_ID", "_value_1": status}]
                 }
             },
             "Response_Filter": {
