@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-export default function LoginPage() {
+function LoginContent() {
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
 
@@ -28,21 +28,36 @@ export default function LoginPage() {
     window.location.href = '/api/v1/auth/login';
   };
 
+  if (error) {
+    return (
+      <>
+        <div className="p-4 bg-red-100 text-red-700 rounded-md mb-4 max-w-md text-center">
+          {error}
+        </div>
+        <p className="text-muted-foreground">Redirecting to SSO...</p>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <h2 className="mt-6 text-xl font-normal">Redirecting to SSO...</h2>
+    </>
+  );
+}
+
+export default function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-background">
-      {error ? (
-        <>
-          <div className="p-4 bg-red-100 text-red-700 rounded-md mb-4 max-w-md text-center">
-            {error}
-          </div>
-          <p className="text-muted-foreground">Redirecting to SSO...</p>
-        </>
-      ) : (
+      <Suspense fallback={
         <>
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <h2 className="mt-6 text-xl font-normal">Redirecting to SSO...</h2>
+          <h2 className="mt-6 text-xl font-normal">Loading...</h2>
         </>
-      )}
+      }>
+        <LoginContent />
+      </Suspense>
     </div>
   );
 }
