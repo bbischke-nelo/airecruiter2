@@ -39,10 +39,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
 
     # Cookie settings
-    COOKIE_NAME: str = "recruiter_access_token"
-    COOKIE_DOMAIN: Optional[str] = None
-    COOKIE_SECURE: bool = False  # True in production
+    COOKIE_NAME: str = "recruiter2_access_token"
+    COOKIE_DOMAIN: Optional[str] = None  # None = use request domain
+    COOKIE_SECURE: bool = True  # HTTPS required
     COOKIE_SAMESITE: str = "lax"
+    SECURE_COOKIES: bool = True  # Alias for compatibility
 
     # Workday
     WORKDAY_TENANT_URL: str = ""
