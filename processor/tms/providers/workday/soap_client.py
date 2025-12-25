@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import time
 from typing import Any, Dict, List, Optional
 
 import structlog
@@ -14,6 +15,12 @@ from .config import WorkdayConfig
 from .auth import WorkdayAuth
 
 logger = structlog.get_logger()
+
+# Constants
+ID_TYPE_WID = "WID"
+ID_TYPE_JOB_REQ = "Job_Requisition_ID"
+ID_TYPE_CANDIDATE = "Candidate_ID"
+ID_TYPE_ATTACHMENT_CATEGORY = "Attachment_Category_ID"
 
 
 class WorkdayAuthPlugin(Plugin):
@@ -44,7 +51,7 @@ class WorkdaySOAPClient:
         self._transport: Optional[AsyncTransport] = None
         self._auth_plugin: Optional[WorkdayAuthPlugin] = None
         self._history = HistoryPlugin()
-        self._last_call_time: float = 0
+        self._last_call_time: float = 0.0
 
     async def initialize(self) -> None:
         """Initialize the SOAP client with WSDL."""
@@ -79,27 +86,26 @@ class WorkdaySOAPClient:
         self._client = None
 
     async def _enforce_rate_limit(self) -> None:
-        """Enforce rate limiting between API calls."""
-        import time
+        """Enforce rate limiting between API calls using monotonic clock."""
+        if self.config.rate_limit_delay <= 0:
+            return
 
-        now = time.time()
+        now = time.monotonic()
         elapsed = now - self._last_call_time
         if elapsed < self.config.rate_limit_delay:
             await asyncio.sleep(self.config.rate_limit_delay - elapsed)
-        self._last_call_time = time.time()
+        self._last_call_time = time.monotonic()
 
     async def _call_service(
         self,
         operation: str,
         params: Dict[str, Any],
-        retry_count: int = 0,
     ) -> Any:
-        """Call a SOAP service operation with retry logic.
+        """Call a SOAP service operation with iterative retry logic.
 
         Args:
             operation: The SOAP operation name
             params: Parameters for the operation
-            retry_count: Current retry attempt
 
         Returns:
             Parsed response
@@ -110,56 +116,64 @@ class WorkdaySOAPClient:
         if not self._client or not self._transport:
             raise WorkdaySOAPError("Client not initialized. Call initialize() first.")
 
-        await self._enforce_rate_limit()
+        total_attempts = self.config.max_retries + 1
+        last_exception = None
 
-        try:
-            # Get access token and set on auth plugin
-            access_token = await self.auth.get_token()
-            self._auth_plugin.set_token(access_token)
+        for attempt in range(total_attempts):
+            await self._enforce_rate_limit()
 
-            # Get the service and call the operation
-            service = self._client.service
-            op = getattr(service, operation)
-            response = await op(**params)
+            try:
+                # Get access token and set on auth plugin
+                access_token = await self.auth.get_token()
+                self._auth_plugin.set_token(access_token)
 
-            return response
+                # Get the service and call the operation
+                service = self._client.service
+                op = getattr(service, operation)
+                response = await op(**params)
 
-        except Fault as e:
-            fault_code = getattr(e, "code", "UNKNOWN")
-            fault_message = str(e)
+                return response
 
-            logger.error(
-                "Workday SOAP fault",
-                operation=operation,
-                fault_code=fault_code,
-                fault_message=fault_message[:500],
-            )
+            except Fault as e:
+                fault_code = getattr(e, "code", "UNKNOWN")
+                fault_message = str(e)
+                last_exception = e
 
-            # Check if retryable
-            if fault_code in ("PROCESSING_FAULT",) and retry_count < self.config.max_retries:
-                delay = self.config.retry_backoff ** retry_count
-                logger.info(f"Retrying in {delay}s", attempt=retry_count + 1)
-                await asyncio.sleep(delay)
-                return await self._call_service(operation, params, retry_count + 1)
+                logger.error(
+                    "Workday SOAP fault",
+                    operation=operation,
+                    fault_code=fault_code,
+                    attempt=attempt + 1,
+                    fault_message=fault_message[:500],
+                )
 
-            raise WorkdaySOAPError(f"SOAP fault: {fault_message}") from e
+                # Check if retryable
+                if fault_code == "PROCESSING_FAULT" and attempt < total_attempts - 1:
+                    delay = self.config.retry_backoff ** attempt
+                    logger.info(f"Retrying in {delay}s", attempt=attempt + 1)
+                    await asyncio.sleep(delay)
+                    continue
 
-        except Exception as e:
-            logger.error(
-                "Workday SOAP error",
-                operation=operation,
-                error=str(e),
-                exc_info=True,
-            )
+                raise WorkdaySOAPError(f"SOAP fault: {fault_message}") from e
 
-            # Retry on connection errors
-            if retry_count < self.config.max_retries:
-                delay = self.config.retry_backoff ** retry_count
-                logger.info(f"Retrying in {delay}s", attempt=retry_count + 1)
-                await asyncio.sleep(delay)
-                return await self._call_service(operation, params, retry_count + 1)
+            except Exception as e:
+                last_exception = e
+                logger.error(
+                    "Workday SOAP error",
+                    operation=operation,
+                    error=str(e),
+                    attempt=attempt + 1,
+                    exc_info=True,
+                )
 
-            raise WorkdaySOAPError(f"SOAP call failed: {str(e)}") from e
+                # Retry on connection/unknown errors
+                if attempt < total_attempts - 1:
+                    delay = self.config.retry_backoff ** attempt
+                    logger.info(f"Retrying in {delay}s", attempt=attempt + 1)
+                    await asyncio.sleep(delay)
+                    continue
+
+        raise WorkdaySOAPError(f"SOAP call failed after {total_attempts} attempts: {str(last_exception)}") from last_exception
 
     async def get_job_requisitions(
         self,
@@ -218,27 +232,30 @@ class WorkdaySOAPClient:
     ) -> List[Dict[str, Any]]:
         """Fetch candidates for a requisition.
 
-        Uses Get_Candidates with Job_Requisition_Reference to filter by requisition.
-        Prefers WID (Workday ID) if provided, falls back to Job_Requisition_ID.
+        Uses Get_Candidates with Job_Requisition_Reference.
+        Note: Always uses Job_Requisition_ID even if WID is provided, as WID
+        causes "Validation error" for this operation in some tenant configurations.
 
         Args:
-            requisition_id: The Job_Requisition_ID
-            wid: Optional Workday ID - preferred for querying
+            requisition_id: The Job_Requisition_ID (required)
+            wid: Optional Workday ID (ignored for filtering)
             page: Page number
             count: Items per page
 
         Returns:
             List of application data dictionaries
         """
-        # Use WID if provided, otherwise fall back to Job_Requisition_ID
-        if wid:
-            id_type = "WID"
-            id_value = wid
-        else:
-            id_type = "Job_Requisition_ID"
-            id_value = requisition_id
+        # Always use Job_Requisition_ID as it's the most reliable reference type
+        # for this operation. WID usage has been observed to fail.
+        id_type = ID_TYPE_JOB_REQ
+        id_value = requisition_id
 
-        logger.info("Fetching candidates for requisition", requisition_id=requisition_id, wid=wid, id_type=id_type, page=page)
+        logger.info(
+            "Fetching candidates for requisition",
+            requisition_id=requisition_id,
+            id_type=id_type,
+            page=page
+        )
 
         params = {
             "Request_Criteria": {
@@ -267,7 +284,7 @@ class WorkdaySOAPClient:
         logger.info("Fetched candidates", count=len(applications))
         return applications
 
-    def _parse_candidate(self, candidate: Any, requisition_id: str) -> Dict[str, Any]:
+    def _parse_candidate(self, candidate: Any, requisition_id: str) -> Optional[Dict[str, Any]]:
         """Parse a SOAP candidate response into a dictionary."""
         data = {
             "external_requisition_id": requisition_id,
@@ -278,11 +295,11 @@ class WorkdaySOAPClient:
             for id_item in getattr(candidate.Candidate_Reference, "ID", None) or []:
                 id_type = getattr(id_item, "type", "")
                 id_value = getattr(id_item, "_value_1", "")
-                if id_type == "Candidate_ID":
+                if id_type == ID_TYPE_CANDIDATE:
                     data["external_candidate_id"] = id_value
                     # Use candidate ID as application ID since they're linked
                     data["external_application_id"] = id_value
-                elif id_type == "WID":
+                elif id_type == ID_TYPE_WID:
                     data["candidate_wid"] = id_value
 
         # Extract Candidate Data
@@ -331,27 +348,31 @@ class WorkdaySOAPClient:
     async def get_candidate_attachments(
         self,
         candidate_id: str,
+        page: int = 1,
+        count: int = 100,
     ) -> List[Dict[str, Any]]:
         """Fetch attachments for a candidate.
 
         Args:
             candidate_id: The candidate external ID
+            page: Page number
+            count: Items per page
 
         Returns:
             List of attachment data dictionaries
         """
-        logger.info("Fetching candidate attachments", candidate_id=candidate_id)
+        logger.info("Fetching candidate attachments", candidate_id=candidate_id, page=page)
 
         # Use Get_Candidate_Attachments operation directly
         params = {
             "Request_References": {
                 "Candidate_Attachment_Reference": {
-                    "ID": [{"type": "Candidate_ID", "_value_1": candidate_id}]
+                    "ID": [{"type": ID_TYPE_CANDIDATE, "_value_1": candidate_id}]
                 }
             },
             "Response_Filter": {
-                "Page": 1,
-                "Count": 100,
+                "Page": page,
+                "Count": count,
             },
         }
 
@@ -401,13 +422,13 @@ class WorkdaySOAPClient:
         params = {
             "Candidate_Attachment_Data": {
                 "Candidate_Reference": {
-                    "ID": [{"type": "Candidate_ID", "_value_1": candidate_id}]
+                    "ID": [{"type": ID_TYPE_CANDIDATE, "_value_1": candidate_id}]
                 },
                 "Attachment_Data": {
                     "File_Name": filename,
                     "File": encoded_content,
                     "Category_Reference": {
-                        "ID": [{"type": "Attachment_Category_ID", "_value_1": category}]
+                        "ID": [{"type": ID_TYPE_ATTACHMENT_CATEGORY, "_value_1": category}]
                     },
                     "Comment": comment or "",
                 },
@@ -438,9 +459,9 @@ class WorkdaySOAPClient:
             for id_item in req.Job_Requisition_Reference.ID or []:
                 id_type = getattr(id_item, "type", "")
                 id_value = getattr(id_item, "_value_1", "")
-                if id_type == "Job_Requisition_ID":
+                if id_type == ID_TYPE_JOB_REQ:
                     data["external_id"] = id_value
-                elif id_type == "WID":
+                elif id_type == ID_TYPE_WID:
                     data["wid"] = id_value
             logger.debug("Requisition IDs", external_id=data.get("external_id"), wid=data.get("wid"))
 
@@ -453,7 +474,7 @@ class WorkdaySOAPClient:
                 detail = rd.Job_Requisition_Detail_Data
                 data["name"] = getattr(detail, "Job_Posting_Title", None)
                 data["description"] = getattr(detail, "Job_Description", None)
-                # Job_Description contains HTML, strip for summary if needed
+                # Job_Description contains HTML, we keep it as is.
 
             # Status - extract from Job_Requisition_Status_Reference
             if hasattr(rd, "Job_Requisition_Status_Reference") and rd.Job_Requisition_Status_Reference:
@@ -481,61 +502,6 @@ class WorkdaySOAPClient:
 
         return data
 
-    def _parse_application(self, app: Any) -> Dict[str, Any]:
-        """Parse a SOAP application response into a dictionary."""
-        data = {}
-
-        # Extract application ID from reference
-        if hasattr(app, "Job_Application_Reference") and app.Job_Application_Reference:
-            for id_item in app.Job_Application_Reference.ID or []:
-                if hasattr(id_item, "_value_1"):
-                    data["external_application_id"] = id_item._value_1
-                    break
-
-        # Extract data fields
-        if hasattr(app, "Job_Application_Data") and app.Job_Application_Data:
-            ad = app.Job_Application_Data
-
-            # Candidate reference
-            if hasattr(ad, "Candidate_Reference") and ad.Candidate_Reference:
-                for id_item in ad.Candidate_Reference.ID or []:
-                    if hasattr(id_item, "_value_1"):
-                        data["external_candidate_id"] = id_item._value_1
-                        break
-
-            # Requisition reference
-            if hasattr(ad, "Job_Requisition_Reference") and ad.Job_Requisition_Reference:
-                for id_item in ad.Job_Requisition_Reference.ID or []:
-                    if getattr(id_item, "type", "") == "Job_Requisition_ID":
-                        data["external_requisition_id"] = id_item._value_1
-
-            # Status
-            if hasattr(ad, "Status_Reference") and ad.Status_Reference:
-                data["workday_status"] = getattr(ad.Status_Reference, "Descriptor", "Unknown")
-
-            # Application date
-            data["applied_at"] = getattr(ad, "Application_Date", None)
-
-            # Personal data
-            if hasattr(ad, "Personal_Data") and ad.Personal_Data:
-                pd = ad.Personal_Data
-
-                # Name
-                if hasattr(pd, "Name_Data") and pd.Name_Data:
-                    first = getattr(pd.Name_Data, "First_Name", "") or ""
-                    last = getattr(pd.Name_Data, "Last_Name", "") or ""
-                    data["candidate_name"] = f"{first} {last}".strip()
-
-                # Email
-                if hasattr(pd, "Contact_Data") and pd.Contact_Data:
-                    if hasattr(pd.Contact_Data, "Email_Address_Data") and pd.Contact_Data.Email_Address_Data:
-                        for email in pd.Contact_Data.Email_Address_Data or []:
-                            if hasattr(email, "Email_Address"):
-                                data["candidate_email"] = email.Email_Address
-                                break
-
-        return data
-
     def _parse_attachment(self, attachment: Any) -> Dict[str, Any]:
         """Parse a SOAP attachment response into a dictionary."""
         data = {}
@@ -548,8 +514,8 @@ class WorkdaySOAPClient:
             try:
                 data["content"] = base64.b64decode(attachment.File_Content)
             except Exception as e:
-                logger.error("Failed to decode attachment", error=str(e))
-                data["content"] = None
+                logger.error("Failed to decode attachment", error=str(e), filename=data["filename"])
+                raise WorkdaySOAPError(f"Failed to decode attachment {data['filename']}") from e
 
         return data
 
