@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # SSO / Authentication
     SSO_ENABLED: bool = True
     SSO_URL: str = "http://localhost:8000"  # centralized-auth URL
-    SSO_APP_ID: str = "recruiter"
+    SSO_APP_ID: str = "recruiter2"
     SSO_APP_SECRET: str = ""
     SSO_PUBLIC_KEY_PATH: Optional[str] = None  # Path to RS256 public key
 
