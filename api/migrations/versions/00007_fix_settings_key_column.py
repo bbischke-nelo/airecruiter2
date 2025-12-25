@@ -17,7 +17,8 @@ depends_on = None
 
 def upgrade():
     # Rename 'key' to 'setting_key' to avoid reserved word issues
-    op.execute("EXEC sp_rename 'settings.[key]', 'setting_key', 'COLUMN'")
+    # Using N prefix for proper string handling in SQL Server
+    op.execute("EXEC sp_rename N'settings.key', N'setting_key', N'COLUMN'")
 
 
 def downgrade():
