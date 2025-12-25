@@ -72,19 +72,14 @@ async def sso_callback(
         logger.info(
             "Exchanging auth code",
             sso_url=settings.SSO_URL,
-            app_id=settings.SSO_APP_ID,
             code_prefix=request.code[:20] if request.code else "none",
         )
         async with httpx.AsyncClient() as client:
+            # Don't send app - centralized-auth gets it from the auth code data
             exchange_response = await client.post(
                 f"{settings.SSO_URL}/api/sso/exchange-token",
                 json={
                     "auth_code": request.code,
-                    "app": settings.SSO_APP_ID,
-                },
-                headers={
-                    "X-App-Id": settings.SSO_APP_ID,
-                    "X-App-Secret": settings.SSO_APP_SECRET,
                 },
                 timeout=10.0,
             )
