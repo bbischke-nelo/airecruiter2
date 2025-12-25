@@ -1,6 +1,7 @@
 """Main entry point for the processor service."""
 
 import asyncio
+import logging
 import signal
 import sys
 from typing import List
@@ -12,6 +13,13 @@ from processor.database import get_session, SessionLocal
 from processor.heartbeat import HeartbeatWriter
 from processor.scheduler import Scheduler
 from processor.worker import Worker
+
+# Configure stdlib logging level (required for structlog.stdlib.filter_by_level)
+logging.basicConfig(
+    format="%(message)s",
+    stream=sys.stdout,
+    level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
+)
 
 # Configure structured logging
 structlog.configure(
