@@ -168,23 +168,48 @@ async def update_requisition(
     return await get_requisition(requisition_id, db, user)
 
 
+@router.post("/sync", response_model=SyncResponse)
+async def sync_all_requisitions(
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_role(["admin", "recruiter"])),
+):
+    """Trigger sync for all active requisitions."""
+    # Create a sync_all job
+    job = Job(
+        application_id=0,
+        job_type="sync_all",
+        priority=10,  # Higher priority for manual triggers
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    logger.info("Sync all requisitions triggered", job_id=job.id)
+
+    return SyncResponse(
+        status="queued",
+        queue_item_id=job.id,
+        message="Sync job queued for all active requisitions",
+    )
+
+
 @router.post("/{requisition_id}/sync", response_model=SyncResponse)
 async def sync_requisition(
     requisition_id: int,
     db: Session = Depends(get_db),
     user: dict = Depends(require_role(["admin", "recruiter"])),
 ):
-    """Trigger manual sync for a requisition."""
+    """Trigger manual sync for a specific requisition."""
     requisition = db.query(Requisition).filter(Requisition.id == requisition_id).first()
     if not requisition:
         raise NotFoundError("Requisition", requisition_id)
 
-    # Create a sync job
-    # Note: Need a dummy application_id for now - in practice sync jobs should work differently
+    # Create a sync job with requisition_payload
     job = Job(
-        application_id=0,  # Will be updated when sync processor is implemented
+        application_id=0,
         job_type="sync",
         priority=10,  # Higher priority for manual triggers
+        requisition_payload=json.dumps({"requisition_id": requisition_id}),
     )
     db.add(job)
     db.commit()

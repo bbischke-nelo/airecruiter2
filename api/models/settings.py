@@ -17,8 +17,8 @@ class Setting(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
-    # Note: 'key' is reserved in SQL Server, using brackets in raw SQL
-    key = Column(String(100), nullable=False, unique=True)
+    # Using 'setting_key' instead of 'key' to avoid SQL Server reserved word issues
+    setting_key = Column(String(100), nullable=False, unique=True)
     value = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
 
@@ -27,11 +27,11 @@ class Setting(Base):
 
     # Indexes
     __table_args__ = (
-        Index("idx_settings_key", "key"),
+        Index("idx_settings_key", "setting_key"),
     )
 
     def __repr__(self) -> str:
-        return f"<Setting(key={self.key})>"
+        return f"<Setting(key={self.setting_key})>"
 
 
 # Default settings to seed

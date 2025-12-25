@@ -1,20 +1,23 @@
 """Email template management endpoints."""
 
-from typing import Optional, List
+from datetime import datetime
+from typing import Optional
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
 
 from api.config.database import get_db
 from api.models import EmailTemplate
+from api.schemas.base import CamelModel, PaginatedResponse, PaginationMeta
 from api.services.rbac import require_role
 
+logger = structlog.get_logger()
 router = APIRouter()
 
 
 # Schemas
-class EmailTemplateCreate(BaseModel):
+class EmailTemplateCreate(CamelModel):
     name: str
     template_type: str
     subject: str
@@ -23,11 +26,8 @@ class EmailTemplateCreate(BaseModel):
     is_active: bool = True
     is_default: bool = False
 
-    class Config:
-        from_attributes = True
 
-
-class EmailTemplateUpdate(BaseModel):
+class EmailTemplateUpdate(CamelModel):
     name: Optional[str] = None
     template_type: Optional[str] = None
     subject: Optional[str] = None
@@ -36,11 +36,8 @@ class EmailTemplateUpdate(BaseModel):
     is_active: Optional[bool] = None
     is_default: Optional[bool] = None
 
-    class Config:
-        from_attributes = True
 
-
-class EmailTemplateResponse(BaseModel):
+class EmailTemplateResponse(CamelModel):
     id: int
     name: str
     template_type: str
@@ -49,19 +46,11 @@ class EmailTemplateResponse(BaseModel):
     body_text: Optional[str]
     is_active: bool
     is_default: bool
-    created_at: str
-    updated_at: Optional[str]
-
-    class Config:
-        from_attributes = True
+    created_at: datetime
+    updated_at: Optional[datetime]
 
 
-class EmailTemplateListResponse(BaseModel):
-    data: List[EmailTemplateResponse]
-    meta: dict
-
-
-@router.get("", response_model=EmailTemplateListResponse)
+@router.get("", response_model=PaginatedResponse[EmailTemplateResponse])
 async def list_email_templates(
     template_type: Optional[str] = Query(None),
     is_active: Optional[bool] = Query(None),
@@ -86,29 +75,17 @@ async def list_email_templates(
         .all()
     )
 
-    return {
-        "data": [
-            {
-                "id": t.id,
-                "name": t.name,
-                "template_type": t.template_type,
-                "subject": t.subject,
-                "body_html": t.body_html,
-                "body_text": t.body_text,
-                "is_active": t.is_active,
-                "is_default": t.is_default,
-                "created_at": t.created_at.isoformat() if t.created_at else None,
-                "updated_at": t.updated_at.isoformat() if t.updated_at else None,
-            }
-            for t in templates
-        ],
-        "meta": {
-            "page": page,
-            "per_page": per_page,
-            "total": total,
-            "total_pages": (total + per_page - 1) // per_page,
-        },
-    }
+    items = [EmailTemplateResponse.model_validate(t) for t in templates]
+
+    return PaginatedResponse(
+        data=items,
+        meta=PaginationMeta(
+            page=page,
+            per_page=per_page,
+            total=total,
+            total_pages=(total + per_page - 1) // per_page,
+        ),
+    )
 
 
 @router.get("/{template_id}", response_model=EmailTemplateResponse)
@@ -123,18 +100,7 @@ async def get_email_template(
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
 
-    return {
-        "id": template.id,
-        "name": template.name,
-        "template_type": template.template_type,
-        "subject": template.subject,
-        "body_html": template.body_html,
-        "body_text": template.body_text,
-        "is_active": template.is_active,
-        "is_default": template.is_default,
-        "created_at": template.created_at.isoformat() if template.created_at else None,
-        "updated_at": template.updated_at.isoformat() if template.updated_at else None,
-    }
+    return EmailTemplateResponse.model_validate(template)
 
 
 @router.post("", response_model=EmailTemplateResponse, status_code=201)
@@ -164,18 +130,8 @@ async def create_email_template(
     db.commit()
     db.refresh(template)
 
-    return {
-        "id": template.id,
-        "name": template.name,
-        "template_type": template.template_type,
-        "subject": template.subject,
-        "body_html": template.body_html,
-        "body_text": template.body_text,
-        "is_active": template.is_active,
-        "is_default": template.is_default,
-        "created_at": template.created_at.isoformat() if template.created_at else None,
-        "updated_at": template.updated_at.isoformat() if template.updated_at else None,
-    }
+    logger.info("Email template created", id=template.id, name=template.name)
+    return EmailTemplateResponse.model_validate(template)
 
 
 @router.patch("/{template_id}", response_model=EmailTemplateResponse)
@@ -208,18 +164,8 @@ async def update_email_template(
     db.commit()
     db.refresh(template)
 
-    return {
-        "id": template.id,
-        "name": template.name,
-        "template_type": template.template_type,
-        "subject": template.subject,
-        "body_html": template.body_html,
-        "body_text": template.body_text,
-        "is_active": template.is_active,
-        "is_default": template.is_default,
-        "created_at": template.created_at.isoformat() if template.created_at else None,
-        "updated_at": template.updated_at.isoformat() if template.updated_at else None,
-    }
+    logger.info("Email template updated", id=template.id)
+    return EmailTemplateResponse.model_validate(template)
 
 
 @router.delete("/{template_id}", status_code=204)

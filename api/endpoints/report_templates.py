@@ -1,21 +1,24 @@
 """Report template management endpoints."""
 
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
 
 from api.config.database import get_db
 from api.models import ReportTemplate
+from api.schemas.base import CamelModel, PaginatedResponse, PaginationMeta
 from api.services.rbac import require_role
 
+logger = structlog.get_logger()
 router = APIRouter()
 
 
 # Schemas
-class ReportTemplateCreate(BaseModel):
+class ReportTemplateCreate(CamelModel):
     name: str
     template_type: str
     body_html: str
@@ -23,11 +26,8 @@ class ReportTemplateCreate(BaseModel):
     is_active: bool = True
     is_default: bool = False
 
-    class Config:
-        from_attributes = True
 
-
-class ReportTemplateUpdate(BaseModel):
+class ReportTemplateUpdate(CamelModel):
     name: Optional[str] = None
     template_type: Optional[str] = None
     body_html: Optional[str] = None
@@ -35,11 +35,8 @@ class ReportTemplateUpdate(BaseModel):
     is_active: Optional[bool] = None
     is_default: Optional[bool] = None
 
-    class Config:
-        from_attributes = True
 
-
-class ReportTemplateResponse(BaseModel):
+class ReportTemplateResponse(CamelModel):
     id: int
     name: str
     template_type: str
@@ -47,19 +44,11 @@ class ReportTemplateResponse(BaseModel):
     custom_css: Optional[str]
     is_active: bool
     is_default: bool
-    created_at: str
-    updated_at: Optional[str]
-
-    class Config:
-        from_attributes = True
+    created_at: datetime
+    updated_at: Optional[datetime]
 
 
-class ReportTemplateListResponse(BaseModel):
-    data: List[ReportTemplateResponse]
-    meta: dict
-
-
-@router.get("", response_model=ReportTemplateListResponse)
+@router.get("", response_model=PaginatedResponse[ReportTemplateResponse])
 async def list_report_templates(
     template_type: Optional[str] = Query(None),
     is_active: Optional[bool] = Query(None),
@@ -84,28 +73,17 @@ async def list_report_templates(
         .all()
     )
 
-    return {
-        "data": [
-            {
-                "id": t.id,
-                "name": t.name,
-                "template_type": t.template_type,
-                "body_html": t.body_html,
-                "custom_css": t.custom_css,
-                "is_active": t.is_active,
-                "is_default": t.is_default,
-                "created_at": t.created_at.isoformat() if t.created_at else None,
-                "updated_at": t.updated_at.isoformat() if t.updated_at else None,
-            }
-            for t in templates
-        ],
-        "meta": {
-            "page": page,
-            "per_page": per_page,
-            "total": total,
-            "total_pages": (total + per_page - 1) // per_page,
-        },
-    }
+    items = [ReportTemplateResponse.model_validate(t) for t in templates]
+
+    return PaginatedResponse(
+        data=items,
+        meta=PaginationMeta(
+            page=page,
+            per_page=per_page,
+            total=total,
+            total_pages=(total + per_page - 1) // per_page,
+        ),
+    )
 
 
 @router.get("/{template_id}", response_model=ReportTemplateResponse)
@@ -120,17 +98,7 @@ async def get_report_template(
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
 
-    return {
-        "id": template.id,
-        "name": template.name,
-        "template_type": template.template_type,
-        "body_html": template.body_html,
-        "custom_css": template.custom_css,
-        "is_active": template.is_active,
-        "is_default": template.is_default,
-        "created_at": template.created_at.isoformat() if template.created_at else None,
-        "updated_at": template.updated_at.isoformat() if template.updated_at else None,
-    }
+    return ReportTemplateResponse.model_validate(template)
 
 
 @router.post("", response_model=ReportTemplateResponse, status_code=201)
@@ -159,17 +127,8 @@ async def create_report_template(
     db.commit()
     db.refresh(template)
 
-    return {
-        "id": template.id,
-        "name": template.name,
-        "template_type": template.template_type,
-        "body_html": template.body_html,
-        "custom_css": template.custom_css,
-        "is_active": template.is_active,
-        "is_default": template.is_default,
-        "created_at": template.created_at.isoformat() if template.created_at else None,
-        "updated_at": template.updated_at.isoformat() if template.updated_at else None,
-    }
+    logger.info("Report template created", id=template.id, name=template.name)
+    return ReportTemplateResponse.model_validate(template)
 
 
 @router.patch("/{template_id}", response_model=ReportTemplateResponse)
@@ -202,17 +161,8 @@ async def update_report_template(
     db.commit()
     db.refresh(template)
 
-    return {
-        "id": template.id,
-        "name": template.name,
-        "template_type": template.template_type,
-        "body_html": template.body_html,
-        "custom_css": template.custom_css,
-        "is_active": template.is_active,
-        "is_default": template.is_default,
-        "created_at": template.created_at.isoformat() if template.created_at else None,
-        "updated_at": template.updated_at.isoformat() if template.updated_at else None,
-    }
+    logger.info("Report template updated", id=template.id)
+    return ReportTemplateResponse.model_validate(template)
 
 
 @router.delete("/{template_id}", status_code=204)
@@ -234,6 +184,7 @@ async def delete_report_template(
 
     db.delete(template)
     db.commit()
+    logger.info("Report template deleted", id=template_id)
 
 
 @router.post("/seed")
@@ -243,7 +194,9 @@ async def seed_report_templates(
 ):
     """Seed default report templates from config files."""
     templates_dir = Path(__file__).parent.parent / "config" / "templates"
+    logger.info("Seeding report templates", templates_dir=str(templates_dir))
     seeded = []
+    skipped = []
 
     default_templates = [
         {
@@ -266,14 +219,18 @@ async def seed_report_templates(
         ).first()
 
         if existing:
-            continue  # Skip if default already exists
+            skipped.append(f"{template_config['template_type']} (already exists)")
+            continue
 
         # Read template content from file
         template_path = templates_dir / template_config["file"]
         if not template_path.exists():
+            skipped.append(f"{template_config['template_type']} (file not found: {template_config['file']})")
+            logger.warning("Template file not found", path=str(template_path))
             continue
 
         body_html = template_path.read_text()
+        logger.info("Loading template", type=template_config["template_type"], size=len(body_html))
 
         template = ReportTemplate(
             name=template_config["name"],
@@ -286,4 +243,9 @@ async def seed_report_templates(
         seeded.append(template_config["template_type"])
 
     db.commit()
-    return {"message": f"Seeded {len(seeded)} report templates", "types": seeded}
+    logger.info("Report templates seeded", seeded=seeded, skipped=skipped)
+    return {
+        "message": f"Seeded {len(seeded)} report templates",
+        "seeded": seeded,
+        "skipped": skipped,
+    }

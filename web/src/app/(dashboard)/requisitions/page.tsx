@@ -1,12 +1,13 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { Plus, RefreshCw, MapPin, Users } from 'lucide-react';
+import { RefreshCw, MapPin, Users, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api';
 import { formatRelativeTime } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 interface Requisition {
   id: number;
@@ -32,11 +33,38 @@ interface PaginatedResponse {
 }
 
 export default function RequisitionsPage() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
   const { data, isLoading, error, refetch } = useQuery<PaginatedResponse>({
     queryKey: ['requisitions'],
     queryFn: async () => {
       const response = await api.get('/requisitions');
       return response.data;
+    },
+  });
+
+  const syncAllMutation = useMutation({
+    mutationFn: async () => {
+      const response = await api.post('/requisitions/sync');
+      return response.data;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'Sync job queued',
+        description: data.message || 'All requisitions will be synced shortly',
+      });
+      // Refetch after a delay to show updated data
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['requisitions'] });
+      }, 2000);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Sync failed',
+        description: error.response?.data?.message || 'Failed to start sync',
+        variant: 'destructive',
+      });
     },
   });
 
@@ -75,8 +103,15 @@ export default function RequisitionsPage() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
+          <Button
+            onClick={() => syncAllMutation.mutate()}
+            disabled={syncAllMutation.isPending}
+          >
+            {syncAllMutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
             Sync All
           </Button>
         </div>
@@ -87,8 +122,20 @@ export default function RequisitionsPage() {
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground">No requisitions found</p>
             <p className="text-sm text-muted-foreground mt-2">
-              Click &quot;Sync All&quot; to fetch requisitions from Workday
+              Click &quot;Sync All&quot; to fetch requisitions from your TMS
             </p>
+            <Button
+              className="mt-4"
+              onClick={() => syncAllMutation.mutate()}
+              disabled={syncAllMutation.isPending}
+            >
+              {syncAllMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Sync All
+            </Button>
           </CardContent>
         </Card>
       ) : (

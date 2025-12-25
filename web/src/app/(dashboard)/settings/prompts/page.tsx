@@ -11,6 +11,7 @@ import {
   X,
   FileText,
   RotateCcw,
+  Filter,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,6 +34,17 @@ interface Prompt {
   updatedAt: string | null;
 }
 
+interface PromptListItem {
+  id: number;
+  name: string;
+  promptType: string;
+  requisitionId: number | null;
+  isActive: boolean;
+  isDefault: boolean;
+  version: number;
+  createdAt: string;
+}
+
 const promptTypes = [
   { value: 'resume_analysis', label: 'Resume Analysis' },
   { value: 'interview', label: 'Interview' },
@@ -45,6 +57,8 @@ export default function PromptsSettingsPage() {
   const queryClient = useQueryClient();
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
+  const [isLoadingPrompt, setIsLoadingPrompt] = useState(false);
   const [newPrompt, setNewPrompt] = useState<Partial<Prompt>>({
     name: '',
     promptType: 'resume_analysis',
@@ -54,11 +68,12 @@ export default function PromptsSettingsPage() {
     isDefault: false,
   });
 
-  // Fetch prompts
-  const { data: prompts, isLoading } = useQuery<{ data: Prompt[] }>({
-    queryKey: ['prompts'],
+  // Fetch prompts - filter by active unless showInactive is checked
+  const { data: prompts, isLoading } = useQuery<{ data: PromptListItem[] }>({
+    queryKey: ['prompts', showInactive],
     queryFn: async () => {
-      const response = await api.get('/prompts');
+      const params = showInactive ? '' : '?is_active=true';
+      const response = await api.get(`/prompts${params}`);
       return response.data;
     },
   });
@@ -117,6 +132,20 @@ export default function PromptsSettingsPage() {
     },
   });
 
+  // Fetch full prompt for editing
+  const fetchFullPrompt = async (promptId: number) => {
+    setIsLoadingPrompt(true);
+    try {
+      const response = await api.get(`/prompts/${promptId}`);
+      // Response uses camelCase from CamelModel
+      setEditingPrompt(response.data);
+    } catch (error) {
+      console.error('Failed to fetch prompt:', error);
+    } finally {
+      setIsLoadingPrompt(false);
+    }
+  };
+
   // Seed defaults mutation
   const seedDefaultsMutation = useMutation({
     mutationFn: async () => {
@@ -135,7 +164,7 @@ export default function PromptsSettingsPage() {
       acc[type].push(prompt);
       return acc;
     },
-    {} as Record<string, Prompt[]>
+    {} as Record<string, PromptListItem[]>
   );
 
   return (
@@ -153,7 +182,16 @@ export default function PromptsSettingsPage() {
             <MessageSquare className="h-5 w-5" />
             Prompt Templates
           </CardTitle>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="rounded border-input"
+              />
+              Show inactive
+            </label>
             <Button
               variant="outline"
               onClick={() => seedDefaultsMutation.mutate()}
@@ -405,20 +443,16 @@ export default function PromptsSettingsPage() {
                                     v{prompt.version}
                                   </span>
                                 </div>
-                                {prompt.description && (
-                                  <p className="text-sm text-muted-foreground mt-1">
-                                    {prompt.description}
-                                  </p>
-                                )}
                                 <p className="text-xs text-muted-foreground mt-2">
-                                  Updated: {formatDateTime(prompt.updatedAt || prompt.createdAt)}
+                                  Created: {formatDateTime(prompt.createdAt)}
                                 </p>
                               </div>
                               <div className="flex gap-2">
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => setEditingPrompt(prompt)}
+                                  onClick={() => fetchFullPrompt(prompt.id)}
+                                  disabled={isLoadingPrompt}
                                 >
                                   <Edit className="h-4 w-4" />
                                 </Button>

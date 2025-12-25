@@ -106,6 +106,16 @@ export default function ReportTemplatesSettingsPage() {
     },
   });
 
+  // Fetch full template for editing
+  const fetchFullTemplate = async (templateId: number) => {
+    try {
+      const response = await api.get(`/report-templates/${templateId}`);
+      setEditingTemplate(response.data);
+    } catch (error) {
+      console.error('Failed to fetch template:', error);
+    }
+  };
+
   // Seed defaults mutation
   const seedDefaultsMutation = useMutation({
     mutationFn: async () => {
@@ -364,7 +374,7 @@ export default function ReportTemplatesSettingsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => setEditingTemplate(template)}
+                          onClick={() => fetchFullTemplate(template.id)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
