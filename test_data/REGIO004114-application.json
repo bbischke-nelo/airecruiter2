@@ -1,0 +1,474 @@
+{
+  "candidate_id": "eaba336d-d97a-4875-8e24-3fa29527a05e",
+  "application_id": "d9ec1707-918d-41f8-9319-2d9aa3080cdd",
+  "first_name": "Janine",
+  "last_name": "Elliott",
+  "email": "janine.m.elliott@outlook.com",
+  "city": "Livermore",
+  "state": "California",
+  "work_experiences": [
+    {
+      "title": "Director of Business Development | RT Western",
+      "company": "RT Western",
+      "start_date": "2025-10-01T00:00:00",
+      "end_date": "2025-12-01T00:00:00",
+      "description": "* Lead company-wide business development strategy under new ownership.\n* Selected and rolled out a robust CRM platform overseeing pipeline health, forecasting, and market-sector analytics.\n* Integrated AI-driven tools to position the company for long-term industry leadership.\n* Partnered with estimating and operations teams to improve win rates and preconstruction alignment.\n* Developed workflows, SOPs, dashboards, and executive reporting tools.\n* Strengthened relationships with general contractors, developers, architects, and executive stakeholders."
+    },
+    {
+      "title": "Business Development Consultant",
+      "company": "Temporary Wall Systems Los Angeles",
+      "start_date": "2022-01-01T00:00:00",
+      "end_date": "2025-12-01T00:00:00",
+      "description": "* Develop and execute growth strategies for a startup franchise.\n* Generate contractor relationships across commercial sectors."
+    },
+    {
+      "title": "Owner & Lead Designer",
+      "company": "The Raven's Nest Design",
+      "start_date": "2018-01-01T00:00:00",
+      "end_date": "2025-12-01T00:00:00",
+      "description": "* Deliver residential and light commercial interior design services.\n* Specialize in kitchen layouts, cabinetry, and space planning.\n* Manage budgets, quotations, and project timelines."
+    },
+    {
+      "title": "Project Manager / Construction Consultant | Lynn Safety",
+      "company": "via Aerotek",
+      "start_date": "2024-11-01T00:00:00",
+      "end_date": "2025-02-01T00:00:00",
+      "description": "* Led commercial construction safety and fall-prevention compliance projects.\n* Coordinated subcontractors, procurement, scheduling, and change management.\n* Maintained high-touch client communication and rapid issue resolution."
+    },
+    {
+      "title": "National Marketing & Business Development Consultant",
+      "company": "Archatrak",
+      "start_date": "2022-01-01T00:00:00",
+      "end_date": "2024-12-01T00:00:00",
+      "description": "* Led national growth initiatives for architectural porcelain pavers and pedestal systems.\n* Built architect-focused marketing and specification-driven outreach programs."
+    },
+    {
+      "title": "Business Development Consultant",
+      "company": "AccuPro",
+      "start_date": "2021-01-01T00:00:00",
+      "end_date": "2022-12-01T00:00:00",
+      "description": "Expanded qualified lead generation for construction service offerings."
+    },
+    {
+      "title": "National Sales & Business Development Consultant",
+      "company": "ZBOM Cabinets",
+      "start_date": "2020-01-01T00:00:00",
+      "end_date": "2022-12-01T00:00:00",
+      "description": "* Led U.S. market entry strategy for an international luxury cabinet manufacturer.\n* Created a dealer/supplier sales channel exceeding sales targets by 400%.\n* Secured multimillion-dollar commercial and multifamily project opportunities."
+    },
+    {
+      "title": "Founder & Executive Director",
+      "company": "Exotic Encounters",
+      "start_date": "2016-01-01T00:00:00",
+      "end_date": "2020-12-01T00:00:00",
+      "description": "* Founded and operated a nonprofit exotic animal rescue and rehabilitation organization.\n* Led fundraising, community outreach, and volunteer coordination."
+    },
+    {
+      "title": "Regional Sales Manager",
+      "company": "DTA USA Group, Livermore, CA",
+      "start_date": "2017-06-01T00:00:00",
+      "end_date": "2020-05-01T00:00:00",
+      "description": "* Increased B2B sales 30% year-over-year across the Western U.S.\n* Analyzed market trends to position the brand as a leading industry player.\n* Led territory expansion and managed independent sales representatives."
+    },
+    {
+      "title": "Sales / Designer",
+      "company": "Window-ology Tri-Valley Corp, Pleasanton, CA",
+      "start_date": "2015-01-01T00:00:00",
+      "end_date": "2017-06-01T00:00:00",
+      "description": "* Designed custom window treatments for residential clients.\n* Maintained an 80% close rate.\n* Supported team leadership, recruiting, and training."
+    }
+  ],
+  "education": [],
+  "skills": [
+    {
+      "name": "Residential construction",
+      "level": "intermediate"
+    },
+    {
+      "name": "Real estate",
+      "level": "intermediate"
+    },
+    {
+      "name": "Budgets",
+      "level": "intermediate"
+    },
+    {
+      "name": "Quotations",
+      "level": "intermediate"
+    },
+    {
+      "name": "Cabinetry",
+      "level": "intermediate"
+    },
+    {
+      "name": "Kitchen",
+      "level": "intermediate"
+    },
+    {
+      "name": "Interior design",
+      "level": "intermediate"
+    },
+    {
+      "name": "Space planning",
+      "level": "intermediate"
+    },
+    {
+      "name": "Business development",
+      "level": "intermediate"
+    },
+    {
+      "name": "Fundraising",
+      "level": "intermediate"
+    },
+    {
+      "name": "Community outreach",
+      "level": "intermediate"
+    },
+    {
+      "name": "Sales targets",
+      "level": "intermediate"
+    },
+    {
+      "name": "Multifamily",
+      "level": "intermediate"
+    },
+    {
+      "name": "Marketing",
+      "level": "intermediate"
+    },
+    {
+      "name": "Regional sales",
+      "level": "intermediate"
+    },
+    {
+      "name": "Sales manager",
+      "level": "intermediate"
+    },
+    {
+      "name": "Sales representatives",
+      "level": "intermediate"
+    },
+    {
+      "name": "Market trends",
+      "level": "intermediate"
+    },
+    {
+      "name": "Recruiting",
+      "level": "intermediate"
+    },
+    {
+      "name": "Lead generation",
+      "level": "intermediate"
+    },
+    {
+      "name": "Preconstruction",
+      "level": "intermediate"
+    },
+    {
+      "name": "Construction safety",
+      "level": "intermediate"
+    },
+    {
+      "name": "Commercial construction",
+      "level": "intermediate"
+    },
+    {
+      "name": "Estimating",
+      "level": "intermediate"
+    },
+    {
+      "name": "Change management",
+      "level": "intermediate"
+    },
+    {
+      "name": "Forecasting",
+      "level": "intermediate"
+    },
+    {
+      "name": "Operations",
+      "level": "intermediate"
+    },
+    {
+      "name": "Sops",
+      "level": "intermediate"
+    },
+    {
+      "name": "Customer relationship management",
+      "level": "intermediate"
+    },
+    {
+      "name": "Procurement",
+      "level": "intermediate"
+    },
+    {
+      "name": "Scheduling",
+      "level": "intermediate"
+    },
+    {
+      "name": "Reporting tools",
+      "level": "intermediate"
+    },
+    {
+      "name": "Crm",
+      "level": "intermediate"
+    },
+    {
+      "name": "Client communication",
+      "level": "intermediate"
+    },
+    {
+      "name": "Pipeline",
+      "level": "intermediate"
+    },
+    {
+      "name": "Building materials",
+      "level": "intermediate"
+    },
+    {
+      "name": "Pre-construction",
+      "level": "intermediate"
+    },
+    {
+      "name": "Cabinets",
+      "level": "intermediate"
+    },
+    {
+      "name": "Project lifecycle",
+      "level": "intermediate"
+    },
+    {
+      "name": "Process improvement",
+      "level": "intermediate"
+    },
+    {
+      "name": "Csi",
+      "level": "intermediate"
+    },
+    {
+      "name": "Certifications and licenses found",
+      "level": "intermediate"
+    }
+  ],
+  "documents": [
+    {
+      "filename": "ExecutiveResumeWithCoverLetter.docx",
+      "content_type": "application/octet-stream",
+      "file_size": 30241,
+      "last_modified": "2025-12-18T10:04:25.935294+00:00",
+      "content": null
+    }
+  ],
+  "updated_datetime": "2025-12-18T10:04:30.747900",
+  "employee_number": null,
+  "primary_phone": "+1 925-481-4133",
+  "secondary_phone": null,
+  "created_datetime": null,
+  "creator_name": "Janine Elliott Today",
+  "requisition_id": null,
+  "current_state": "NEW",
+  "resume_text": null,
+  "job_requisition": {
+    "requisition_number": "REGIO004114",
+    "title": "Regional Sales Director",
+    "brief_description": "Are you a dynamic sales leader with a passion for driving results and building high-performing teams? CrossCountry Freight Solutions is looking for a Regional Sales Director. In this position, you will have the challenging role of driving sales growth and managing a team of outside sales representatives within a designated region. This position requires a strong sales background, exceptional leadership skills, and a deep understanding of the LTL industry. A successful candidate will play a key role in achieving revenue targets, fostering customer relationships, and leading a high-performing sales team. If you\u2019re ready to make an impact & thrive in a supportive, forward-thinking company, we want to hear from you!",
+    "detailed_description": null
+  },
+  "application_questions": {
+    "applicant_source": "Indeed",
+    "available_start_date": "2025-12-18T00:00:00",
+    "questions": [
+      {
+        "question_text": "Are you 18 years of age or older?",
+        "response": "Yes",
+        "question_type": "multiple_choice",
+        "score_achieved": 0,
+        "max_score": 0,
+        "is_disqualifying": false,
+        "choices": [
+          "Yes",
+          "No",
+          ""
+        ]
+      },
+      {
+        "question_text": "Are you legally authorized to work in the United States?",
+        "response": "Yes",
+        "question_type": "multiple_choice",
+        "score_achieved": 0,
+        "max_score": 0,
+        "is_disqualifying": false,
+        "choices": [
+          "Yes",
+          "No",
+          ""
+        ]
+      },
+      {
+        "question_text": "Have you worked for our company in the past?",
+        "response": "No",
+        "question_type": "multiple_choice",
+        "score_achieved": 0,
+        "max_score": 0,
+        "is_disqualifying": false,
+        "choices": [
+          "Yes",
+          "No",
+          ""
+        ]
+      },
+      {
+        "question_text": "Why are you considering a change of employment? Or, why did you leave your last position?",
+        "response": "My job was recently eliminated. I am looking to start work ASAP to support my family.",
+        "question_type": "text",
+        "score_achieved": 0,
+        "max_score": 0,
+        "is_disqualifying": false,
+        "choices": null
+      },
+      {
+        "question_text": "What is your desired annual rate/salary?",
+        "response": "120000",
+        "question_type": "numeric",
+        "score_achieved": 0,
+        "max_score": 0,
+        "is_disqualifying": false,
+        "choices": null
+      },
+      {
+        "question_text": "What are your 3-5 year career goals?",
+        "response": "To grow with CCSF and advance into leadership",
+        "question_type": "text",
+        "score_achieved": 0,
+        "max_score": 0,
+        "is_disqualifying": false,
+        "choices": null
+      },
+      {
+        "question_text": "Will you require employer sponsorship for a visa or work permit now or in the future?",
+        "response": "No",
+        "question_type": "multiple_choice",
+        "score_achieved": 0,
+        "max_score": 0,
+        "is_disqualifying": false,
+        "choices": [
+          "Yes",
+          "No",
+          "Not Sure",
+          ""
+        ]
+      },
+      {
+        "question_text": "Do you have LTL (Less-Than-Truckload) experience?",
+        "response": "No",
+        "question_type": "multiple_choice",
+        "score_achieved": 0,
+        "max_score": 0,
+        "is_disqualifying": false,
+        "choices": [
+          "No",
+          "Yes (0-1 year)",
+          "Yes (1-2 years)",
+          "Yes (2+ years)",
+          ""
+        ]
+      },
+      {
+        "question_text": "Are you 18 years of age or older?",
+        "response": "Yes",
+        "question_type": "multiple_choice",
+        "score_achieved": 0,
+        "max_score": 0,
+        "is_disqualifying": false,
+        "choices": [
+          "Yes",
+          "No",
+          ""
+        ]
+      },
+      {
+        "question_text": "Are you legally authorized to work in the United States?",
+        "response": "Yes",
+        "question_type": "multiple_choice",
+        "score_achieved": 0,
+        "max_score": 0,
+        "is_disqualifying": false,
+        "choices": [
+          "Yes",
+          "No",
+          ""
+        ]
+      },
+      {
+        "question_text": "Have you worked for our company in the past?",
+        "response": "No",
+        "question_type": "multiple_choice",
+        "score_achieved": 0,
+        "max_score": 0,
+        "is_disqualifying": false,
+        "choices": [
+          "Yes",
+          "No",
+          ""
+        ]
+      },
+      {
+        "question_text": "Why are you considering a change of employment? Or, why did you leave your last position?",
+        "response": "My job was recently eliminated. I am looking to start work ASAP to support my family.",
+        "question_type": "text",
+        "score_achieved": 0,
+        "max_score": 0,
+        "is_disqualifying": false,
+        "choices": null
+      },
+      {
+        "question_text": "What is your desired annual rate/salary?",
+        "response": "120000",
+        "question_type": "numeric",
+        "score_achieved": 0,
+        "max_score": 0,
+        "is_disqualifying": false,
+        "choices": null
+      },
+      {
+        "question_text": "What are your 3-5 year career goals?",
+        "response": "To grow with CCSF and advance into leadership",
+        "question_type": "text",
+        "score_achieved": 0,
+        "max_score": 0,
+        "is_disqualifying": false,
+        "choices": null
+      },
+      {
+        "question_text": "Will you require employer sponsorship for a visa or work permit now or in the future?",
+        "response": "No",
+        "question_type": "multiple_choice",
+        "score_achieved": 0,
+        "max_score": 0,
+        "is_disqualifying": false,
+        "choices": [
+          "Yes",
+          "No",
+          "Not Sure",
+          ""
+        ]
+      },
+      {
+        "question_text": "Do you have LTL (Less-Than-Truckload) experience?",
+        "response": "No",
+        "question_type": "multiple_choice",
+        "score_achieved": 0,
+        "max_score": 0,
+        "is_disqualifying": false,
+        "choices": [
+          "No",
+          "Yes (0-1 year)",
+          "Yes (1-2 years)",
+          "Yes (2+ years)",
+          ""
+        ]
+      }
+    ],
+    "total_score_achieved": 0,
+    "total_max_score": 0
+  }
+}
