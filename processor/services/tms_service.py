@@ -81,10 +81,10 @@ class TMSService:
     async def _load_credentials(self) -> Optional[dict]:
         """Load TMS credentials from database."""
         query = text("""
-            SELECT client_id, encrypted_client_secret, encrypted_refresh_token,
-                   tenant_url, tenant_id, api_version
+            SELECT client_id, client_secret, refresh_token,
+                   tenant_url, tenant_id
             FROM credentials
-            WHERE is_active = 1
+            WHERE is_valid = 1
             ORDER BY updated_at DESC
         """)
 
@@ -94,9 +94,9 @@ class TMSService:
         if not row:
             return None
 
-        # Decrypt secrets
-        client_secret = self._decrypt(row.encrypted_client_secret)
-        refresh_token = self._decrypt(row.encrypted_refresh_token)
+        # Decrypt secrets if encrypted
+        client_secret = self._decrypt(row.client_secret) if row.client_secret else None
+        refresh_token = self._decrypt(row.refresh_token) if row.refresh_token else None
 
         return {
             "provider_type": "workday",
@@ -105,7 +105,7 @@ class TMSService:
             "refresh_token": refresh_token,
             "tenant_url": row.tenant_url,
             "tenant_id": row.tenant_id,
-            "api_version": row.api_version,
+            "api_version": settings.WORKDAY_API_VERSION,
         }
 
     def _decrypt(self, encrypted_value: str) -> str:
