@@ -232,9 +232,10 @@ class WorkdaySOAPClient:
 
         params = {
             "Request_Criteria": {
-                "Job_Requisition_Reference": {
-                    "ID": [{"type": "Job_Requisition_ID", "_value_1": requisition_id}]
-                }
+                # Job_Requisition_Reference is an array type in the WSDL
+                "Job_Requisition_Reference": [
+                    {"ID": [{"type": "Job_Requisition_ID", "_value_1": requisition_id}]}
+                ]
             },
             "Response_Filter": {
                 "Page": page,
