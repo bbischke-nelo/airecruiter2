@@ -411,7 +411,6 @@ export default function PromptsSettingsPage() {
                                   </p>
                                 )}
                                 <p className="text-xs text-muted-foreground mt-2">
-                                  {prompt.templateContent.length} characters &bull;{' '}
                                   Updated: {formatDateTime(prompt.updatedAt || prompt.createdAt)}
                                 </p>
                               </div>
