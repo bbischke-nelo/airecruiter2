@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "2.0.0"
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
+    ENVIRONMENT: str = "development"  # development, staging, production
 
     # Database (SQL Server)
     DATABASE_URL: str = "mssql+pyodbc://sa:password@localhost/airecruiter2?driver=ODBC+Driver+17+for+SQL+Server"
