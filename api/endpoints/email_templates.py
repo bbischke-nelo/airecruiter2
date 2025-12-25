@@ -241,3 +241,110 @@ async def delete_email_template(
 
     db.delete(template)
     db.commit()
+
+
+# Default email templates
+DEFAULT_EMAIL_TEMPLATES = [
+    {
+        "name": "Interview Invitation",
+        "template_type": "interview_invite",
+        "subject": "Interview Request for {position_title} - CrossCountry Freight Solutions",
+        "body_html": """<p>Hi {candidate_name},</p>
+
+<p>Thank you for your interest in the <strong>{position_title}</strong> role at CrossCountry Freight Solutions. We've reviewed your application and would like to move forward with the next step in our hiring process.</p>
+
+<p>We use a brief AI-powered interview platform that allows you to share more about your experience and qualifications at a time that's convenient for you. The interview consists of a few questions, and you'll record your responses through the platform. The entire process typically takes 15-20 minutes to complete.</p>
+
+<p><strong>Here's what to do next:</strong></p>
+<ul>
+<li>Click this link to access your interview: <a href="{interview_url}">{interview_url}</a></li>
+<li>Complete the interview within the next {expiry_days} days</li>
+<li>You'll need a phone or computer to fill out answers</li>
+</ul>
+
+<p>This is a great opportunity to tell us more about yourself and why you're interested in joining our team. Once we review your responses, we'll reach out regarding next steps.</p>
+
+<p>If you need an accommodation to complete or have any technical issues or questions about the process, please don't hesitate to reach out directly.</p>
+
+<p>{recruiter_info}</p>
+
+<p>We appreciate your time and look forward to learning more about you!</p>
+
+<p>Best regards,<br>CrossCountry Freight Solutions Recruiting Team</p>""",
+        "body_text": """Hi {candidate_name},
+
+Thank you for your interest in the {position_title} role at CrossCountry Freight Solutions. We've reviewed your application and would like to move forward with the next step in our hiring process.
+
+We use a brief AI-powered interview platform that allows you to share more about your experience and qualifications at a time that's convenient for you. The entire process typically takes 15-20 minutes to complete.
+
+Here's what to do next:
+- Click this link to access your interview: {interview_url}
+- Complete the interview within the next {expiry_days} days
+- You'll need a phone or computer to fill out answers
+
+If you need an accommodation or have any technical issues, please don't hesitate to reach out.
+
+{recruiter_info}
+
+Best regards,
+CrossCountry Freight Solutions Recruiting Team""",
+    },
+    {
+        "name": "Interview Reminder",
+        "template_type": "reminder",
+        "subject": "Reminder: Complete Your Interview for {position_title}",
+        "body_html": """<p>Hi {candidate_name},</p>
+
+<p>This is a friendly reminder that your interview for the <strong>{position_title}</strong> position is still waiting for you.</p>
+
+<p>Please complete your interview before it expires: <a href="{interview_url}">{interview_url}</a></p>
+
+<p>The interview only takes about 15-20 minutes to complete.</p>
+
+<p>Best regards,<br>CrossCountry Freight Solutions Recruiting Team</p>""",
+        "body_text": """Hi {candidate_name},
+
+This is a friendly reminder that your interview for the {position_title} position is still waiting for you.
+
+Please complete your interview before it expires: {interview_url}
+
+The interview only takes about 15-20 minutes to complete.
+
+Best regards,
+CrossCountry Freight Solutions Recruiting Team""",
+    },
+]
+
+
+@router.post("/seed")
+async def seed_email_templates(
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_role(["admin"])),
+):
+    """Seed default email templates."""
+    seeded = []
+
+    for template_config in DEFAULT_EMAIL_TEMPLATES:
+        # Check if template of this type already exists
+        existing = db.query(EmailTemplate).filter(
+            EmailTemplate.template_type == template_config["template_type"],
+            EmailTemplate.is_default == True,
+        ).first()
+
+        if existing:
+            continue  # Skip if default already exists
+
+        template = EmailTemplate(
+            name=template_config["name"],
+            template_type=template_config["template_type"],
+            subject=template_config["subject"],
+            body_html=template_config["body_html"],
+            body_text=template_config.get("body_text"),
+            is_default=True,
+            is_active=True,
+        )
+        db.add(template)
+        seeded.append(template_config["template_type"])
+
+    db.commit()
+    return {"message": f"Seeded {len(seeded)} email templates", "types": seeded}

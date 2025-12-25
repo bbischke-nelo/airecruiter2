@@ -11,6 +11,7 @@ import {
   X,
   CheckCircle,
   AlertCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -128,6 +129,16 @@ export default function EmailSettingsPage() {
     },
   });
 
+  // Seed defaults mutation
+  const seedDefaultsMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('/email-templates/seed');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email-templates'] });
+    },
+  });
+
   const templateTypes = [
     { value: 'interview_invite', label: 'Interview Invite' },
     { value: 'reminder', label: 'Reminder' },
@@ -198,10 +209,20 @@ export default function EmailSettingsPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Email Templates</CardTitle>
-          <Button onClick={() => setIsCreating(true)} disabled={isCreating}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Template
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => seedDefaultsMutation.mutate()}
+              disabled={seedDefaultsMutation.isPending}
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Seed Defaults
+            </Button>
+            <Button onClick={() => setIsCreating(true)} disabled={isCreating}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Template
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {/* New Template Form */}

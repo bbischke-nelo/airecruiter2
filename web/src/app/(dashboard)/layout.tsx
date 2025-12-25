@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   Briefcase,
@@ -72,7 +73,14 @@ export default function DashboardLayout({
         )}
       >
         <div className="flex h-16 items-center justify-between px-4">
-          <Link href="/requisitions" className="flex items-center gap-2">
+          <Link href="/requisitions" className="flex items-center gap-3">
+            <Image
+              src="/recruiter2/logo.png"
+              alt="CCFS Logo"
+              width={32}
+              height={32}
+              className="rounded"
+            />
             <span className="text-xl font-bold text-white">AIRecruiter</span>
           </Link>
           <button

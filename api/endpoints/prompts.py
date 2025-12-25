@@ -1,5 +1,6 @@
 """Prompt CRUD endpoints."""
 
+from pathlib import Path
 from typing import Optional
 
 import structlog
@@ -168,3 +169,93 @@ async def delete_prompt(
     db.commit()
 
     logger.info("Prompt deleted (soft)", id=prompt.id)
+
+
+# Default prompts to seed from config files
+DEFAULT_PROMPTS = [
+    {
+        "name": "Resume Analysis",
+        "prompt_type": "resume_analysis",
+        "description": "Analyzes resumes for retention, safety, and role fit",
+        "file": "resume_analysis.md",
+        "schema_file": "resume_analysis_example.json",
+    },
+    {
+        "name": "Interview",
+        "prompt_type": "interview",
+        "description": "Admin-initiated interview prompt",
+        "file": "interview.md",
+    },
+    {
+        "name": "Self-Service Interview",
+        "prompt_type": "self_service_interview",
+        "description": "Candidate-facing interview prompt",
+        "file": "self_service_interview.md",
+    },
+    {
+        "name": "Evaluation",
+        "prompt_type": "evaluation",
+        "description": "Post-interview evaluation prompt",
+        "file": "evaluation.md",
+    },
+    {
+        "name": "Interview Email",
+        "prompt_type": "interview_email",
+        "description": "Interview invitation email template",
+        "file": "interview_email.md",
+    },
+]
+
+
+@router.post("/seed")
+async def seed_prompts(
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_admin),
+):
+    """Seed default prompts from config files."""
+    prompts_dir = Path(__file__).parent.parent / "config" / "prompts"
+    seeded = []
+
+    for prompt_config in DEFAULT_PROMPTS:
+        # Check if prompt of this type already exists
+        existing = db.query(Prompt).filter(
+            Prompt.prompt_type == prompt_config["prompt_type"],
+            Prompt.requisition_id == None,
+            Prompt.is_default == True,
+        ).first()
+
+        if existing:
+            continue  # Skip if default already exists
+
+        # Read template content from file
+        template_path = prompts_dir / prompt_config["file"]
+        if not template_path.exists():
+            logger.warning("Prompt template not found", path=str(template_path))
+            continue
+
+        template_content = template_path.read_text()
+
+        # Read schema content if specified
+        schema_content = None
+        if "schema_file" in prompt_config:
+            schema_path = prompts_dir / prompt_config["schema_file"]
+            if schema_path.exists():
+                schema_content = schema_path.read_text()
+
+        # Create prompt
+        prompt = Prompt(
+            name=prompt_config["name"],
+            prompt_type=prompt_config["prompt_type"],
+            template_content=template_content,
+            schema_content=schema_content,
+            description=prompt_config.get("description"),
+            is_default=True,
+            is_active=True,
+            created_by="system",
+        )
+        db.add(prompt)
+        seeded.append(prompt_config["prompt_type"])
+
+    db.commit()
+    logger.info("Prompts seeded", types=seeded)
+    return {"message": f"Seeded {len(seeded)} prompts", "types": seeded}

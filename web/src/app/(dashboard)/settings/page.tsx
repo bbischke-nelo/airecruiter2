@@ -1,27 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { Settings, Key, MessageSquare, User, Users, Mail } from 'lucide-react';
+import { MessageSquare, Users, Mail } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 const settingsPages = [
-  {
-    title: 'Workday Credentials',
-    description: 'Configure Workday API connection',
-    href: '/settings/credentials',
-    icon: Key,
-  },
   {
     title: 'AI Prompts',
     description: 'Customize analysis and evaluation prompts',
     href: '/settings/prompts',
     icon: MessageSquare,
-  },
-  {
-    title: 'Interviewer Personas',
-    description: 'Configure AI interviewer personalities',
-    href: '/settings/personas',
-    icon: User,
   },
   {
     title: 'Recruiters',
