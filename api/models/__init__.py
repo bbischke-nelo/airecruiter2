@@ -8,7 +8,6 @@ before any database operations.
 from api.config.database import Base
 
 # Core models
-from .credentials import Credential
 from .recruiters import Recruiter
 from .requisitions import Requisition
 from .applications import Application
@@ -39,7 +38,6 @@ from .report_templates import ReportTemplate
 __all__ = [
     "Base",
     # Core
-    "Credential",
     "Recruiter",
     "Requisition",
     "Application",

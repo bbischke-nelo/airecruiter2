@@ -11,7 +11,6 @@ from .interviews import router as interviews_router
 from .public_interviews import router as public_interviews_router
 from .prompts import router as prompts_router
 from .personas import router as personas_router
-from .credentials import router as credentials_router
 from .settings import router as settings_router
 from .queue import router as queue_router
 from .logs import router as logs_router
@@ -31,7 +30,6 @@ api_router.include_router(interviews_router, prefix="/interviews", tags=["Interv
 api_router.include_router(public_interviews_router, prefix="/public/interviews", tags=["Public Interviews"])
 api_router.include_router(prompts_router, prefix="/prompts", tags=["Prompts"])
 api_router.include_router(personas_router, prefix="/personas", tags=["Personas"])
-api_router.include_router(credentials_router, prefix="/credentials", tags=["Credentials"])
 api_router.include_router(settings_router, prefix="/settings", tags=["Settings"])
 api_router.include_router(queue_router, prefix="/queue", tags=["Queue"])
 api_router.include_router(logs_router, prefix="/logs", tags=["Logs"])

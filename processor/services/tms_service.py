@@ -1,11 +1,8 @@
 """TMS service for managing TMS provider connections."""
 
-import json
 from typing import Optional
 
 import structlog
-from cryptography.fernet import Fernet
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from processor.config import settings
@@ -26,11 +23,6 @@ class TMSService:
         """
         self.db = db
         self._provider: Optional[TMSProvider] = None
-        self._fernet: Optional[Fernet] = None
-
-        # Initialize encryption if key is available
-        if settings.ENCRYPTION_KEY:
-            self._fernet = Fernet(settings.ENCRYPTION_KEY.encode())
 
     async def get_provider(self) -> TMSProvider:
         """Get or create TMS provider instance.
@@ -79,54 +71,20 @@ class TMSService:
             self._provider = None
 
     async def _load_credentials(self) -> Optional[dict]:
-        """Load TMS credentials from database."""
-        query = text("""
-            SELECT client_id, client_secret, refresh_token,
-                   tenant_url, tenant_id
-            FROM credentials
-            WHERE is_valid = 1
-            ORDER BY updated_at DESC
-        """)
-
-        result = self.db.execute(query)
-        row = result.fetchone()
-
-        if not row:
+        """Load TMS credentials from environment variables."""
+        if not settings.WORKDAY_CLIENT_ID or not settings.WORKDAY_CLIENT_SECRET:
+            logger.error("Workday credentials not configured in environment")
             return None
-
-        # Decrypt secrets if encrypted
-        client_secret = self._decrypt(row.client_secret) if row.client_secret else None
-        refresh_token = self._decrypt(row.refresh_token) if row.refresh_token else None
 
         return {
             "provider_type": "workday",
-            "client_id": row.client_id,
-            "client_secret": client_secret,
-            "refresh_token": refresh_token,
-            "tenant_url": row.tenant_url,
-            "tenant_id": row.tenant_id,
+            "client_id": settings.WORKDAY_CLIENT_ID,
+            "client_secret": settings.WORKDAY_CLIENT_SECRET,
+            "refresh_token": settings.WORKDAY_REFRESH_TOKEN,
+            "tenant_url": settings.WORKDAY_TENANT_URL,
+            "tenant_id": settings.WORKDAY_TENANT_ID,
             "api_version": settings.WORKDAY_API_VERSION,
         }
-
-    def _decrypt(self, encrypted_value: str) -> str:
-        """Decrypt an encrypted value.
-
-        Args:
-            encrypted_value: Fernet-encrypted value
-
-        Returns:
-            Decrypted string
-        """
-        if not self._fernet:
-            # If no encryption key, assume value is not encrypted
-            logger.warning("No encryption key configured, assuming unencrypted value")
-            return encrypted_value
-
-        try:
-            return self._fernet.decrypt(encrypted_value.encode()).decode()
-        except Exception as e:
-            logger.error("Failed to decrypt value", error=str(e))
-            raise TMSServiceError("Failed to decrypt credentials") from e
 
     async def test_connection(self) -> dict:
         """Test TMS connection.

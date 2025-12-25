@@ -19,7 +19,6 @@ from api.middleware.auth import AuthMiddleware
 from api.middleware.error_handler import setup_exception_handlers
 from api.middleware.logging import LoggingMiddleware, configure_logging
 from api.middleware.security import SecurityMiddleware
-from api.services.encryption import validate_encryption_key
 
 # Configure structured logging
 configure_logging()
@@ -35,14 +34,6 @@ async def lifespan(app: FastAPI):
         version=settings.APP_VERSION,
         debug=settings.DEBUG,
     )
-
-    # Validate encryption key (fails fast in production if missing)
-    try:
-        validate_encryption_key()
-        logger.info("Encryption key validated")
-    except Exception as e:
-        logger.critical("Encryption key validation failed", error=str(e))
-        raise  # Prevent app from starting
 
     # Initialize database tables (in dev mode)
     if settings.DEBUG:

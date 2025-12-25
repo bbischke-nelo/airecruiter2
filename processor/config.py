@@ -33,6 +33,9 @@ class ProcessorSettings(BaseSettings):
     WORKDAY_TENANT_URL: str = "https://services1.wd503.myworkday.com"
     WORKDAY_TENANT_ID: str = "ccfs"
     WORKDAY_API_VERSION: str = "v43.2"
+    WORKDAY_CLIENT_ID: Optional[str] = None
+    WORKDAY_CLIENT_SECRET: Optional[str] = None
+    WORKDAY_REFRESH_TOKEN: Optional[str] = None
 
     # Claude AI
     ANTHROPIC_API_KEY: Optional[str] = None

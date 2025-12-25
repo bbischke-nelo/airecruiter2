@@ -48,11 +48,6 @@ from .personas import (
     PersonaResponse,
     PersonaListItem,
 )
-from .credentials import (
-    CredentialCreate,
-    CredentialStatusResponse,
-    CredentialTestResponse,
-)
 from .settings import (
     SettingsResponse,
     SettingsUpdate,
@@ -110,10 +105,6 @@ __all__ = [
     "PersonaUpdate",
     "PersonaResponse",
     "PersonaListItem",
-    # Credentials
-    "CredentialCreate",
-    "CredentialStatusResponse",
-    "CredentialTestResponse",
     # Settings
     "SettingsResponse",
     "SettingsUpdate",
