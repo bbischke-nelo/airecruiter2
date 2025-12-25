@@ -15,10 +15,9 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      // Redirect to SSO login
+      // Redirect to login page (which handles SSO redirect)
       if (typeof window !== 'undefined') {
-        // Use the API login endpoint which handles SSO redirect
-        window.location.href = '/recruiter2/api/v1/auth/login';
+        window.location.href = '/recruiter2/login';
       }
     }
     return Promise.reject(error);
