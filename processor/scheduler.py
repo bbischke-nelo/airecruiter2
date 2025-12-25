@@ -93,8 +93,9 @@ class Scheduler:
         """)
 
         result = self.db.execute(query, {"lookback": lookback})
+        rows = result.fetchall()  # Must fetch all before executing another query
 
-        for row in result:
+        for row in rows:
             self.queue.enqueue(
                 job_type="sync",
                 requisition_id=row.id,
@@ -118,8 +119,9 @@ class Scheduler:
         """)
 
         result = self.db.execute(query)
+        rows = result.fetchall()  # Must fetch all before executing another query
 
-        for row in result:
+        for row in rows:
             self.queue.enqueue(
                 job_type="analyze",
                 application_id=row.id,
@@ -151,8 +153,9 @@ class Scheduler:
         """)
 
         result = self.db.execute(query)
+        rows = result.fetchall()  # Must fetch all before executing another query
 
-        for row in result:
+        for row in rows:
             self.queue.enqueue(
                 job_type="send_interview",
                 application_id=row.id,
@@ -184,8 +187,9 @@ class Scheduler:
         """)
 
         result = self.db.execute(query)
+        rows = result.fetchall()  # Must fetch all before executing another query
 
-        for row in result:
+        for row in rows:
             self.queue.enqueue(
                 job_type="evaluate",
                 application_id=row.application_id,
@@ -219,8 +223,9 @@ class Scheduler:
         """)
 
         result = self.db.execute(query)
+        rows = result.fetchall()  # Must fetch all before executing another query
 
-        for row in result:
+        for row in rows:
             self.queue.enqueue(
                 job_type="generate_report",
                 application_id=row.id,
