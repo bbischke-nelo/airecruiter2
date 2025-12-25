@@ -25,9 +25,6 @@ class CamelModel(BaseModel):
         alias_generator=to_camel,
         populate_by_name=True,
         from_attributes=True,
-        # Allow coercion from int to bool (SQL Server BIT returns 0/1)
-        coerce_numbers_to_str=False,
-        strict=False,
     )
 
 
