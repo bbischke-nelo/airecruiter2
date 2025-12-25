@@ -120,9 +120,9 @@ class QueueManager:
             WHERE id = :job_id
         """)
         result = self.db.execute(fetch_query, {"job_id": job_id})
+        row = result.fetchone()  # Must fetch BEFORE commit with pyodbc
         self.db.commit()
 
-        row = result.fetchone()
         if not row:
             return None
 
