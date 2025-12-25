@@ -7,7 +7,7 @@ ARG NEXT_PUBLIC_SSO_ENABLED=true
 ARG NEXT_PUBLIC_SSO_URL=https://sso.ccfs.com
 ARG NEXT_PUBLIC_SSO_CLIENT_ID=recruiter2
 ARG NEXT_PUBLIC_DEV_LOGIN_ENABLED=false
-ARG NEXT_PUBLIC_API_URL=/recruiter2/api
+ARG NEXT_PUBLIC_API_URL=/recruiter2
 ARG NEXT_PUBLIC_APP_URL=https://admin.ccfs.com/recruiter2
 
 # Set environment variables for build

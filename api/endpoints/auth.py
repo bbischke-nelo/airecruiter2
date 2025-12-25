@@ -144,18 +144,19 @@ async def sso_callback(
     )
 
 
-@router.post("/logout")
-async def logout(response: Response) -> dict:
+@router.api_route("/logout", methods=["GET", "POST"])
+async def logout(response: Response) -> RedirectResponse:
     """
-    Logout user by clearing the auth cookie.
+    Logout user by clearing the auth cookie and redirect to login.
     """
-    response.delete_cookie(
+    redirect = RedirectResponse(url="/recruiter2/login", status_code=302)
+    redirect.delete_cookie(
         key=settings.COOKIE_NAME,
         domain=settings.COOKIE_DOMAIN,
     )
 
     logger.info("User logged out")
-    return {"message": "Logged out successfully"}
+    return redirect
 
 
 @router.get("/me", response_model=UserResponse)
