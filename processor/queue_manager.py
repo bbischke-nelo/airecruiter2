@@ -86,8 +86,10 @@ class QueueManager:
         Returns:
             Job data dict or None if no jobs available
         """
+        # SQL Server doesn't allow ORDER BY in UPDATE...OUTPUT
+        # Use a subquery to select the ID first, then update by that ID
         query = text("""
-            UPDATE TOP(1) jobs WITH (UPDLOCK, READPAST)
+            UPDATE jobs
             SET status = 'running',
                 started_at = GETUTCDATE(),
                 attempts = attempts + 1
@@ -102,9 +104,12 @@ class QueueManager:
                 INSERTED.max_attempts,
                 INSERTED.created_at,
                 INSERTED.scheduled_for
-            WHERE status = 'pending'
-              AND scheduled_for <= GETUTCDATE()
-            ORDER BY priority DESC, created_at ASC
+            WHERE id = (
+                SELECT TOP(1) id FROM jobs WITH (UPDLOCK, READPAST)
+                WHERE status = 'pending'
+                  AND scheduled_for <= GETUTCDATE()
+                ORDER BY priority DESC, created_at ASC
+            )
         """)
 
         result = self.db.execute(query)
