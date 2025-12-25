@@ -13,7 +13,9 @@ from api.services.token import decode_token, create_token, should_refresh_token
 
 # Paths that don't require authentication
 SKIP_AUTH_PATHS = [
-    r"^/api/v1/auth/",
+    r"^/api/v1/auth/login$",
+    r"^/api/v1/auth/callback$",
+    r"^/api/v1/auth/logout$",
     r"^/api/v1/public/",
     r"^/health",
     r"^/api/docs",
@@ -83,6 +85,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 secure=settings.COOKIE_SECURE,
                 samesite=settings.COOKIE_SAMESITE,
                 domain=settings.COOKIE_DOMAIN,
+                path="/",
                 max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             )
 
