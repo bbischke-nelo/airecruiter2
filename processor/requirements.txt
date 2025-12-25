@@ -1,0 +1,28 @@
+# Processor dependencies
+pydantic-settings>=2.0.0
+sqlalchemy>=2.0.0
+pyodbc>=5.0.0
+structlog>=24.0.0
+
+# Workday SOAP integration (Phase 5)
+zeep>=4.2.0
+httpx>=0.27.0
+lxml>=5.0.0
+
+# AI Integration (Phase 6)
+anthropic>=0.18.0
+
+# S3/AWS Integration (Phase 6)
+boto3>=1.34.0
+
+# PDF Processing (Phase 6)
+pypdf2>=3.0.0
+python-docx>=1.0.0
+weasyprint>=62.0
+jinja2>=3.1.0
+
+# Email (Phase 6)
+# Uses boto3 for SES
+
+# Encryption
+cryptography>=42.0.0

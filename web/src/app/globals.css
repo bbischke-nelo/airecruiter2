@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light Mode */
+    --background: 216 20% 98%;
+    --foreground: 214 32% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 214 32% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 214 32% 15%;
+    --primary: 209 81% 34%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 359 65% 41%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 214 20% 96%;
+    --muted-foreground: 214 10% 45%;
+    --accent: 209 81% 34%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 359 65% 41%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 20% 90%;
+    --input: 214 20% 90%;
+    --ring: 209 81% 34%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 12%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 20%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 20%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 209 63% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 359 50% 50%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 209 63% 48%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 25%;
+    --input: 0 0% 25%;
+    --ring: 209 63% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+}

@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ candidate_name }} - Interview Report</title>
+    <style>
+        :root {
+            --primary-color: #2C3E50;
+            --secondary-color: #34495E;
+            --accent-color: #3498DB;
+            --success-color: #27AE60;
+            --warning-color: #F39C12;
+            --danger-color: #E74C3C;
+            --text-color: #2C3E50;
+            --light-gray: #ECF0F1;
+            --medium-gray: #BDC3C7;
+            --border-radius: 5px;
+        }
+
+        @page {
+            margin: 1cm;
+            size: letter portrait;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            background-color: white;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .header {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            padding: 15px;
+            background-color: var(--primary-color);
+            color: white;
+            margin-bottom: 20px;
+            border-radius: var(--border-radius);
+        }
+
+        .header-content {
+            flex: 1 1 auto;
+        }
+
+        .header-content h1 {
+            margin: 0;
+            font-size: 1.8em;
+        }
+
+        .report-meta {
+            font-size: 0.9em;
+            color: rgba(255, 255, 255, 0.9);
+            margin-top: 5px;
+        }
+
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: var(--border-radius);
+            page-break-inside: avoid;
+        }
+
+        .section-title {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        /* Recommendation Badge */
+        .recommendation-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+        }
+
+        .recommendation-strong-hire {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .recommendation-hire {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .recommendation-review {
+            background-color: var(--warning-color);
+            color: white;
+        }
+
+        .recommendation-no-hire {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        /* Score Cards */
+        .overall-score-card {
+            background: var(--light-gray);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .overall-score-value {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 10px 0;
+            color: var(--accent-color);
+        }
+
+        .overall-score-label {
+            font-size: 1.2em;
+            color: var(--text-color);
+        }
+
+        .scores-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .score-card {
+            background: var(--light-gray);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            text-align: center;
+        }
+
+        .score-card-label {
+            font-size: 0.85em;
+            color: var(--secondary-color);
+            margin-bottom: 5px;
+        }
+
+        .score-card-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .score-card-max {
+            font-size: 0.9em;
+            color: var(--medium-gray);
+        }
+
+        /* Stars */
+        .stars {
+            color: #F1C40F;
+            font-size: 1.2em;
+        }
+
+        .star-empty {
+            color: var(--medium-gray);
+        }
+
+        /* Summary */
+        .summary-text {
+            background: var(--light-gray);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            font-size: 1em;
+            line-height: 1.8;
+        }
+
+        /* Lists */
+        .strength-item, .weakness-item, .red-flag-item {
+            margin-bottom: 10px;
+            padding: 10px 15px;
+            border-radius: var(--border-radius);
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .strength-item {
+            background: #E8F8F5;
+            border-left: 4px solid var(--success-color);
+        }
+
+        .weakness-item {
+            background: #FEF9E7;
+            border-left: 4px solid var(--warning-color);
+        }
+
+        .red-flag-item {
+            background: #FDEDEC;
+            border-left: 4px solid var(--danger-color);
+        }
+
+        .focus-item {
+            background: #EBF5FB;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .list-icon {
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+
+        /* Transcript */
+        .transcript-container {
+            max-height: none;
+            overflow: visible;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 15px;
+            border-radius: var(--border-radius);
+        }
+
+        .message-assistant {
+            background: var(--light-gray);
+            margin-right: 40px;
+        }
+
+        .message-user {
+            background: #E8F4FD;
+            margin-left: 40px;
+        }
+
+        .message-role {
+            font-weight: bold;
+            font-size: 0.85em;
+            color: var(--secondary-color);
+            margin-bottom: 5px;
+        }
+
+        .message-content {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* Candidate Info */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .info-item {
+            padding: 8px;
+        }
+
+        .info-item strong {
+            color: var(--primary-color);
+            font-size: 0.9em;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 30px;
+            padding: 15px;
+            text-align: center;
+            font-size: 0.85em;
+            color: var(--secondary-color);
+            border-top: 1px solid var(--medium-gray);
+        }
+
+        /* Print */
+        @media print {
+            .section {
+                break-inside: auto;
+                page-break-inside: auto;
+            }
+
+            .header {
+                background-color: var(--primary-color) !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .recommendation-badge {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <div class="header-content">
+            <h1>Interview Report</h1>
+            <div class="report-meta">
+                {{ candidate_name }} | {{ position_title }}
+            </div>
+            <div class="report-meta">
+                Interview Date: {{ interview_date }} | Generated: {{ generated_date }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Candidate Information -->
+    <div class="section">
+        <h2 class="section-title">Interview Details</h2>
+        <div class="info-grid">
+            <div class="info-item">
+                <strong>Candidate Name</strong>
+                <span>{{ candidate_name }}</span>
+            </div>
+            <div class="info-item">
+                <strong>Position</strong>
+                <span>{{ position_title }}</span>
+            </div>
+            <div class="info-item">
+                <strong>Requisition ID</strong>
+                <span>{{ requisition_id }}</span>
+            </div>
+            <div class="info-item">
+                <strong>Interview Type</strong>
+                <span>{{ interview_type|title }}</span>
+            </div>
+            <div class="info-item">
+                <strong>Duration</strong>
+                <span>{{ message_count }} exchanges</span>
+            </div>
+            {% if candidate_email %}
+            <div class="info-item">
+                <strong>Candidate Email</strong>
+                <span>{{ candidate_email }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recommendation & Scores -->
+    <div class="section">
+        <h2 class="section-title">Evaluation Summary</h2>
+
+        <!-- Recommendation Badge -->
+        <div style="text-align: center; margin-bottom: 20px;">
+            {% if evaluation.recommendation == 'interview' %}
+            <span class="recommendation-badge recommendation-strong-hire">PROCEED TO INTERVIEW</span>
+            {% elif evaluation.recommendation == 'review' %}
+            <span class="recommendation-badge recommendation-review">NEEDS REVIEW</span>
+            {% elif evaluation.recommendation == 'decline' %}
+            <span class="recommendation-badge recommendation-no-hire">DECLINE</span>
+            {% else %}
+            <span class="recommendation-badge recommendation-review">{{ evaluation.recommendation|upper }}</span>
+            {% endif %}
+        </div>
+
+        <!-- Overall Score -->
+        <div class="overall-score-card">
+            <div class="overall-score-label">Overall Interview Score</div>
+            <div class="overall-score-value">{{ evaluation.overall_score }}/5</div>
+            <div class="stars">
+                {% for i in range(5) %}
+                    {% if i < evaluation.overall_score %}★{% else %}<span class="star-empty">★</span>{% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Individual Scores -->
+        <div class="scores-grid">
+            <div class="score-card">
+                <div class="score-card-label">Reliability</div>
+                <div class="score-card-value">{{ evaluation.reliability_score }}</div>
+                <div class="score-card-max">/5</div>
+            </div>
+            <div class="score-card">
+                <div class="score-card-label">Accountability</div>
+                <div class="score-card-value">{{ evaluation.accountability_score }}</div>
+                <div class="score-card-max">/5</div>
+            </div>
+            <div class="score-card">
+                <div class="score-card-label">Professionalism</div>
+                <div class="score-card-value">{{ evaluation.professionalism_score }}</div>
+                <div class="score-card-max">/5</div>
+            </div>
+            <div class="score-card">
+                <div class="score-card-label">Communication</div>
+                <div class="score-card-value">{{ evaluation.communication_score }}</div>
+                <div class="score-card-max">/5</div>
+            </div>
+            <div class="score-card">
+                <div class="score-card-label">Technical Fit</div>
+                <div class="score-card-value">{{ evaluation.technical_score }}</div>
+                <div class="score-card-max">/5</div>
+            </div>
+            <div class="score-card">
+                <div class="score-card-label">Growth Potential</div>
+                <div class="score-card-value">{{ evaluation.growth_potential_score }}</div>
+                <div class="score-card-max">/5</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary -->
+    {% if evaluation.summary %}
+    <div class="section">
+        <h2 class="section-title">Interview Summary</h2>
+        <div class="summary-text">
+            {{ evaluation.summary|markdown|safe }}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Strengths -->
+    {% if evaluation.strengths and evaluation.strengths|length > 0 %}
+    <div class="section">
+        <h2 class="section-title">Strengths</h2>
+        {% for strength in evaluation.strengths %}
+        <div class="strength-item">
+            <span class="list-icon">✓</span>
+            <span>{{ strength|markdown|safe }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Weaknesses -->
+    {% if evaluation.weaknesses and evaluation.weaknesses|length > 0 %}
+    <div class="section">
+        <h2 class="section-title">Areas of Concern</h2>
+        {% for weakness in evaluation.weaknesses %}
+        <div class="weakness-item">
+            <span class="list-icon">!</span>
+            <span>{{ weakness|markdown|safe }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Red Flags -->
+    {% if evaluation.red_flags and evaluation.red_flags|length > 0 %}
+    <div class="section">
+        <h2 class="section-title">Red Flags</h2>
+        {% for flag in evaluation.red_flags %}
+        <div class="red-flag-item">
+            <span class="list-icon">⚠</span>
+            <span>{{ flag|markdown|safe }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Next Interview Focus -->
+    {% if evaluation.next_interview_focus and evaluation.next_interview_focus|length > 0 %}
+    <div class="section">
+        <h2 class="section-title">Next Interview Focus Areas</h2>
+        {% for focus in evaluation.next_interview_focus %}
+        <div class="focus-item strength-item">
+            <span class="list-icon">→</span>
+            <span>{{ focus|markdown|safe }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Interview Transcript -->
+    <div class="section">
+        <h2 class="section-title">Interview Transcript</h2>
+        <div class="transcript-container">
+            {% for message in messages %}
+            <div class="message message-{{ message.role }}">
+                <div class="message-role">
+                    {% if message.role == 'assistant' %}Interviewer{% else %}Candidate{% endif %}
+                </div>
+                <div class="message-content">{{ message.content|markdown|safe }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>Generated by {{ company_name }} AI Recruiter</p>
+        <p>Interview ID: {{ interview_id }}</p>
+        <p>CONFIDENTIAL - FOR INTERNAL USE ONLY</p>
+    </div>
+</div>
+</body>
+</html>

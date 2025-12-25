@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ candidate.first_name }} {{ candidate.last_name }} - Resume Analysis</title>
+    <style>
+        :root {
+            --primary-color: #2C3E50;
+            --secondary-color: #34495E;
+            --accent-color: #3498DB;
+            --success-color: #27AE60;
+            --warning-color: #F39C12;
+            --danger-color: #E74C3C;
+            --text-color: #2C3E50;
+            --light-gray: #ECF0F1;
+            --medium-gray: #BDC3C7;
+            --border-radius: 5px;
+        }
+
+        @page {
+            margin: 1cm;
+            size: letter portrait;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            background-color: white;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .header {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            padding: 15px;
+            background-color: var(--primary-color);
+            color: white;
+            margin-bottom: 20px;
+            border-radius: var(--border-radius);
+        }
+
+        .header-content {
+            flex: 1 1 auto;
+        }
+
+        .header-content h1 {
+            margin: 0;
+            font-size: 1.8em;
+        }
+
+        .report-meta {
+            font-size: 0.9em;
+            color: rgba(255, 255, 255, 0.9);
+            margin-top: 5px;
+        }
+
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: var(--border-radius);
+            page-break-inside: avoid;
+        }
+
+        .section-title {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .info-item {
+            padding: 8px;
+            background: var(--light-gray);
+            border-radius: var(--border-radius);
+        }
+
+        .info-item strong {
+            color: var(--primary-color);
+            font-size: 0.9em;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .overall-score-card {
+            background: var(--light-gray);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .overall-score-value {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 10px 0;
+            color: var(--accent-color);
+        }
+
+        .overall-score-label {
+            font-size: 1.2em;
+            color: var(--text-color);
+        }
+
+        .summary-text {
+            background: var(--light-gray);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            font-size: 1em;
+            line-height: 1.8;
+        }
+
+        .strength-item, .concern-item, .red-flag-item, .question-item {
+            margin-bottom: 10px;
+            padding: 10px 15px;
+            border-radius: var(--border-radius);
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .strength-item {
+            background: #E8F8F5;
+            border-left: 4px solid var(--success-color);
+        }
+
+        .concern-item {
+            background: #FEF9E7;
+            border-left: 4px solid var(--warning-color);
+        }
+
+        .red-flag-item {
+            background: #FDEDEC;
+            border-left: 4px solid var(--danger-color);
+        }
+
+        .question-item {
+            background: #EBF5FB;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .list-icon {
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+
+        .footer {
+            margin-top: 30px;
+            padding: 15px;
+            text-align: center;
+            font-size: 0.85em;
+            color: var(--secondary-color);
+            border-top: 1px solid var(--medium-gray);
+        }
+
+        @media print {
+            .section {
+                break-inside: auto;
+                page-break-inside: auto;
+            }
+
+            .header {
+                background-color: var(--primary-color) !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <div class="header-content">
+            <h1>Resume Analysis Report</h1>
+            <div class="report-meta">
+                {{ candidate.first_name }} {{ candidate.last_name }} | {{ position }}
+            </div>
+            <div class="report-meta">
+                Generated: {{ generated_date | format_date }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Candidate Information -->
+    <div class="section">
+        <h2 class="section-title">Candidate Profile</h2>
+        <div class="info-grid">
+            <div class="info-item">
+                <strong>Full Name</strong>
+                <span>{{ candidate.first_name }} {{ candidate.last_name }}</span>
+            </div>
+            <div class="info-item">
+                <strong>Position</strong>
+                <span>{{ position }}</span>
+            </div>
+            {% if candidate.email %}
+            <div class="info-item">
+                <strong>Email</strong>
+                <span>{{ candidate.email }}</span>
+            </div>
+            {% endif %}
+            {% if applied_at %}
+            <div class="info-item">
+                <strong>Applied</strong>
+                <span>{{ applied_at | format_date }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Risk Score -->
+    <div class="section">
+        <h2 class="section-title">Risk Assessment</h2>
+        <div class="overall-score-card">
+            <div class="overall-score-label">Risk Score</div>
+            <div class="overall-score-value">{{ analysis.risk_score }}/10</div>
+            <div class="overall-score-label">Scale: 1 (Low Risk) - 10 (High Risk)</div>
+        </div>
+
+        {% if analysis.relevance_summary %}
+        <div class="summary-text">
+            {{ analysis.relevance_summary }}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Strengths -->
+    {% if analysis.pros and analysis.pros|length > 0 %}
+    <div class="section">
+        <h2 class="section-title">Strengths</h2>
+        {% for pro in analysis.pros %}
+        <div class="strength-item">
+            <span class="list-icon">✓</span>
+            <span>{{ pro }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Areas of Concern -->
+    {% if analysis.cons and analysis.cons|length > 0 %}
+    <div class="section">
+        <h2 class="section-title">Areas of Concern</h2>
+        {% for con in analysis.cons %}
+        <div class="concern-item">
+            <span class="list-icon">!</span>
+            <span>{{ con }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Red Flags -->
+    {% if analysis.red_flags and analysis.red_flags|length > 0 %}
+    <div class="section">
+        <h2 class="section-title">Red Flags</h2>
+        {% for flag in analysis.red_flags %}
+        <div class="red-flag-item">
+            <span class="list-icon">⚠</span>
+            <span>{{ flag }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Suggested Questions -->
+    {% if analysis.suggested_questions and analysis.suggested_questions|length > 0 %}
+    <div class="section">
+        <h2 class="section-title">Suggested Interview Questions</h2>
+        {% for question in analysis.suggested_questions %}
+        <div class="question-item">
+            <span class="list-icon">→</span>
+            <span>{{ question }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>Generated by {{ company_name }} AI Recruiter</p>
+        <p>CONFIDENTIAL - FOR INTERNAL USE ONLY</p>
+    </div>
+</div>
+</body>
+</html>
