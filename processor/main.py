@@ -8,7 +8,7 @@ from typing import List
 import structlog
 
 from processor.config import settings
-from processor.database import get_session
+from processor.database import get_session, SessionLocal
 from processor.heartbeat import HeartbeatWriter
 from processor.scheduler import Scheduler
 from processor.worker import Worker
@@ -40,7 +40,7 @@ class ProcessorService:
 
     def __init__(self):
         self.db = get_session()
-        self.worker = Worker(self.db)
+        self.worker = Worker(SessionLocal)  # Pass factory, not instance
         self.scheduler = Scheduler(self.db)
         self.heartbeat = HeartbeatWriter(status_callback=self._get_status)
         self.running = False
