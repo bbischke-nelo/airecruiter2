@@ -69,6 +69,12 @@ async def sso_callback(
     """
     try:
         # Exchange auth code with centralized-auth
+        logger.info(
+            "Exchanging auth code",
+            sso_url=settings.SSO_URL,
+            app_id=settings.SSO_APP_ID,
+            code_prefix=request.code[:20] if request.code else "none",
+        )
         async with httpx.AsyncClient() as client:
             exchange_response = await client.post(
                 f"{settings.SSO_URL}/api/sso/exchange-token",
