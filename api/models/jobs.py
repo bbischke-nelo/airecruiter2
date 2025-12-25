@@ -19,16 +19,20 @@ class Job(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     # Job info
-    application_id = Column(Integer, ForeignKey("applications.id"), nullable=False)
+    application_id = Column(Integer, ForeignKey("applications.id"), nullable=True)
+    requisition_id = Column(Integer, ForeignKey("requisitions.id"), nullable=True)
     # sync, analyze, send_interview, evaluate, generate_report, upload_report
     job_type = Column(String(50), nullable=False)
 
-    # Queue status: pending, running, completed, failed
+    # Queue status: pending, running, completed, failed, dead
     status = Column(String(50), default="pending")
 
     priority = Column(Integer, default=0)  # Higher = more urgent
     attempts = Column(Integer, default=0)
     max_attempts = Column(Integer, default=3)
+
+    # Job payload (JSON)
+    payload = Column(Text, nullable=True)
 
     # Error tracking
     last_error = Column(Text, nullable=True)
@@ -43,10 +47,12 @@ class Job(Base):
     __table_args__ = (
         Index("idx_jobs_pending", "scheduled_for", "priority"),
         Index("idx_jobs_application", "application_id"),
+        Index("idx_jobs_requisition", "requisition_id"),
     )
 
     # Relationships
     application = relationship("Application", back_populates="jobs")
+    requisition = relationship("Requisition")
 
     def __repr__(self) -> str:
         return f"<Job(id={self.id}, type={self.job_type}, status={self.status})>"
