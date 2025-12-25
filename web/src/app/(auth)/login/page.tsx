@@ -24,17 +24,9 @@ function LoginContent() {
   }, [searchParams]);
 
   const redirectToSSO = () => {
-    // Build SSO login URL directly
+    // Redirect to SSO portal - it handles app selection
     const ssoUrl = process.env.NEXT_PUBLIC_SSO_URL || 'https://sso.ccfs.com';
-    const appId = process.env.NEXT_PUBLIC_SSO_CLIENT_ID || 'recruiter2';
-    const returnUrl = `${window.location.origin}/recruiter2/auth/callback`;
-
-    const params = new URLSearchParams({
-      app: appId,
-      return_url: returnUrl,
-    });
-
-    window.location.href = `${ssoUrl}/api/auth/login?${params.toString()}`;
+    window.location.href = ssoUrl;
   };
 
   if (error) {
