@@ -1,0 +1,135 @@
+services:
+  airecruiter2-api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: airecruiter2-api
+    environment:
+      - APP_NAME=${APP_NAME:-AI Recruiter API v2}
+      - DEBUG=${DEBUG:-false}
+      - SECRET_KEY=${SECRET_KEY}
+      - SSO_ENABLED=${SSO_ENABLED:-true}
+      - SSO_URL=${SSO_URL:-https://sso.ccfs.com}
+      - SSO_ISSUER=${SSO_ISSUER:-https://sso.ccfs.com}
+      - SSO_PUBLIC_KEY_PATH=${SSO_PUBLIC_KEY_PATH:-/app/keys/public_key.pem}
+      - SSO_APP_SECRET=${SSO_APP_SECRET:-}
+      - DEV_LOGIN_ENABLED=${DEV_LOGIN_ENABLED:-false}
+      - SECURE_COOKIES=${SECURE_COOKIES:-true}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-720}
+      - DATABASE_URL=${DATABASE_URL}
+      # Workday
+      - WORKDAY_TENANT=${WORKDAY_TENANT}
+      - WORKDAY_USERNAME=${WORKDAY_USERNAME}
+      - WORKDAY_PASSWORD=${WORKDAY_PASSWORD}
+      - WORKDAY_CLIENT_ID=${WORKDAY_CLIENT_ID}
+      - WORKDAY_CLIENT_SECRET=${WORKDAY_CLIENT_SECRET}
+      - WORKDAY_REFRESH_TOKEN=${WORKDAY_REFRESH_TOKEN}
+      - WORKDAY_RECRUITING_URL=${WORKDAY_RECRUITING_URL}
+      - WORKDAY_STAFFING_URL=${WORKDAY_STAFFING_URL}
+      - WORKDAY_TOKEN_URL=${WORKDAY_TOKEN_URL}
+      # AI (Anthropic Claude)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-20250514}
+      - CLAUDE_MAX_TOKENS=${CLAUDE_MAX_TOKENS:-4096}
+      # AWS
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - S3_BUCKET=${S3_BUCKET}
+      - SES_FROM_EMAIL=${SES_FROM_EMAIL}
+      # Encryption
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./keys:/app/keys:ro
+      - ./logs:/app/logs
+    networks:
+      - airecruiter2-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  airecruiter2-web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        - NEXT_PUBLIC_SSO_ENABLED=${NEXT_PUBLIC_SSO_ENABLED:-true}
+        - NEXT_PUBLIC_SSO_URL=${NEXT_PUBLIC_SSO_URL:-https://sso.ccfs.com}
+        - NEXT_PUBLIC_SSO_CLIENT_ID=${NEXT_PUBLIC_SSO_CLIENT_ID:-recruiter2}
+        - NEXT_PUBLIC_DEV_LOGIN_ENABLED=${NEXT_PUBLIC_DEV_LOGIN_ENABLED:-false}
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/recruiter2/api}
+        - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-https://admin.ccfs.com/recruiter2}
+    container_name: airecruiter2-web
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/recruiter2/api}
+      - NEXT_PUBLIC_SSO_URL=${NEXT_PUBLIC_SSO_URL:-https://sso.ccfs.com}
+      - NEXT_PUBLIC_SSO_ENABLED=${NEXT_PUBLIC_SSO_ENABLED:-true}
+      - NEXT_PUBLIC_SSO_CLIENT_ID=${NEXT_PUBLIC_SSO_CLIENT_ID:-recruiter2}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-https://admin.ccfs.com/recruiter2}
+      - NEXT_PUBLIC_DEV_LOGIN_ENABLED=${NEXT_PUBLIC_DEV_LOGIN_ENABLED:-false}
+    ports:
+      - "3001:3000"
+    networks:
+      - airecruiter2-network
+    depends_on:
+      - airecruiter2-api
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://$(hostname -i):3000/recruiter2/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  airecruiter2-processor:
+    build:
+      context: .
+      dockerfile: processor/Dockerfile
+    container_name: airecruiter2-processor
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Workday
+      - WORKDAY_TENANT=${WORKDAY_TENANT}
+      - WORKDAY_USERNAME=${WORKDAY_USERNAME}
+      - WORKDAY_PASSWORD=${WORKDAY_PASSWORD}
+      - WORKDAY_CLIENT_ID=${WORKDAY_CLIENT_ID}
+      - WORKDAY_CLIENT_SECRET=${WORKDAY_CLIENT_SECRET}
+      - WORKDAY_REFRESH_TOKEN=${WORKDAY_REFRESH_TOKEN}
+      - WORKDAY_RECRUITING_URL=${WORKDAY_RECRUITING_URL}
+      - WORKDAY_STAFFING_URL=${WORKDAY_STAFFING_URL}
+      - WORKDAY_TOKEN_URL=${WORKDAY_TOKEN_URL}
+      # AI (Anthropic Claude)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-20250514}
+      - CLAUDE_MAX_TOKENS=${CLAUDE_MAX_TOKENS:-4096}
+      # AWS
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - S3_BUCKET=${S3_BUCKET}
+      - SES_FROM_EMAIL=${SES_FROM_EMAIL}
+      # Encryption
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      # Processor settings
+      - POLL_INTERVAL=${POLL_INTERVAL:-300}
+      - SYNC_INTERVAL=${SYNC_INTERVAL:-300}
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - airecruiter2-network
+    depends_on:
+      - airecruiter2-api
+    restart: always
+
+networks:
+  airecruiter2-network:
+    name: airecruiter2-network
+    driver: bridge
