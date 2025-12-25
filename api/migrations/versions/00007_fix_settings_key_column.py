@@ -17,10 +17,11 @@ depends_on = None
 
 
 def upgrade():
-    # Rename the incorrectly named column from '[key]' to 'setting_key'
-    # to avoid SQL Server reserved word issues entirely
-    op.execute("EXEC sp_rename 'settings.[key]', 'setting_key', 'COLUMN'")
+    # The column was created with literal brackets in the name: [key]
+    # We need to rename it to setting_key
+    # Use quoted identifier syntax for the column with brackets in its name
+    op.execute("EXEC sp_rename 'settings.[[key]]', 'setting_key', 'COLUMN'")
 
 
 def downgrade():
-    op.execute("EXEC sp_rename 'settings.setting_key', '[key]', 'COLUMN'")
+    op.execute("EXEC sp_rename 'settings.setting_key', '[[key]]', 'COLUMN'")
