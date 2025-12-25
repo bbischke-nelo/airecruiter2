@@ -15,9 +15,10 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      // Redirect to login
+      // Redirect to SSO login
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        // Use the API login endpoint which handles SSO redirect
+        window.location.href = '/api/v1/auth/login';
       }
     }
     return Promise.reject(error);

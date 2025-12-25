@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navigation = [
   { name: 'Requisitions', href: '/requisitions', icon: Briefcase },
@@ -37,6 +38,21 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { theme, setTheme } = useTheme();
+  const { isLoading, isAuthenticated, user, logout } = useAuth();
+
+  // Show loading state while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Don't render dashboard if not authenticated (AuthContext handles redirect)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -118,10 +134,8 @@ export default function DashboardLayout({
 
           <div className="flex-1" />
 
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/api/v1/auth/logout">
-              <LogOut className="h-5 w-5" />
-            </Link>
+          <Button variant="ghost" size="icon" onClick={logout}>
+            <LogOut className="h-5 w-5" />
           </Button>
         </header>
 
