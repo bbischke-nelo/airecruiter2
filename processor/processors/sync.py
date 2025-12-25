@@ -190,8 +190,10 @@ class SyncProcessor(BaseProcessor):
                     "workday_data": json.dumps(tms_req.workday_data) if tms_req.workday_data else None,
                 },
             )
+            # Must fetch before commit with pyodbc
+            new_id = result.scalar()
             self.db.commit()
-            return result.scalar()
+            return new_id
 
     async def _process_application(self, req, tms_app: TMSApplication, provider) -> bool:
         """Process a single application from TMS.
@@ -286,8 +288,9 @@ class SyncProcessor(BaseProcessor):
                 "workday_data": json.dumps(tms_app.workday_data) if tms_app.workday_data else None,
             },
         )
-        self.db.commit()
+        # Must fetch before commit with pyodbc
         app_id = result.scalar()
+        self.db.commit()
 
         self.logger.info(
             "Created new application",

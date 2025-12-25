@@ -163,8 +163,9 @@ class GenerateReportProcessor(BaseProcessor):
                 "s3_key": s3_key,
             },
         )
-        self.db.commit()
+        # Must fetch before commit with pyodbc
         report_id = result.scalar()
+        self.db.commit()
 
         # Update application status
         update_query = text("""

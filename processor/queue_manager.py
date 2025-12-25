@@ -66,9 +66,9 @@ class QueueManager:
                 "scheduled_for": scheduled_for,
             },
         )
-        self.db.commit()
-
+        # Must fetch before commit with pyodbc
         job_id = result.scalar()
+        self.db.commit()
         logger.info(
             "Job enqueued",
             job_id=job_id,

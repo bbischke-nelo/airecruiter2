@@ -93,8 +93,9 @@ class SendInterviewProcessor(BaseProcessor):
                 "expires_at": expires_at,
             },
         )
-        self.db.commit()
+        # Must fetch before commit with pyodbc
         interview_id = result.scalar()
+        self.db.commit()
 
         # Build interview URL
         interview_url = f"{settings.FRONTEND_URL}/interview/{token}"
