@@ -1,9 +1,7 @@
 import axios from 'axios';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
-
 export const api = axios.create({
-  baseURL: `${API_BASE}/api/v1`,
+  baseURL: '/recruiter2/api/v1',  // Matches nginx location /recruiter2/api/
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
