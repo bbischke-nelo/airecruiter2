@@ -215,11 +215,10 @@ class WorkdaySOAPClient:
         page: int = 1,
         count: int = 100,
     ) -> List[Dict[str, Any]]:
-        """Fetch candidates for a requisition.
+        """Fetch applicants for a requisition.
 
-        Note: Workday's Get_Applicants is for internal workers, not job applicants.
-        Use Get_Candidates to fetch candidate data, but filtering by requisition
-        requires using Field_And_Parameter_Criteria_Data.
+        Note: Workday uses Get_Applicants (not Get_Candidates or Get_Job_Applications)
+        in the Recruiting WSDL to get job applicants for a requisition.
 
         Args:
             requisition_id: The requisition external ID
@@ -229,59 +228,92 @@ class WorkdaySOAPClient:
         Returns:
             List of application data dictionaries
         """
-        logger.info("Fetching candidates", requisition_id=requisition_id, page=page)
+        logger.info("Fetching applicants", requisition_id=requisition_id, page=page)
 
-        # Get_Candidates Response_Group only supports: Include_Reference, Exclude_All_Attachments
         params = {
+            "Request_Criteria": {
+                "Job_Requisition_Reference": {
+                    "ID": [{"type": "Job_Requisition_ID", "_value_1": requisition_id}]
+                }
+            },
             "Response_Filter": {
                 "Page": page,
                 "Count": count,
             },
             "Response_Group": {
                 "Include_Reference": True,
-                "Exclude_All_Attachments": False,  # Include attachments
             },
         }
 
-        response = await self._call_service("Get_Candidates", params)
+        response = await self._call_service("Get_Applicants", params)
 
         applications = []
         if response and hasattr(response, "Response_Data") and response.Response_Data:
-            for candidate in getattr(response.Response_Data, "Candidate", None) or []:
-                applications.append(self._parse_candidate(candidate))
+            for applicant in getattr(response.Response_Data, "Applicant", None) or []:
+                parsed = self._parse_applicant(applicant, requisition_id)
+                if parsed:
+                    applications.append(parsed)
 
-        logger.info("Fetched candidates", count=len(applications))
+        logger.info("Fetched applicants", count=len(applications))
         return applications
 
-    def _parse_candidate(self, candidate: Any) -> Dict[str, Any]:
-        """Parse a SOAP candidate response into a dictionary."""
-        data = {}
+    def _parse_applicant(self, applicant: Any, requisition_id: str) -> Dict[str, Any]:
+        """Parse a SOAP applicant response into a dictionary."""
+        data = {
+            "external_requisition_id": requisition_id,
+        }
 
-        # Extract candidate ID
-        if hasattr(candidate, "Candidate_Reference") and candidate.Candidate_Reference:
-            for id_item in candidate.Candidate_Reference.ID or []:
-                if getattr(id_item, "type", "") == "Candidate_ID":
-                    data["external_candidate_id"] = id_item._value_1
-                    break
+        # Extract Applicant Reference (this is the application ID in Workday)
+        if hasattr(applicant, "Applicant_Reference") and applicant.Applicant_Reference:
+            for id_item in getattr(applicant.Applicant_Reference, "ID", None) or []:
+                id_type = getattr(id_item, "type", "")
+                id_value = getattr(id_item, "_value_1", "")
+                if id_type == "Applicant_ID":
+                    data["external_application_id"] = id_value
+                elif id_type == "WID":
+                    data["applicant_wid"] = id_value
 
-        # Extract candidate data
-        if hasattr(candidate, "Candidate_Data") and candidate.Candidate_Data:
-            cd = candidate.Candidate_Data
+        # Extract Applicant Data
+        if hasattr(applicant, "Applicant_Data") and applicant.Applicant_Data:
+            ad = applicant.Applicant_Data
 
-            # Personal data
-            if hasattr(cd, "Personal_Data") and cd.Personal_Data:
-                pd = cd.Personal_Data
+            # Candidate Reference (links to the candidate profile)
+            if hasattr(ad, "Candidate_Reference") and ad.Candidate_Reference:
+                for id_item in getattr(ad.Candidate_Reference, "ID", None) or []:
+                    if getattr(id_item, "type", "") == "Candidate_ID":
+                        data["external_candidate_id"] = id_item._value_1
+                        break
+
+            # Candidate name from Personal Data
+            if hasattr(ad, "Personal_Data") and ad.Personal_Data:
+                pd = ad.Personal_Data
                 if hasattr(pd, "Name_Data") and pd.Name_Data:
                     first = getattr(pd.Name_Data, "First_Name", "") or ""
                     last = getattr(pd.Name_Data, "Last_Name", "") or ""
                     data["candidate_name"] = f"{first} {last}".strip()
 
+                # Email
                 if hasattr(pd, "Contact_Data") and pd.Contact_Data:
                     if hasattr(pd.Contact_Data, "Email_Address_Data"):
-                        for email in pd.Contact_Data.Email_Address_Data or []:
+                        for email in getattr(pd.Contact_Data, "Email_Address_Data", None) or []:
                             if hasattr(email, "Email_Address"):
                                 data["candidate_email"] = email.Email_Address
                                 break
+
+            # Recruiting Status (the application status)
+            if hasattr(ad, "Recruiting_Status_Reference") and ad.Recruiting_Status_Reference:
+                for id_item in getattr(ad.Recruiting_Status_Reference, "ID", None) or []:
+                    if getattr(id_item, "type", "") == "Recruiting_Status_ID":
+                        data["workday_status"] = id_item._value_1
+                        break
+
+            # Application Date
+            if hasattr(ad, "Application_Date"):
+                data["applied_at"] = getattr(ad, "Application_Date", None)
+
+        # If we don't have an application ID, this isn't a valid applicant
+        if "external_application_id" not in data:
+            return None
 
         return data
 
