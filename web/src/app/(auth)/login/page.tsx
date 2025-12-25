@@ -25,7 +25,7 @@ function LoginContent() {
 
   const redirectToSSO = () => {
     // Redirect to API's login endpoint which redirects to SSO
-    window.location.href = '/api/v1/auth/login';
+    window.location.href = '/recruiter2/api/v1/auth/login';
   };
 
   if (error) {

@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const response = await fetch('/api/v1/auth/me', {
+      const response = await fetch('/recruiter2/api/v1/auth/me', {
         credentials: 'include',
       });
 
@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await fetch('/api/v1/auth/logout', {
+      await fetch('/recruiter2/api/v1/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });

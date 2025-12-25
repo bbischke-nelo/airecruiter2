@@ -30,8 +30,8 @@ export default function SSOCallbackPage() {
 
         console.log('[SSO Callback] Exchanging auth code for token...');
 
-        // Exchange code for token
-        const response = await fetch('/api/v1/auth/callback', {
+        // Exchange code for token (basePath not auto-applied to fetch)
+        const response = await fetch('/recruiter2/api/v1/auth/callback', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -67,7 +67,7 @@ export default function SSOCallbackPage() {
           }
 
           try {
-            const meResponse = await fetch('/api/v1/auth/me', {
+            const meResponse = await fetch('/recruiter2/api/v1/auth/me', {
               method: 'GET',
               credentials: 'include',
             });
