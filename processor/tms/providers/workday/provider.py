@@ -127,8 +127,15 @@ class WorkdayProvider(TMSProvider):
         self,
         requisition_external_id: str,
         since: Optional[datetime] = None,
+        wid: Optional[str] = None,
     ) -> List[TMSApplication]:
-        """Fetch applications for a requisition."""
+        """Fetch applications for a requisition.
+
+        Args:
+            requisition_external_id: The Job_Requisition_ID
+            since: Only return applications after this date
+            wid: Optional Workday ID (WID) - preferred for Get_Candidates query
+        """
         page = 1
         count = 100
         all_applications = []
@@ -136,6 +143,7 @@ class WorkdayProvider(TMSProvider):
         while True:
             raw_apps = await self._client.get_job_applications(
                 requisition_id=requisition_external_id,
+                wid=wid,
                 page=page,
                 count=count,
             )

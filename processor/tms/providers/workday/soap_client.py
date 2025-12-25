@@ -212,30 +212,39 @@ class WorkdaySOAPClient:
     async def get_job_applications(
         self,
         requisition_id: str,
+        wid: Optional[str] = None,
         page: int = 1,
         count: int = 100,
     ) -> List[Dict[str, Any]]:
         """Fetch candidates for a requisition.
 
-        Uses Get_Candidates with Field_And_Parameter_Criteria_Data to filter
-        by requisition. Get_Applicants is for internal workers, not external candidates.
+        Uses Get_Candidates with Job_Requisition_Reference to filter by requisition.
+        Prefers WID (Workday ID) if provided, falls back to Job_Requisition_ID.
 
         Args:
-            requisition_id: The requisition external ID
+            requisition_id: The Job_Requisition_ID
+            wid: Optional Workday ID - preferred for querying
             page: Page number
             count: Items per page
 
         Returns:
             List of application data dictionaries
         """
-        logger.info("Fetching candidates for requisition", requisition_id=requisition_id, page=page)
+        # Use WID if provided, otherwise fall back to Job_Requisition_ID
+        if wid:
+            id_type = "WID"
+            id_value = wid
+        else:
+            id_type = "Job_Requisition_ID"
+            id_value = requisition_id
+
+        logger.info("Fetching candidates for requisition", requisition_id=requisition_id, wid=wid, id_type=id_type, page=page)
 
         params = {
             "Request_Criteria": {
-                # Job_Requisition_Reference is an array type in the WSDL
-                "Job_Requisition_Reference": [
-                    {"ID": [{"type": "Job_Requisition_ID", "_value_1": requisition_id}]}
-                ]
+                "Job_Requisition_Reference": {
+                    "ID": [{"type": id_type, "_value_1": id_value}]
+                }
             },
             "Response_Filter": {
                 "Page": page,
@@ -424,11 +433,16 @@ class WorkdaySOAPClient:
         """Parse a SOAP requisition response into a dictionary."""
         data = {}
 
-        # Extract ID from reference
+        # Extract IDs from reference - we need both Job_Requisition_ID and WID
         if hasattr(req, "Job_Requisition_Reference") and req.Job_Requisition_Reference:
             for id_item in req.Job_Requisition_Reference.ID or []:
-                if getattr(id_item, "type", "") == "Job_Requisition_ID":
-                    data["external_id"] = id_item._value_1
+                id_type = getattr(id_item, "type", "")
+                id_value = getattr(id_item, "_value_1", "")
+                if id_type == "Job_Requisition_ID":
+                    data["external_id"] = id_value
+                elif id_type == "WID":
+                    data["wid"] = id_value
+            logger.debug("Requisition IDs", external_id=data.get("external_id"), wid=data.get("wid"))
 
         # Extract data fields
         if hasattr(req, "Job_Requisition_Data") and req.Job_Requisition_Data:

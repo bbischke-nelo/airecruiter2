@@ -76,7 +76,7 @@ class SyncProcessor(BaseProcessor):
         # Get requisition from database
         query = text("""
             SELECT id, external_id, name, last_synced_at, lookback_hours,
-                   auto_send_interview, auto_send_on_status
+                   auto_send_interview, auto_send_on_status, workday_data
             FROM requisitions
             WHERE id = :req_id
         """)
@@ -92,8 +92,14 @@ class SyncProcessor(BaseProcessor):
         if req.last_synced_at:
             since = req.last_synced_at
 
-        # Fetch applications from Workday
-        applications = await provider.get_applications(req.external_id, since=since)
+        # Extract WID from workday_data if available
+        wid = None
+        if req.workday_data:
+            workday_data = json.loads(req.workday_data) if isinstance(req.workday_data, str) else req.workday_data
+            wid = workday_data.get("wid")
+
+        # Fetch applications from Workday - use WID if available
+        applications = await provider.get_applications(req.external_id, since=since, wid=wid)
 
         new_count = 0
         updated_count = 0
