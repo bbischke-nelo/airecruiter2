@@ -73,6 +73,9 @@ export interface Analysis {
 export interface Interview {
   id: number;
   applicationId: number;
+  candidateName: string;
+  requisitionName: string;
+  interviewType: string;
   token: string;
   tokenExpiresAt: string;
   status: InterviewStatus;
@@ -80,6 +83,8 @@ export interface Interview {
   completedAt: string | null;
   humanRequested: boolean;
   humanRequestedAt: string | null;
+  personaId: number | null;
+  messageCount: number;
   createdAt: string;
 }
 
