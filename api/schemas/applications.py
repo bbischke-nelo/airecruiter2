@@ -4,7 +4,16 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, Any, List
 
+from pydantic import field_validator
+
 from .base import CamelModel
+
+
+def _coerce_bool(v: Any) -> bool:
+    """Convert None to False for boolean fields."""
+    if v is None:
+        return False
+    return bool(v)
 
 
 # Valid rejection reason codes (must match model)
@@ -55,6 +64,12 @@ class ApplicationListItem(CamelModel):
     rejection_reason_code: Optional[str] = None
     created_at: datetime
 
+    # Validators to coerce None to False
+    @field_validator("human_requested", "compliance_review", "has_analysis", "has_interview", "has_report", mode="before")
+    @classmethod
+    def coerce_bool(cls, v: Any) -> bool:
+        return _coerce_bool(v)
+
 
 class ApplicationResponse(CamelModel):
     """Schema for full application response."""
@@ -74,6 +89,12 @@ class ApplicationResponse(CamelModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
     processed_at: Optional[datetime] = None
+
+    # Validators to coerce None to False
+    @field_validator("human_requested", "compliance_review", mode="before")
+    @classmethod
+    def coerce_bool(cls, v: Any) -> bool:
+        return _coerce_bool(v)
 
 
 class ReprocessRequest(CamelModel):

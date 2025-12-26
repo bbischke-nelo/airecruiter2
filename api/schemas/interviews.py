@@ -1,9 +1,18 @@
 """Pydantic schemas for Interview endpoints."""
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
+
+from pydantic import field_validator
 
 from .base import CamelModel
+
+
+def _coerce_bool(v: Any) -> bool:
+    """Convert None to False for boolean fields."""
+    if v is None:
+        return False
+    return bool(v)
 
 
 class InterviewCreate(CamelModel):
@@ -28,6 +37,11 @@ class InterviewListItem(CamelModel):
     completed_at: Optional[datetime] = None
     message_count: int = 0
 
+    @field_validator("human_requested", mode="before")
+    @classmethod
+    def coerce_bool(cls, v: Any) -> bool:
+        return _coerce_bool(v)
+
 
 class InterviewResponse(CamelModel):
     """Schema for full interview response."""
@@ -47,6 +61,11 @@ class InterviewResponse(CamelModel):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     message_count: int = 0
+
+    @field_validator("human_requested", mode="before")
+    @classmethod
+    def coerce_bool(cls, v: Any) -> bool:
+        return _coerce_bool(v)
 
 
 class MessageResponse(CamelModel):
