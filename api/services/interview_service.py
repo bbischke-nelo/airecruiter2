@@ -13,7 +13,7 @@ import structlog
 from sqlalchemy.orm import Session
 
 from api.models import Interview, Message, Application, Requisition, Persona, Analysis, CandidateProfile
-from processor.integrations.claude import ClaudeClient
+from api.services.claude import ClaudeClient
 
 logger = structlog.get_logger()
 
