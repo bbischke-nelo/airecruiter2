@@ -611,6 +611,131 @@ class WorkdaySOAPClient:
         logger.info("Fetched attachments", count=len(attachments))
         return attachments
 
+    async def get_candidate_resume_from_application(
+        self,
+        candidate_id: str,
+    ) -> List[Dict[str, Any]]:
+        """Fetch resume attachments from a candidate's job applications.
+
+        This is an alternative path to get_candidate_attachments - resumes can be
+        attached either at the candidate level or at the job application level.
+
+        Args:
+            candidate_id: The candidate external ID
+
+        Returns:
+            List of attachment data dictionaries from Resume_Attachment_Data
+        """
+        logger.info("Fetching resume from candidate job applications", candidate_id=candidate_id)
+
+        params = {
+            "Request_References": {
+                "Candidate_Reference": [
+                    {"ID": [{"type": ID_TYPE_CANDIDATE, "_value_1": candidate_id}]}
+                ]
+            },
+            "Response_Group": {
+                "Include_Reference": True,
+                # Don't exclude attachments - we want Resume_Attachment_Data
+            },
+        }
+
+        response = await self._call_service("Get_Candidates", params)
+
+        attachments = []
+        if response and hasattr(response, "Response_Data") and response.Response_Data:
+            candidates = getattr(response.Response_Data, "Candidate", None) or []
+            for candidate in candidates:
+                cand_data = getattr(candidate, "Candidate_Data", None)
+                if not cand_data:
+                    continue
+
+                # Check Job_Application_Data for Resume_Attachment_Data
+                job_apps = getattr(cand_data, "Job_Application_Data", None) or []
+                if not isinstance(job_apps, list):
+                    job_apps = [job_apps]
+
+                for app in job_apps:
+                    resume_attachments = getattr(app, "Resume_Attachment_Data", None) or []
+                    if not isinstance(resume_attachments, list):
+                        resume_attachments = [resume_attachments]
+
+                    for att in resume_attachments:
+                        parsed = self._parse_resume_attachment(att)
+                        if parsed:
+                            attachments.append(parsed)
+
+        logger.info("Fetched resume attachments from applications", count=len(attachments))
+        return attachments
+
+    def _parse_resume_attachment(self, attachment: Any) -> Optional[Dict[str, Any]]:
+        """Parse a Resume_Attachment_Data object."""
+        if attachment is None:
+            return None
+
+        data = {}
+
+        # Log available attributes for debugging
+        attrs = [a for a in dir(attachment) if not a.startswith('_')]
+        logger.debug("Resume attachment attributes", attrs=attrs[:20])
+
+        # Try various attribute names for filename
+        data["filename"] = (
+            getattr(attachment, "Filename", None)
+            or getattr(attachment, "File_Name", None)
+            or getattr(attachment, "Resume_Filename", None)
+            or getattr(attachment, "Document_Name", None)
+        )
+
+        # Try various attribute names for content type
+        mime_ref = getattr(attachment, "Mime_Type_Reference", None)
+        if mime_ref:
+            data["content_type"] = getattr(mime_ref, "Descriptor", None)
+        if not data.get("content_type"):
+            data["content_type"] = (
+                getattr(attachment, "Content_Type", None)
+                or getattr(attachment, "Mime_Type", None)
+                or "application/octet-stream"
+            )
+
+        # Try to get file content - could be in various places
+        file_content = (
+            getattr(attachment, "File_Content", None)
+            or getattr(attachment, "File", None)
+            or getattr(attachment, "Resume_Content", None)
+            or getattr(attachment, "Content", None)
+        )
+
+        # Check nested Attachment_Data structure
+        attachment_data = getattr(attachment, "Attachment_Data", None)
+        if attachment_data and not file_content:
+            if not data["filename"]:
+                data["filename"] = getattr(attachment_data, "Filename", None)
+            file_content = (
+                getattr(attachment_data, "File_Content", None)
+                or getattr(attachment_data, "File", None)
+            )
+
+        if file_content:
+            try:
+                data["content"] = base64.b64decode(file_content)
+                logger.debug("Decoded resume content", size=len(data["content"]))
+            except Exception as e:
+                logger.error("Failed to decode resume attachment", error=str(e))
+
+        # Mark as resume type
+        data["category"] = "Resume"
+
+        logger.info(
+            "Parsed resume attachment",
+            filename=data.get("filename"),
+            content_type=data.get("content_type"),
+            has_content=("content" in data),
+            content_size=len(data["content"]) if "content" in data else 0,
+        )
+
+        return data if data.get("filename") or data.get("content") else None
+
     async def put_candidate_attachment(
         self,
         candidate_id: str,
@@ -1092,6 +1217,16 @@ class WorkdaySOAPClient:
             or "application/octet-stream"
         )
 
+        # Try to find document category (e.g., "Candidate Resume and Cover Letter")
+        category_ref = getattr(attachment, "Document_Category_Reference", None)
+        if category_ref:
+            data["category"] = getattr(category_ref, "Descriptor", None)
+            # Also check ID for category code
+            for id_item in getattr(category_ref, "ID", None) or []:
+                if getattr(id_item, "type", "") == "Document_Category_ID":
+                    data["category_id"] = getattr(id_item, "_value_1", "")
+                    break
+
         # Check for nested Attachment_Data structure (common in Workday)
         attachment_data = getattr(attachment, "Attachment_Data", None)
         if attachment_data:
@@ -1125,6 +1260,7 @@ class WorkdaySOAPClient:
             "Parsed attachment",
             filename=data.get("filename"),
             content_type=data.get("content_type"),
+            category=data.get("category"),
             has_content=("content" in data),
             content_size=len(data["content"]) if "content" in data else 0,
         )

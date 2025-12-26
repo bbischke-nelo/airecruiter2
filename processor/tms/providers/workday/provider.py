@@ -205,25 +205,82 @@ class WorkdayProvider(TMSProvider):
         self,
         candidate_external_id: str,
     ) -> Optional[tuple[bytes, str, str]]:
-        """Fetch resume for a candidate."""
+        """Fetch resume for a candidate.
+
+        Checks two paths in Workday:
+        1. Candidate attachments via Get_Candidate_Attachments API
+           (looks for category "Candidate Resume and Cover Letter" or resume-like filenames)
+        2. Job application resume attachments via Get_Candidates -> Resume_Attachment_Data
+
+        Returns:
+            Tuple of (content_bytes, filename, content_type) or None if not found
+        """
+        # Path 1: Check candidate-level attachments (Get_Candidate_Attachments)
+        logger.info("Checking candidate attachments for resume", candidate_id=candidate_external_id)
         attachments = await self._client.get_candidate_attachments(candidate_external_id)
 
         for attachment in attachments:
             content = attachment.get("content")
             filename = attachment.get("filename", "resume.pdf")
             content_type = attachment.get("content_type", "application/pdf")
+            category = attachment.get("category", "")
 
-            # Filter for resume-like files
+            # Check by category first (most reliable)
+            if content and self._is_resume_category(category):
+                logger.info(
+                    "Found resume by category",
+                    candidate_id=candidate_external_id,
+                    filename=filename,
+                    category=category,
+                )
+                return content, filename, content_type
+
+            # Fall back to filename/content-type check
             if content and self._is_resume(filename, content_type):
                 logger.info(
-                    "Found resume",
+                    "Found resume by filename",
                     candidate_id=candidate_external_id,
                     filename=filename,
                 )
                 return content, filename, content_type
 
-        logger.warning("No resume found", candidate_id=candidate_external_id)
+        # Path 2: Check job application resume attachments (Resume_Attachment_Data)
+        logger.info("Checking job application resume data", candidate_id=candidate_external_id)
+        resume_attachments = await self._client.get_candidate_resume_from_application(candidate_external_id)
+
+        for attachment in resume_attachments:
+            content = attachment.get("content")
+            filename = attachment.get("filename", "resume.pdf")
+            content_type = attachment.get("content_type", "application/pdf")
+
+            if content:
+                logger.info(
+                    "Found resume in job application",
+                    candidate_id=candidate_external_id,
+                    filename=filename,
+                )
+                return content, filename, content_type
+
+        logger.warning(
+            "No resume found in either path",
+            candidate_id=candidate_external_id,
+            candidate_attachments=len(attachments),
+            application_attachments=len(resume_attachments),
+        )
         return None
+
+    def _is_resume_category(self, category: str) -> bool:
+        """Check if a document category indicates a resume."""
+        if not category:
+            return False
+        category_lower = category.lower()
+        resume_categories = [
+            "resume",
+            "cv",
+            "curriculum vitae",
+            "candidate resume",
+        ]
+        return any(cat in category_lower for cat in resume_categories)
 
     async def upload_attachment(
         self,
