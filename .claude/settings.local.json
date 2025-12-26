@@ -17,7 +17,13 @@
       "Bash(ls:*)",
       "Bash(gemini -p \"You are reviewing a software design document for an AI recruiting application pipeline. Please review this pipeline design and provide feedback on:\n\n1. Are there any gaps in the state machine where applications could get stuck?\n2. Is the atomic transaction approach sufficient for reliability?\n3. Any concerns with the configuration schema \\(global settings + requisition overrides\\)?\n4. Is the stuck detection query sufficient?\n5. Any missing edge cases or error scenarios?\n6. Suggestions for improvement?\n\nPlease be specific and technical in your feedback. If the design looks solid, confirm that and note any minor improvements.\")",
       "Bash(gemini -p \"You previously reviewed this pipeline design and identified 3 critical issues:\n1. ''new'' status trap - FIXED: Added ''new'' to stuck detection query\n2. Zombie jobs - FIXED: Added zombie detection \\(running > 1 hour = crashed worker\\)\n3. Re-sync overwrites - FIXED: Added state-aware sync that protects in-flight apps\n\nPlease review the UPDATED design and:\n1. Confirm the fixes adequately address your concerns\n2. Identify any remaining gaps or edge cases\n3. Specifically review the state machine transitions - are there any states that could become orphaned?\n4. Review the zombie job cleanup SQL - is it correct?\n5. Any other issues before we implement?\n\nBe thorough - we want this bulletproof before coding.\")",
-      "Bash(gemini -p:*)"
+      "Bash(gemini -p:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(python:*)",
+      "WebFetch(domain:support.beamery.com)",
+      "WebFetch(domain:help.gograyscale.com)",
+      "WebFetch(domain:docs.cloud-elements.com)",
+      "Bash(grep:*)"
     ]
   }
 }
