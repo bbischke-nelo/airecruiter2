@@ -6,9 +6,12 @@ from typing import Optional, List
 
 import structlog
 from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from api.config.database import get_db
+from processor.integrations.s3 import S3Service
 from api.middleware.error_handler import NotFoundError
 from api.models import Application, Requisition, Analysis, Interview, Report, Job, ApplicationDecision, Activity
 from api.schemas.applications import (
@@ -588,3 +591,67 @@ async def get_application_facts(
         model_version=analysis.model_version,
         created_at=analysis.created_at,
     )
+
+
+# Download endpoints
+
+class DownloadUrlResponse(BaseModel):
+    url: str
+    filename: str
+
+
+@router.get("/{application_id}/resume/download", response_model=DownloadUrlResponse)
+async def get_resume_download_url(
+    application_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_role(["admin", "recruiter"])),
+):
+    """Get presigned URL to download the resume."""
+    application = db.query(Application).filter(Application.id == application_id).first()
+    if not application:
+        raise NotFoundError("Application", application_id)
+
+    # Parse artifacts to get resume key
+    try:
+        artifacts = json.loads(application.artifacts) if application.artifacts else {}
+    except (json.JSONDecodeError, TypeError):
+        artifacts = {}
+
+    resume_key = artifacts.get("resume")
+    if not resume_key:
+        raise HTTPException(status_code=404, detail="No resume available for this application")
+
+    filename = artifacts.get("resume_filename", "resume.pdf")
+
+    # Generate presigned URL
+    s3 = S3Service()
+    url = await s3.get_presigned_url(resume_key, expires_in=3600)
+
+    return DownloadUrlResponse(url=url, filename=filename)
+
+
+@router.get("/{application_id}/report/download", response_model=DownloadUrlResponse)
+async def get_report_download_url(
+    application_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_role(["admin", "recruiter"])),
+):
+    """Get presigned URL to download the analysis report."""
+    application = db.query(Application).filter(Application.id == application_id).first()
+    if not application:
+        raise NotFoundError("Application", application_id)
+
+    # Get the report
+    report = db.query(Report).filter(Report.application_id == application_id).order_by(Report.created_at.desc()).first()
+    if not report or not report.s3_key:
+        raise HTTPException(status_code=404, detail="No report available for this application")
+
+    # Generate filename
+    safe_name = "".join(c for c in application.candidate_name if c.isalnum() or c in " -_").strip()
+    filename = f"Candidate_Summary_{safe_name}.pdf"
+
+    # Generate presigned URL
+    s3 = S3Service()
+    url = await s3.get_presigned_url(report.s3_key, expires_in=3600)
+
+    return DownloadUrlResponse(url=url, filename=filename)
