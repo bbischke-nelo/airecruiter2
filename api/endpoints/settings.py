@@ -49,7 +49,7 @@ async def get_settings(
         advance_stage_id=get_setting_value(db, "advance_stage_id", "") or None,
         reject_disposition_id=get_setting_value(db, "reject_disposition_id", "") or None,
         # Legacy
-        default_recruiter_id=int(get_setting_value(db, "default_recruiter_id", "0")) or None,
+        default_recruiter_id=int(v) if (v := get_setting_value(db, "default_recruiter_id", "")) and v.isdigit() else None,
     )
 
 
