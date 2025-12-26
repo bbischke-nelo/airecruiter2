@@ -237,7 +237,7 @@ export function ApplicationDrawer({
   });
 
   // Fetch interview data if application has interview
-  const { data: interviewData } = useQuery<{ interview: InterviewData; evaluation: EvaluationData | null }>({
+  const { data: interviewData } = useQuery<{ interview: InterviewData; evaluation: EvaluationData | null } | null>({
     queryKey: ['application-interview', application?.id],
     queryFn: async () => {
       // Get interviews for this application
