@@ -275,8 +275,8 @@ class WorkdaySOAPClient:
             },
             "Response_Group": {
                 "Include_Reference": True,
-                "Include_Candidate_Data": True,  # Includes contact info, job applications
-                "Include_Candidate_Profile_Data": True,  # Includes work history, education, skills
+                # Note: Get_Candidates only supports Include_Reference and Exclude_All_Attachments
+                # Candidate profile data (work history, education, skills) comes from the resume parsing
             },
         }
 
