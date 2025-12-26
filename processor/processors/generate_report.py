@@ -154,10 +154,19 @@ class GenerateReportProcessor(BaseProcessor):
 
             # Extracted facts (no scores!)
             "extracted_facts": extracted_facts,
-            "employment_history": extracted_facts.get("employment", []),
-            "skills": extracted_facts.get("skills", []),
+            "employment_history": extracted_facts.get("employment_history", []),
+            "skills": extracted_facts.get("skills", {}),
             "certifications": extracted_facts.get("certifications", []),
             "education": extracted_facts.get("education", []),
+
+            # Summary stats
+            "summary_stats": extracted_facts.get("summary_stats", {}),
+            "total_experience_months": extracted_facts.get("summary_stats", {}).get("total_experience_months", 0),
+            "recent_5yr_employers_count": extracted_facts.get("summary_stats", {}).get("recent_5yr_employers_count", 0),
+            "recent_5yr_average_tenure_months": extracted_facts.get("summary_stats", {}).get("recent_5yr_average_tenure_months", 0),
+            "most_recent_employer": extracted_facts.get("summary_stats", {}).get("most_recent_employer"),
+            "most_recent_title": extracted_facts.get("summary_stats", {}).get("most_recent_title"),
+            "months_since_last_employment": extracted_facts.get("summary_stats", {}).get("months_since_last_employment", 0),
 
             # JD match analysis
             "jd_matches": extracted_facts.get("jd_keyword_matches", {}).get("found", []),
@@ -327,6 +336,35 @@ class GenerateReportProcessor(BaseProcessor):
     </div>
 """
 
+        # Summary Stats
+        html += f"""
+    <div class="section">
+        <h2>Summary</h2>
+        <table>
+            <tr>
+                <td><strong>Most Recent Position</strong></td>
+                <td>{data.get('most_recent_title') or 'N/A'} at {data.get('most_recent_employer') or 'N/A'}</td>
+            </tr>
+            <tr>
+                <td><strong>Total Experience</strong></td>
+                <td>{round(data.get('total_experience_months', 0) / 12, 1)} years</td>
+            </tr>
+            <tr>
+                <td><strong>Jobs in Last 5 Years</strong></td>
+                <td>{data.get('recent_5yr_employers_count', 0)}</td>
+            </tr>
+            <tr>
+                <td><strong>Avg Tenure (5yr)</strong></td>
+                <td>{round(data.get('recent_5yr_average_tenure_months', 0))} months</td>
+            </tr>
+            <tr>
+                <td><strong>Months Since Last Employment</strong></td>
+                <td>{data.get('months_since_last_employment', 0)}</td>
+            </tr>
+        </table>
+    </div>
+"""
+
         # Employment History
         if data.get('employment_history'):
             html += """
@@ -336,20 +374,27 @@ class GenerateReportProcessor(BaseProcessor):
             <tr><th>Company</th><th>Title</th><th>Duration</th></tr>
 """
             for job in data['employment_history']:
-                company = job.get('company', 'Unknown')
+                employer = job.get('employer', 'Unknown')
                 title = job.get('title', 'Unknown')
-                duration = job.get('duration', 'Unknown')
-                html += f"            <tr><td>{company}</td><td>{title}</td><td>{duration}</td></tr>\n"
+                duration_months = job.get('duration_months', 0)
+                dates = f"{job.get('start_date', '?')} - {job.get('end_date', 'Present') if not job.get('is_current') else 'Present'}"
+                html += f"            <tr><td>{employer}</td><td>{title}</td><td>{duration_months} mo ({dates})</td></tr>\n"
             html += "        </table>\n    </div>\n"
 
         # Skills
-        if data.get('skills'):
+        skills = data.get('skills', {})
+        all_skills = []
+        if isinstance(skills, dict):
+            all_skills = skills.get('technical', []) + skills.get('software', []) + skills.get('industry_specific', [])
+        elif isinstance(skills, list):
+            all_skills = skills
+        if all_skills:
             html += """
     <div class="section">
         <h2>Skills</h2>
         <p>
 """
-            for skill in data['skills']:
+            for skill in all_skills:
                 html += f'            <span class="badge badge-blue">{skill}</span>\n'
             html += "        </p>\n    </div>\n"
 

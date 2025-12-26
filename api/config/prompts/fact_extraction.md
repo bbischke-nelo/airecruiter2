@@ -100,7 +100,7 @@ Return this exact structure:
     "recent_5yr_average_tenure_months": <average tenure at those recent employers only>,
     "most_recent_employer": "<name>",
     "most_recent_title": "<title>",
-    "years_since_last_employment": <if gap to present>
+    "months_since_last_employment": <if gap to present, else 0 if currently employed>
   },
 
   "jd_keyword_matches": {

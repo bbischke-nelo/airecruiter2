@@ -82,8 +82,11 @@ interface ExtractedFacts {
     }>;
     summary_stats?: {
       total_experience_months: number;
-      employers_count: number;
-      average_tenure_months: number;
+      recent_5yr_employers_count: number;
+      recent_5yr_average_tenure_months: number;
+      most_recent_employer: string | null;
+      most_recent_title: string | null;
+      months_since_last_employment: number;
     };
     jd_keyword_matches?: {
       found: string[];
@@ -365,24 +368,46 @@ export function ApplicationDrawer({
 
                     {/* Summary Stats */}
                     {facts.extractedFacts.summary_stats && (
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="p-4 rounded-lg border text-center">
-                          <div className="text-2xl font-bold">
-                            {Math.round(facts.extractedFacts.summary_stats.total_experience_months / 12)}
+                      <div className="space-y-4">
+                        {/* Most Recent Position */}
+                        {facts.extractedFacts.summary_stats.most_recent_employer && (
+                          <div className="p-4 rounded-lg border">
+                            <div className="text-sm text-muted-foreground">Most Recent</div>
+                            <div className="font-medium">
+                              {facts.extractedFacts.summary_stats.most_recent_title || 'Unknown Title'}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {facts.extractedFacts.summary_stats.most_recent_employer}
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground">Years Experience</div>
-                        </div>
-                        <div className="p-4 rounded-lg border text-center">
-                          <div className="text-2xl font-bold">
-                            {facts.extractedFacts.summary_stats.employers_count}
+                        )}
+
+                        {/* Stats Grid */}
+                        <div className="grid grid-cols-4 gap-3">
+                          <div className="p-3 rounded-lg border text-center">
+                            <div className="text-xl font-bold">
+                              {Math.round(facts.extractedFacts.summary_stats.total_experience_months / 12)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Yrs Total Exp</div>
                           </div>
-                          <div className="text-xs text-muted-foreground">Employers</div>
-                        </div>
-                        <div className="p-4 rounded-lg border text-center">
-                          <div className="text-2xl font-bold">
-                            {Math.round(facts.extractedFacts.summary_stats.average_tenure_months)}
+                          <div className="p-3 rounded-lg border text-center">
+                            <div className="text-xl font-bold">
+                              {facts.extractedFacts.summary_stats.recent_5yr_employers_count ?? 0}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Jobs (5yr)</div>
                           </div>
-                          <div className="text-xs text-muted-foreground">Avg Months/Job</div>
+                          <div className="p-3 rounded-lg border text-center">
+                            <div className="text-xl font-bold">
+                              {Math.round(facts.extractedFacts.summary_stats.recent_5yr_average_tenure_months ?? 0)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Avg Mo/Job (5yr)</div>
+                          </div>
+                          <div className="p-3 rounded-lg border text-center">
+                            <div className="text-xl font-bold">
+                              {facts.extractedFacts.summary_stats.months_since_last_employment ?? 0}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Mo Since Last</div>
+                          </div>
                         </div>
                       </div>
                     )}
