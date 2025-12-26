@@ -1196,52 +1196,108 @@ class WorkdaySOAPClient:
             raise WorkdaySOAPError(f"HTTP error moving candidate {application_id}: {e}") from e
 
     def _parse_attachment(self, attachment: Any) -> Dict[str, Any]:
-        """Parse a SOAP attachment response into a dictionary."""
+        """Parse a SOAP attachment response into a dictionary.
+
+        Workday returns attachments in this structure:
+        attachment.Candidate_Attachment_Data.Attachment_Data = {
+            'Filename': 'file.pdf',
+            'File_Content': b'...',  # Already decoded bytes
+            'Mime_Type_Reference': {'ID': [...], 'Descriptor': None}
+        }
+        attachment.Candidate_Attachment_Data.Document_Category_Reference = {
+            'ID': [{'type': 'Document_Category__Workday_Owned__ID', '_value_1': 'RESUME'}]
+        }
+        """
         data = {}
 
         # Log available attributes for debugging
         attrs = [a for a in dir(attachment) if not a.startswith('_')]
-        logger.debug("Attachment attributes", attrs=attrs[:20])  # Limit to first 20
+        logger.debug("Attachment attributes", attrs=attrs[:20])
 
-        # Try to find filename - could be in various places
-        data["filename"] = (
-            getattr(attachment, "Filename", None)
-            or getattr(attachment, "File_Name", None)
-            or getattr(attachment, "Document_Name", None)
-        )
+        # Check for Candidate_Attachment_Data wrapper (Workday's actual structure)
+        cand_att_data = getattr(attachment, "Candidate_Attachment_Data", None)
+        if cand_att_data:
+            # Get Attachment_Data - it's a zeep object (Attachment_WWS_DataType)
+            att_data = getattr(cand_att_data, "Attachment_Data", None)
+            if att_data:
+                # Access as object attributes (zeep objects look like dicts when printed but aren't)
+                data["filename"] = getattr(att_data, "Filename", None)
 
-        # Try to find content type
-        data["content_type"] = (
-            getattr(attachment, "Content_Type", None)
-            or getattr(attachment, "Mime_Type", None)
-            or "application/octet-stream"
-        )
+                # File_Content is already bytes (not base64)
+                file_content = getattr(att_data, "File_Content", None)
+                if file_content:
+                    if isinstance(file_content, bytes):
+                        data["content"] = file_content
+                    else:
+                        # Try base64 decode if it's a string
+                        try:
+                            data["content"] = base64.b64decode(file_content)
+                        except Exception:
+                            data["content"] = file_content.encode() if isinstance(file_content, str) else None
 
-        # Try to find document category (e.g., "Candidate Resume and Cover Letter")
-        category_ref = getattr(attachment, "Document_Category_Reference", None)
-        if category_ref:
-            data["category"] = getattr(category_ref, "Descriptor", None)
-            # Also check ID for category code
-            for id_item in getattr(category_ref, "ID", None) or []:
-                if getattr(id_item, "type", "") == "Document_Category_ID":
-                    data["category_id"] = getattr(id_item, "_value_1", "")
-                    break
+                # Get content type from Mime_Type_Reference
+                mime_ref = getattr(att_data, "Mime_Type_Reference", None)
+                if mime_ref:
+                    for id_item in getattr(mime_ref, "ID", None) or []:
+                        id_type = getattr(id_item, "type", "") if hasattr(id_item, "type") else id_item.get("type", "")
+                        if id_type == "Content_Type_ID":
+                            data["content_type"] = getattr(id_item, "_value_1", "") if hasattr(id_item, "_value_1") else id_item.get("_value_1", "")
+                            break
 
-        # Check for nested Attachment_Data structure (common in Workday)
-        attachment_data = getattr(attachment, "Attachment_Data", None)
-        if attachment_data:
-            logger.debug("Found Attachment_Data, checking for content")
-            if not data["filename"]:
-                data["filename"] = getattr(attachment_data, "Filename", None)
-            file_content = getattr(attachment_data, "File_Content", None) or getattr(attachment_data, "File", None)
-            if file_content:
-                try:
-                    data["content"] = base64.b64decode(file_content)
-                    logger.debug("Decoded content from Attachment_Data", size=len(data["content"]))
-                except Exception as e:
-                    logger.error("Failed to decode attachment from Attachment_Data", error=str(e))
+            # Get Document Category
+            doc_cat_ref = getattr(cand_att_data, "Document_Category_Reference", None)
+            if doc_cat_ref:
+                # Get category from ID list
+                for id_item in getattr(doc_cat_ref, "ID", None) or []:
+                    id_type = getattr(id_item, "type", "") if hasattr(id_item, "type") else id_item.get("type", "")
+                    if "Document_Category" in id_type:
+                        cat_id = getattr(id_item, "_value_1", "") if hasattr(id_item, "_value_1") else id_item.get("_value_1", "")
+                        data["category_id"] = cat_id
+                        # Map common category IDs to readable names
+                        if cat_id:
+                            cat_lower = cat_id.lower()
+                            if "resume" in cat_lower or "cv" in cat_lower:
+                                data["category"] = "Candidate Resume and Cover Letter"
+                            elif "education" in cat_lower:
+                                data["category"] = "Education"
+                            else:
+                                data["category"] = cat_id
+                        break
 
-        # Direct File_Content on attachment (original behavior)
+        # Fallback: Try to find filename directly on attachment
+        if not data.get("filename"):
+            data["filename"] = (
+                getattr(attachment, "Filename", None)
+                or getattr(attachment, "File_Name", None)
+                or getattr(attachment, "Document_Name", None)
+            )
+
+        # Fallback: Try to find content type directly
+        if not data.get("content_type"):
+            data["content_type"] = (
+                getattr(attachment, "Content_Type", None)
+                or getattr(attachment, "Mime_Type", None)
+                or "application/octet-stream"
+            )
+
+        # Fallback: Check for nested Attachment_Data as object (not dict)
+        if "content" not in data:
+            attachment_data = getattr(attachment, "Attachment_Data", None)
+            if attachment_data and not isinstance(attachment_data, dict):
+                logger.debug("Found Attachment_Data as object, checking for content")
+                if not data.get("filename"):
+                    data["filename"] = getattr(attachment_data, "Filename", None)
+                file_content = getattr(attachment_data, "File_Content", None) or getattr(attachment_data, "File", None)
+                if file_content:
+                    if isinstance(file_content, bytes):
+                        data["content"] = file_content
+                    else:
+                        try:
+                            data["content"] = base64.b64decode(file_content)
+                        except Exception as e:
+                            logger.error("Failed to decode attachment from Attachment_Data", error=str(e))
+
+        # Fallback: Direct File_Content on attachment
         if "content" not in data:
             file_content = (
                 getattr(attachment, "File_Content", None)
@@ -1249,11 +1305,13 @@ class WorkdaySOAPClient:
                 or getattr(attachment, "Content", None)
             )
             if file_content:
-                try:
-                    data["content"] = base64.b64decode(file_content)
-                    logger.debug("Decoded content directly", size=len(data["content"]))
-                except Exception as e:
-                    logger.error("Failed to decode attachment", error=str(e), filename=data["filename"])
+                if isinstance(file_content, bytes):
+                    data["content"] = file_content
+                else:
+                    try:
+                        data["content"] = base64.b64decode(file_content)
+                    except Exception as e:
+                        logger.error("Failed to decode attachment", error=str(e), filename=data.get("filename"))
 
         # Log what we found
         logger.info(
