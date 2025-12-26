@@ -52,13 +52,15 @@ def upgrade() -> None:
     )
 
     # Foreign keys to recruiters table
+    # Use NO ACTION to avoid SQL Server "multiple cascade paths" error
+    # (applications table already has FK to recruiters)
     op.create_foreign_key(
         "fk_applications_rejected_by",
         "applications",
         "recruiters",
         ["rejected_by"],
         ["id"],
-        ondelete="SET NULL",
+        ondelete="NO ACTION",
     )
     op.create_foreign_key(
         "fk_applications_advanced_by",
@@ -66,7 +68,7 @@ def upgrade() -> None:
         "recruiters",
         ["advanced_by"],
         ["id"],
-        ondelete="SET NULL",
+        ondelete="NO ACTION",
     )
 
 
