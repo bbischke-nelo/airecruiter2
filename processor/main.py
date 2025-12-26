@@ -21,6 +21,12 @@ logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
 )
 
+# Suppress verbose logging from PDF generation libraries
+logging.getLogger("fontTools").setLevel(logging.WARNING)
+logging.getLogger("weasyprint").setLevel(logging.WARNING)
+logging.getLogger("fontTools.subset").setLevel(logging.WARNING)
+logging.getLogger("fontTools.ttLib").setLevel(logging.WARNING)
+
 # Configure structured logging
 structlog.configure(
     processors=[
