@@ -348,19 +348,19 @@ class GenerateReportProcessor(BaseProcessor):
             </tr>
             <tr>
                 <td><strong>Total Experience</strong></td>
-                <td>{round(data.get('total_experience_months', 0) / 12, 1)} years</td>
+                <td>{round((data.get('total_experience_months') or 0) / 12, 1)} years</td>
             </tr>
             <tr>
                 <td><strong>Jobs in Last 5 Years</strong></td>
-                <td>{data.get('recent_5yr_employers_count', 0)}</td>
+                <td>{data.get('recent_5yr_employers_count') or 0}</td>
             </tr>
             <tr>
                 <td><strong>Avg Tenure (5yr)</strong></td>
-                <td>{round(data.get('recent_5yr_average_tenure_months', 0))} months</td>
+                <td>{round(data.get('recent_5yr_average_tenure_months') or 0)} months</td>
             </tr>
             <tr>
                 <td><strong>Months Since Last Employment</strong></td>
-                <td>{data.get('months_since_last_employment', 0)}</td>
+                <td>{data.get('months_since_last_employment') or 0}</td>
             </tr>
         </table>
     </div>
