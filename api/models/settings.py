@@ -37,12 +37,21 @@ class Setting(Base):
 
 # Default settings to seed
 DEFAULT_SETTINGS = {
-    "lookback_hours_min": ("1", "Minimum hours to look back for sync"),
-    "lookback_hours_max": ("48", "Maximum hours to look back for sync"),
-    "lookback_hours_default": ("24", "Default hours to look back for sync"),
-    "default_recruiter_id": ("", "Default recruiter ID for new requisitions"),
+    # Email settings
     "email_from_address": ("noreply@company.com", "Email sender address"),
     "email_from_name": ("AIRecruiter", "Email sender name"),
+
+    # Storage settings
     "s3_bucket": ("airecruiter-artifacts", "S3 bucket for artifacts"),
+
+    # Interview settings
     "interview_token_expiry_days": ("7", "Days until interview token expires"),
+
+    # Global requisition defaults (NULL on requisition = use these)
+    "auto_send_interview_default": ("false", "Default: auto-send AI interviews (true/false)"),
+    "advance_stage_id": ("", "Workday stage ID to move candidates to when advanced"),
+    "reject_disposition_id": ("", "Workday disposition ID to use when rejecting candidates"),
+
+    # Legacy (kept for backwards compatibility)
+    "default_recruiter_id": ("", "Default recruiter ID for new requisitions"),
 }

@@ -23,7 +23,8 @@ class RequisitionCreate(RequisitionBase):
     is_active: bool = True
     sync_interval_minutes: int = 15
     interview_instructions: Optional[str] = None
-    auto_send_interview: bool = False
+    # 3-state: None = use global default, True = always send, False = never send
+    auto_send_interview: Optional[bool] = None
     auto_send_on_status: Optional[str] = None
 
 
@@ -55,7 +56,8 @@ class RequisitionResponse(CamelModel):
     is_active: bool
     sync_interval_minutes: int
     interview_instructions: Optional[str] = None
-    auto_send_interview: bool
+    # 3-state: None = use global default, True = always send, False = never send
+    auto_send_interview: Optional[bool] = None
     auto_send_on_status: Optional[str] = None
     last_synced_at: Optional[datetime] = None
     external_data: Optional[dict[str, Any]] = None
@@ -73,7 +75,8 @@ class RequisitionListItem(CamelModel):
     recruiter_id: Optional[int] = None
     recruiter_name: Optional[str] = None
     is_active: bool
-    auto_send_interview: bool
+    # 3-state: None = use global default, True = always send, False = never send
+    auto_send_interview: Optional[bool] = None
     application_count: int = 0
     pending_count: int = 0
     last_synced_at: Optional[datetime] = None

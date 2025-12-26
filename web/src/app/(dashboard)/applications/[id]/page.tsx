@@ -394,8 +394,18 @@ function TimelineItem({
 function getStatusIcon(status: string) {
   switch (status) {
     case 'new':
+    case 'downloading':
+    case 'downloaded':
       return <Clock className="h-5 w-5 text-blue-500" />;
+    case 'no_resume':
+      return <AlertCircle className="h-5 w-5 text-orange-500" />;
+    case 'extracting':
+    case 'extracted':
+      return <FileText className="h-5 w-5 text-indigo-500" />;
+    case 'extraction_failed':
+      return <AlertCircle className="h-5 w-5 text-red-500" />;
     case 'analyzed':
+    case 'ready_for_review':
       return <FileText className="h-5 w-5 text-purple-500" />;
     case 'interview_pending':
       return <Mail className="h-5 w-5 text-yellow-500" />;
@@ -411,7 +421,14 @@ function getStatusIcon(status: string) {
 function getStatusBorderColor(status: string): string {
   const colors: Record<string, string> = {
     new: 'border-l-blue-500',
+    downloading: 'border-l-blue-500',
+    downloaded: 'border-l-blue-500',
+    no_resume: 'border-l-orange-500',
+    extracting: 'border-l-indigo-500',
+    extracted: 'border-l-indigo-500',
+    extraction_failed: 'border-l-red-500',
     analyzed: 'border-l-purple-500',
+    ready_for_review: 'border-l-purple-500',
     interview_pending: 'border-l-yellow-500',
     interview_complete: 'border-l-green-500',
     complete: 'border-l-gray-500',

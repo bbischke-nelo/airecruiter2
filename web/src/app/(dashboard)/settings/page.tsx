@@ -1,10 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { MessageSquare, Users, Mail, FileText } from 'lucide-react';
+import { MessageSquare, Users, Mail, FileText, Settings2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 const settingsPages = [
+  {
+    title: 'Requisition Defaults',
+    description: 'Global settings for AI interviews and Workday mappings',
+    href: '/settings/defaults',
+    icon: Settings2,
+  },
   {
     title: 'AI Prompts',
     description: 'Customize analysis and evaluation prompts',

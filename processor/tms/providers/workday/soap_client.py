@@ -275,6 +275,8 @@ class WorkdaySOAPClient:
             },
             "Response_Group": {
                 "Include_Reference": True,
+                "Include_Candidate_Data": True,  # Includes contact info, job applications
+                "Include_Candidate_Profile_Data": True,  # Includes work history, education, skills
             },
         }
 
@@ -493,70 +495,101 @@ class WorkdaySOAPClient:
                 if source_data:
                     data["application_source"] = getattr(source_data, "Source", None)
 
-        # Extract work history (Employment_History) if available
+        # Extract work history, education, skills from Candidate_Data or Candidate_Profile_Data
+        # The data can be in different locations depending on Workday configuration
+        profile_sources = []
         if hasattr(candidate, "Candidate_Data") and candidate.Candidate_Data:
-            cd = candidate.Candidate_Data
+            profile_sources.append(candidate.Candidate_Data)
+        if hasattr(candidate, "Candidate_Profile_Data") and candidate.Candidate_Profile_Data:
+            profile_sources.append(candidate.Candidate_Profile_Data)
+        if hasattr(candidate, "Profile_Data") and candidate.Profile_Data:
+            profile_sources.append(candidate.Profile_Data)
 
-            # Work history
-            work_history = []
-            emp_history = getattr(cd, "Employment_History", None) or getattr(cd, "Employment_History_Data", None)
-            if emp_history:
-                if not isinstance(emp_history, list):
-                    emp_history = [emp_history]
-                for job in emp_history[:10]:  # Limit to 10 entries
-                    job_entry = {}
-                    job_entry["company"] = getattr(job, "Company_Name", None) or getattr(job, "Employer_Name", None)
-                    job_entry["title"] = getattr(job, "Job_Title", None) or getattr(job, "Position_Title", None)
-                    start = getattr(job, "Start_Date", None)
-                    end = getattr(job, "End_Date", None)
-                    if start:
-                        job_entry["start_date"] = start.isoformat() if hasattr(start, "isoformat") else str(start)
-                    if end:
-                        job_entry["end_date"] = end.isoformat() if hasattr(end, "isoformat") else str(end)
-                    job_entry["description"] = getattr(job, "Job_Description", None) or getattr(job, "Responsibilities", None)
-                    if job_entry.get("company") or job_entry.get("title"):
-                        work_history.append(job_entry)
-            if work_history:
-                data["work_history"] = work_history
+        work_history = []
+        education = []
+        skills = []
+
+        for cd in profile_sources:
+            # Work history - check multiple possible field names
+            if not work_history:
+                emp_history = (
+                    getattr(cd, "Employment_History", None) or
+                    getattr(cd, "Employment_History_Data", None) or
+                    getattr(cd, "Work_Experience_Data", None) or
+                    getattr(cd, "Job_History_Data", None)
+                )
+                if emp_history:
+                    if not isinstance(emp_history, list):
+                        emp_history = [emp_history]
+                    for job in emp_history[:10]:  # Limit to 10 entries
+                        job_entry = {}
+                        job_entry["company"] = getattr(job, "Company_Name", None) or getattr(job, "Employer_Name", None) or getattr(job, "Company", None)
+                        job_entry["title"] = getattr(job, "Job_Title", None) or getattr(job, "Position_Title", None) or getattr(job, "Title", None)
+                        start = getattr(job, "Start_Date", None)
+                        end = getattr(job, "End_Date", None)
+                        if start:
+                            job_entry["start_date"] = start.isoformat() if hasattr(start, "isoformat") else str(start)
+                        if end:
+                            job_entry["end_date"] = end.isoformat() if hasattr(end, "isoformat") else str(end)
+                        job_entry["description"] = getattr(job, "Job_Description", None) or getattr(job, "Responsibilities", None) or getattr(job, "Description", None)
+                        if job_entry.get("company") or job_entry.get("title"):
+                            work_history.append(job_entry)
 
             # Education history
-            education = []
-            edu_history = getattr(cd, "Education_History", None) or getattr(cd, "Education_Data", None)
-            if edu_history:
-                if not isinstance(edu_history, list):
-                    edu_history = [edu_history]
-                for edu in edu_history[:5]:  # Limit to 5 entries
-                    edu_entry = {}
-                    edu_entry["school"] = getattr(edu, "School_Name", None) or getattr(edu, "School", None)
-                    edu_entry["degree"] = getattr(edu, "Degree", None)
-                    degree_ref = getattr(edu, "Degree_Reference", None)
-                    if degree_ref and not edu_entry.get("degree"):
-                        edu_entry["degree"] = getattr(degree_ref, "Descriptor", None)
-                    edu_entry["field"] = getattr(edu, "Field_of_Study", None) or getattr(edu, "Major", None)
-                    grad_date = getattr(edu, "Graduation_Date", None) or getattr(edu, "End_Date", None)
-                    if grad_date:
-                        edu_entry["graduation_date"] = grad_date.isoformat() if hasattr(grad_date, "isoformat") else str(grad_date)
-                    if edu_entry.get("school") or edu_entry.get("degree"):
-                        education.append(edu_entry)
-            if education:
-                data["education"] = education
+            if not education:
+                edu_history = (
+                    getattr(cd, "Education_History", None) or
+                    getattr(cd, "Education_Data", None) or
+                    getattr(cd, "Education", None)
+                )
+                if edu_history:
+                    if not isinstance(edu_history, list):
+                        edu_history = [edu_history]
+                    for edu in edu_history[:5]:  # Limit to 5 entries
+                        edu_entry = {}
+                        edu_entry["school"] = getattr(edu, "School_Name", None) or getattr(edu, "School", None) or getattr(edu, "Institution", None)
+                        edu_entry["degree"] = getattr(edu, "Degree", None) or getattr(edu, "Degree_Name", None)
+                        degree_ref = getattr(edu, "Degree_Reference", None)
+                        if degree_ref and not edu_entry.get("degree"):
+                            edu_entry["degree"] = getattr(degree_ref, "Descriptor", None)
+                        edu_entry["field"] = getattr(edu, "Field_of_Study", None) or getattr(edu, "Major", None) or getattr(edu, "Area_of_Study", None)
+                        grad_date = getattr(edu, "Graduation_Date", None) or getattr(edu, "End_Date", None) or getattr(edu, "Completion_Date", None)
+                        if grad_date:
+                            edu_entry["graduation_date"] = grad_date.isoformat() if hasattr(grad_date, "isoformat") else str(grad_date)
+                        if edu_entry.get("school") or edu_entry.get("degree"):
+                            education.append(edu_entry)
 
             # Skills
-            skills = []
-            skills_data = getattr(cd, "Skills_Data", None) or getattr(cd, "Skill_Data", None)
-            if skills_data:
-                if not isinstance(skills_data, list):
-                    skills_data = [skills_data]
-                for skill in skills_data[:20]:  # Limit to 20 skills
-                    skill_name = getattr(skill, "Skill_Name", None) or getattr(skill, "Skill", None)
-                    if not skill_name:
-                        skill_ref = getattr(skill, "Skill_Reference", None)
-                        if skill_ref:
-                            skill_name = getattr(skill_ref, "Descriptor", None)
-                    if skill_name:
-                        skills.append(skill_name)
-            if skills:
-                data["skills"] = skills
+            if not skills:
+                skills_data = (
+                    getattr(cd, "Skills_Data", None) or
+                    getattr(cd, "Skill_Data", None) or
+                    getattr(cd, "Skills", None) or
+                    getattr(cd, "Competency_Data", None)
+                )
+                if skills_data:
+                    if not isinstance(skills_data, list):
+                        skills_data = [skills_data]
+                    for skill in skills_data[:20]:  # Limit to 20 skills
+                        skill_name = (
+                            getattr(skill, "Skill_Name", None) or
+                            getattr(skill, "Skill", None) or
+                            getattr(skill, "Name", None) or
+                            getattr(skill, "Competency_Name", None)
+                        )
+                        if not skill_name:
+                            skill_ref = getattr(skill, "Skill_Reference", None) or getattr(skill, "Competency_Reference", None)
+                            if skill_ref:
+                                skill_name = getattr(skill_ref, "Descriptor", None)
+                        if skill_name:
+                            skills.append(skill_name)
+
+        if work_history:
+            data["work_history"] = work_history
+        if education:
+            data["education"] = education
+        if skills:
+            data["skills"] = skills
 
         # If we don't have a candidate ID, skip this record
         if "external_candidate_id" not in data:

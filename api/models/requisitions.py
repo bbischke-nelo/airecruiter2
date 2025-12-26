@@ -31,9 +31,10 @@ class Requisition(Base):
     sync_enabled = Column(Boolean, default=True)  # Whether to sync this requisition
     sync_interval_minutes = Column(Integer, default=15)  # Minutes between sync checks
 
-    # Interview config (legacy)
+    # Interview config
     interview_instructions = Column(Text, nullable=True)  # Extra prompts for AI
-    auto_send_interview = Column(Boolean, default=False)
+    # auto_send_interview: NULL = use global default, True = always send, False = never send
+    auto_send_interview = Column(Boolean, nullable=True, default=None)
     auto_send_on_status = Column(String(100), nullable=True)  # Only send when candidate reaches this status
 
     # Human-in-the-Loop interview config (NULL = use global)

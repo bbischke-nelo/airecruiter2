@@ -21,7 +21,6 @@ class ProcessorSettings(BaseSettings):
     # Scheduler
     SCHEDULER_INTERVAL: int = 60  # Seconds between checks
     SCHEDULER_ENABLED: bool = True
-    LOOKBACK_HOURS_DEFAULT: int = 24  # How far back to look for new applications
 
     # Queue/Worker
     QUEUE_MAX_CONCURRENCY: int = 3  # Parallel job limit

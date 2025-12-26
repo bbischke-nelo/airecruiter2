@@ -19,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { formatDateTime, formatRelativeTime } from '@/lib/utils';
 import { Requisition, Application } from '@/types';
@@ -204,7 +205,13 @@ export default function RequisitionDetailPage() {
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Auto-send interviews</span>
-                  <span>{requisition.autoSendInterview ? 'Yes' : 'No'}</span>
+                  <span>
+                    {requisition.autoSendInterview === null
+                      ? 'Use Global Default'
+                      : requisition.autoSendInterview
+                        ? 'Always'
+                        : 'Never'}
+                  </span>
                 </div>
                 {requisition.autoSendOnStatus && (
                   <div className="flex justify-between">
@@ -212,10 +219,6 @@ export default function RequisitionDetailPage() {
                     <span>{requisition.autoSendOnStatus}</span>
                   </div>
                 )}
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Lookback hours</span>
-                  <span>{requisition.lookbackHours || 'Default'}</span>
-                </div>
               </CardContent>
             </Card>
           </div>
@@ -295,21 +298,33 @@ export default function RequisitionDetailPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Auto-send Interviews</label>
-              <div className="flex items-center gap-2 mt-1">
-                <input
-                  type="checkbox"
-                  checked={formData.autoSendInterview || false}
-                  onChange={(e) =>
-                    setFormData({ ...formData, autoSendInterview: e.target.checked })
-                  }
-                  disabled={!isEditing}
-                  className="h-4 w-4"
-                />
-                <span className="text-sm text-muted-foreground">
-                  Automatically send interview invites when candidates reach trigger status
-                </span>
-              </div>
+              <label className="text-sm font-medium">Auto-send AI Interviews</label>
+              <Select
+                value={
+                  formData.autoSendInterview === null || formData.autoSendInterview === undefined
+                    ? 'default'
+                    : formData.autoSendInterview
+                      ? 'always'
+                      : 'never'
+                }
+                onValueChange={(value) => {
+                  const newValue = value === 'default' ? null : value === 'always';
+                  setFormData({ ...formData, autoSendInterview: newValue });
+                }}
+                disabled={!isEditing}
+              >
+                <SelectTrigger className="mt-1 w-full max-w-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Use Global Default</SelectItem>
+                  <SelectItem value="always">Always Send</SelectItem>
+                  <SelectItem value="never">Never Send</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground mt-1">
+                Control whether AI interviews are automatically sent after candidate analysis
+              </p>
             </div>
 
             <div>
@@ -317,26 +332,15 @@ export default function RequisitionDetailPage() {
               <Input
                 value={formData.autoSendOnStatus || ''}
                 onChange={(e) =>
-                  setFormData({ ...formData, autoSendOnStatus: e.target.value })
+                  setFormData({ ...formData, autoSendOnStatus: e.target.value || null })
                 }
                 disabled={!isEditing}
                 placeholder="e.g., Screen"
                 className="mt-1"
               />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Lookback Hours</label>
-              <Input
-                type="number"
-                value={formData.lookbackHours || ''}
-                onChange={(e) =>
-                  setFormData({ ...formData, lookbackHours: parseInt(e.target.value) || undefined })
-                }
-                disabled={!isEditing}
-                placeholder="Default: 24"
-                className="mt-1"
-              />
+              <p className="text-sm text-muted-foreground mt-1">
+                Only send interviews when candidate is in this Workday status (leave empty for any status)
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -348,7 +352,14 @@ export default function RequisitionDetailPage() {
 function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
     new: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    downloading: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    downloaded: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    no_resume: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+    extracting: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+    extracted: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+    extraction_failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
     analyzed: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+    ready_for_review: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
     interview_pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
     interview_complete: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
     complete: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',

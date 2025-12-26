@@ -22,9 +22,9 @@ export interface Requisition {
   department: string | null;
   isActive: boolean;
   syncEnabled: boolean;
-  autoSendInterview: boolean;
+  // 3-state: null = use global default, true = always send, false = never send
+  autoSendInterview: boolean | null;
   autoSendOnStatus: string | null;
-  lookbackHours: number;
   recruiterId: number | null;
   applicationCount: number;
   lastSyncedAt: string | null;
@@ -52,7 +52,14 @@ export interface Application {
 
 export type ApplicationStatus =
   | 'new'
-  | 'analyzed'
+  | 'downloading'
+  | 'downloaded'
+  | 'no_resume'
+  | 'extracting'
+  | 'extracted'
+  | 'extraction_failed'
+  | 'analyzed'  // Legacy - transitioning to ready_for_review
+  | 'ready_for_review'
   | 'interview_pending'
   | 'interview_complete'
   | 'report_pending'

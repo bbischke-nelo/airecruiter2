@@ -91,7 +91,7 @@ async def list_requisitions(
             recruiter_id=r.recruiter_id,
             recruiter_name=recruiters.get(r.recruiter_id),
             is_active=bool(r.is_active),
-            auto_send_interview=bool(r.auto_send_interview) if r.auto_send_interview is not None else False,
+            auto_send_interview=r.auto_send_interview,  # 3-state: None = use global
             application_count=app_counts.get(r.id, 0),
             pending_count=pending_counts.get(r.id, 0),
             last_synced_at=r.last_synced_at,
@@ -133,7 +133,7 @@ async def get_requisition(
         is_active=bool(requisition.is_active),
         sync_interval_minutes=requisition.sync_interval_minutes,
         interview_instructions=requisition.interview_instructions,
-        auto_send_interview=bool(requisition.auto_send_interview) if requisition.auto_send_interview is not None else False,
+        auto_send_interview=requisition.auto_send_interview,  # 3-state: None = use global
         auto_send_on_status=requisition.auto_send_on_status,
         last_synced_at=requisition.last_synced_at,
         external_data=json.loads(requisition.external_data) if requisition.external_data else None,

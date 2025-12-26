@@ -8,22 +8,36 @@ from .base import CamelModel
 class SettingsResponse(CamelModel):
     """Schema for all settings response."""
 
-    lookback_hours_default: int = 24
-    lookback_hours_min: int = 1
-    lookback_hours_max: int = 168
-    interview_token_expiry_days: int = 7
+    # Email settings
     email_from_address: str = "noreply@company.com"
     email_from_name: str = "AIRecruiter"
+
+    # Interview settings
+    interview_token_expiry_days: int = 7
+
+    # Global requisition defaults (used when requisition field is NULL)
+    auto_send_interview_default: bool = False
+    advance_stage_id: Optional[str] = None
+    reject_disposition_id: Optional[str] = None
+
+    # Legacy
     default_recruiter_id: Optional[int] = None
 
 
 class SettingsUpdate(CamelModel):
     """Schema for updating settings (all fields optional)."""
 
-    lookback_hours_default: Optional[int] = None
-    lookback_hours_min: Optional[int] = None
-    lookback_hours_max: Optional[int] = None
-    interview_token_expiry_days: Optional[int] = None
+    # Email settings
     email_from_address: Optional[str] = None
     email_from_name: Optional[str] = None
+
+    # Interview settings
+    interview_token_expiry_days: Optional[int] = None
+
+    # Global requisition defaults
+    auto_send_interview_default: Optional[bool] = None
+    advance_stage_id: Optional[str] = None
+    reject_disposition_id: Optional[str] = None
+
+    # Legacy
     default_recruiter_id: Optional[int] = None

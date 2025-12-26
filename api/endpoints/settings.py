@@ -39,12 +39,16 @@ async def get_settings(
 ):
     """Get all system settings."""
     return SettingsResponse(
-        lookback_hours_default=int(get_setting_value(db, "lookback_hours_default", "24")),
-        lookback_hours_min=int(get_setting_value(db, "lookback_hours_min", "1")),
-        lookback_hours_max=int(get_setting_value(db, "lookback_hours_max", "168")),
-        interview_token_expiry_days=int(get_setting_value(db, "interview_token_expiry_days", "7")),
+        # Email settings
         email_from_address=get_setting_value(db, "email_from_address", "noreply@company.com"),
         email_from_name=get_setting_value(db, "email_from_name", "AIRecruiter"),
+        # Interview settings
+        interview_token_expiry_days=int(get_setting_value(db, "interview_token_expiry_days", "7")),
+        # Global requisition defaults
+        auto_send_interview_default=get_setting_value(db, "auto_send_interview_default", "false").lower() == "true",
+        advance_stage_id=get_setting_value(db, "advance_stage_id", "") or None,
+        reject_disposition_id=get_setting_value(db, "reject_disposition_id", "") or None,
+        # Legacy
         default_recruiter_id=int(get_setting_value(db, "default_recruiter_id", "0")) or None,
     )
 

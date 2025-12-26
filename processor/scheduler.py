@@ -27,7 +27,6 @@ class Scheduler:
         self.queue = QueueManager(db)
         self.running = False
         self.interval = settings.SCHEDULER_INTERVAL
-        self.lookback_hours = settings.LOOKBACK_HOURS_DEFAULT
         self.last_run: Optional[datetime] = None
 
     async def run(self) -> None:
@@ -36,7 +35,6 @@ class Scheduler:
         logger.info(
             "Scheduler started",
             interval=self.interval,
-            lookback_hours=self.lookback_hours,
         )
 
         while self.running:
@@ -61,10 +59,11 @@ class Scheduler:
         # 1. Check for active requisitions that need syncing
         await self._queue_sync_jobs()
 
-        # 2. Check for applications needing analysis
-        await self._queue_analysis_jobs()
+        # 2. Check for applications stuck in intermediate pipeline states
+        # Pipeline: new → download_resume → downloaded → extract_facts → extracted → generate_report → ready_for_review
+        await self._queue_stuck_jobs()
 
-        # 3. Check for analyzed applications ready for interview (auto-send)
+        # 3. Check for ready_for_review applications ready for interview (auto-send)
         await self._queue_interview_jobs()
 
         # 4. Check for completed interviews needing evaluation
@@ -75,15 +74,16 @@ class Scheduler:
 
     async def _queue_sync_jobs(self) -> None:
         """Queue sync jobs for active requisitions."""
-        # Get active requisitions that haven't been synced recently
-        lookback = datetime.now(timezone.utc) - timedelta(hours=self.lookback_hours)
-
+        # Get active requisitions that need syncing based on their sync_interval_minutes
         query = text("""
             SELECT r.id, r.external_id, r.name
             FROM requisitions r
             WHERE r.is_active = 1
               AND r.sync_enabled = 1
-              AND (r.last_synced_at IS NULL OR r.last_synced_at < :lookback)
+              AND (
+                  r.last_synced_at IS NULL
+                  OR DATEDIFF(MINUTE, r.last_synced_at, GETUTCDATE()) >= r.sync_interval_minutes
+              )
               AND NOT EXISTS (
                   SELECT 1 FROM jobs j
                   WHERE j.requisition_id = r.id
@@ -92,7 +92,7 @@ class Scheduler:
               )
         """)
 
-        result = self.db.execute(query, {"lookback": lookback})
+        result = self.db.execute(query)
         rows = result.fetchall()  # Must fetch all before executing another query
 
         for row in rows:
@@ -103,40 +103,141 @@ class Scheduler:
             )
             logger.info("Queued sync job", requisition_id=row.id, requisition_name=row.name)
 
-    async def _queue_analysis_jobs(self) -> None:
-        """Queue analysis jobs for new applications."""
+    async def _queue_stuck_jobs(self) -> None:
+        """Queue jobs for applications that are stuck in intermediate states.
+
+        This catches applications that missed their next job due to failures.
+        The primary flow is: sync → download_resume → extract_facts → generate_report → ready_for_review
+        """
+        # Applications stuck in 'new' status without a pending download_resume job
+        # (sync should have queued this, but may have failed)
         query = text("""
-            SELECT a.id, a.candidate_name
+            SELECT a.id, a.candidate_name, a.status
             FROM applications a
             WHERE a.status = 'new'
-              AND a.artifacts IS NOT NULL
               AND NOT EXISTS (
                   SELECT 1 FROM jobs j
                   WHERE j.application_id = a.id
-                    AND j.job_type = 'analyze'
+                    AND j.job_type = 'download_resume'
                     AND j.status IN ('pending', 'running')
               )
         """)
 
         result = self.db.execute(query)
-        rows = result.fetchall()  # Must fetch all before executing another query
+        rows = result.fetchall()
 
         for row in rows:
             self.queue.enqueue(
-                job_type="analyze",
+                job_type="download_resume",
                 application_id=row.id,
                 priority=0,
             )
-            logger.info("Queued analysis job", application_id=row.id, candidate=row.candidate_name)
+            logger.info("Queued download_resume for stuck new app", application_id=row.id, candidate=row.candidate_name)
+
+        # Applications stuck in 'downloaded' or 'no_resume' without extract_facts job
+        query = text("""
+            SELECT a.id, a.candidate_name, a.status
+            FROM applications a
+            WHERE a.status IN ('downloaded', 'no_resume')
+              AND NOT EXISTS (
+                  SELECT 1 FROM jobs j
+                  WHERE j.application_id = a.id
+                    AND j.job_type = 'extract_facts'
+                    AND j.status IN ('pending', 'running')
+              )
+        """)
+
+        result = self.db.execute(query)
+        rows = result.fetchall()
+
+        for row in rows:
+            self.queue.enqueue(
+                job_type="extract_facts",
+                application_id=row.id,
+                priority=0,
+            )
+            logger.info("Queued extract_facts for stuck app", application_id=row.id, status=row.status, candidate=row.candidate_name)
+
+        # Applications stuck in 'extracted' or 'extraction_failed' without generate_report job
+        query = text("""
+            SELECT a.id, a.candidate_name, a.status
+            FROM applications a
+            WHERE a.status IN ('extracted', 'extraction_failed')
+              AND NOT EXISTS (
+                  SELECT 1 FROM jobs j
+                  WHERE j.application_id = a.id
+                    AND j.job_type = 'generate_report'
+                    AND j.status IN ('pending', 'running')
+              )
+        """)
+
+        result = self.db.execute(query)
+        rows = result.fetchall()
+
+        for row in rows:
+            self.queue.enqueue(
+                job_type="generate_report",
+                application_id=row.id,
+                priority=0,
+            )
+            logger.info("Queued generate_report for stuck app", application_id=row.id, status=row.status, candidate=row.candidate_name)
+
+        # Handle legacy 'analyzed' status from old pipeline - transition to new pipeline
+        # These apps already have analysis, so queue generate_report to create summary and move to ready_for_review
+        query = text("""
+            SELECT a.id, a.candidate_name
+            FROM applications a
+            WHERE a.status = 'analyzed'
+              AND NOT EXISTS (
+                  SELECT 1 FROM jobs j
+                  WHERE j.application_id = a.id
+                    AND j.job_type = 'generate_report'
+                    AND j.status IN ('pending', 'running')
+              )
+        """)
+
+        result = self.db.execute(query)
+        rows = result.fetchall()
+
+        for row in rows:
+            self.queue.enqueue(
+                job_type="generate_report",
+                application_id=row.id,
+                priority=0,
+            )
+            logger.info("Queued generate_report for legacy analyzed app", application_id=row.id, candidate=row.candidate_name)
 
     async def _queue_interview_jobs(self) -> None:
-        """Queue interview send jobs for analyzed applications with auto-send enabled."""
+        """Queue interview send jobs for ready_for_review applications with auto-send enabled.
+
+        Uses 3-state logic for auto_send_interview:
+        - True (1): Always auto-send for this requisition
+        - False (0): Never auto-send for this requisition
+        - NULL: Use global default (auto_send_interview_default setting)
+
+        Note: In HITL mode, auto-send is typically disabled (default=false).
+        Humans review candidates and manually trigger interviews from the UI.
+        """
+        # First get the global default setting
+        global_default_query = text("""
+            SELECT value FROM settings WHERE [key] = 'auto_send_interview_default'
+        """)
+        result = self.db.execute(global_default_query)
+        row = result.fetchone()
+        global_default = row.value.lower() == 'true' if row else False
+
+        # Query applications where auto-send should happen:
+        # - requisition.auto_send_interview = 1, OR
+        # - requisition.auto_send_interview IS NULL AND global_default = true
         query = text("""
             SELECT a.id, a.candidate_name, r.name as requisition_name
             FROM applications a
             JOIN requisitions r ON a.requisition_id = r.id
-            WHERE a.status = 'analyzed'
-              AND r.auto_send_interview = 1
+            WHERE a.status = 'ready_for_review'
+              AND (
+                  r.auto_send_interview = 1
+                  OR (r.auto_send_interview IS NULL AND :global_default = 1)
+              )
               AND (
                   r.auto_send_on_status IS NULL
                   OR a.workday_status = r.auto_send_on_status
@@ -152,7 +253,7 @@ class Scheduler:
               )
         """)
 
-        result = self.db.execute(query)
+        result = self.db.execute(query, {"global_default": 1 if global_default else 0})
         rows = result.fetchall()  # Must fetch all before executing another query
 
         for row in rows:
@@ -242,6 +343,5 @@ class Scheduler:
         return {
             "running": self.running,
             "interval": self.interval,
-            "lookback_hours": self.lookback_hours,
             "last_run": self.last_run.isoformat() if self.last_run else None,
         }
