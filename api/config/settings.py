@@ -54,7 +54,7 @@ class Settings(BaseSettings):
 
     # Claude AI
     ANTHROPIC_API_KEY: str = ""
-    CLAUDE_MODEL: str = "claude-sonnet-4-20250514"
+    CLAUDE_MODEL: str = "claude-sonnet-4-5-20250929"
 
     # AWS S3
     S3_BUCKET: str = "airecruiter-artifacts"

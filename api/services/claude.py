@@ -20,8 +20,8 @@ class ClaudeClient:
     def __init__(self):
         """Initialize Claude client with async support."""
         self.client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
-        self.model = getattr(settings, "CLAUDE_MODEL", "claude-sonnet-4-20250514")
-        self.max_tokens = getattr(settings, "CLAUDE_MAX_TOKENS", 4096)
+        self.model = getattr(settings, "CLAUDE_MODEL", "claude-sonnet-4-5-20250929")
+        self.max_tokens = getattr(settings, "CLAUDE_MAX_TOKENS", 16384)
 
     async def generate_interview_response(
         self,

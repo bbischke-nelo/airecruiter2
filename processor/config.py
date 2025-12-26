@@ -40,8 +40,8 @@ class ProcessorSettings(BaseSettings):
 
     # Claude AI
     ANTHROPIC_API_KEY: Optional[str] = None
-    CLAUDE_MODEL: str = "claude-sonnet-4-20250514"
-    CLAUDE_MAX_TOKENS: int = 4096
+    CLAUDE_MODEL: str = "claude-sonnet-4-5-20250929"
+    CLAUDE_MAX_TOKENS: int = 16384
 
     # S3
     S3_BUCKET: str = "airecruiter-artifacts"
