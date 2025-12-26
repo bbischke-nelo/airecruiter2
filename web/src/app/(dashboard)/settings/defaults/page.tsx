@@ -133,12 +133,12 @@ export default function DefaultsSettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Workday Stage Mapping */}
+      {/* Stage Mapping */}
       <Card>
         <CardHeader>
-          <CardTitle>Workday Stage Mapping</CardTitle>
+          <CardTitle>Candidate Stage Mapping</CardTitle>
           <CardDescription>
-            Configure which Workday stages to use for candidate actions (optional - leave blank to use config defaults)
+            Default stages to use when advancing or rejecting candidates (optional)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -151,7 +151,7 @@ export default function DefaultsSettingsPage() {
               onChange={(e) => handleChange('advanceStageId', e.target.value || null)}
             />
             <p className="text-sm text-muted-foreground">
-              Workday Recruiting Stage ID to move candidates to when advanced
+              Stage ID to move candidates to when advanced
             </p>
           </div>
 
@@ -164,7 +164,7 @@ export default function DefaultsSettingsPage() {
               onChange={(e) => handleChange('rejectDispositionId', e.target.value || null)}
             />
             <p className="text-sm text-muted-foreground">
-              Workday Disposition ID to use when rejecting candidates
+              Disposition ID to use when rejecting candidates
             </p>
           </div>
         </CardContent>
