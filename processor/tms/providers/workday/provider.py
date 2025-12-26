@@ -146,6 +146,7 @@ class WorkdayProvider(TMSProvider):
                 wid=wid,
                 page=page,
                 count=count,
+                since=since,  # Pass to API for server-side filtering
             )
 
             if not raw_apps:

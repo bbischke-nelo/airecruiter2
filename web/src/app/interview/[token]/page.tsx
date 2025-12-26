@@ -264,27 +264,31 @@ export default function InterviewPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="bg-ccfs-blue text-white px-4 py-3 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="font-semibold">{interviewInfo?.positionTitle} Interview</h1>
-            <p className="text-sm text-white/80">Welcome, {interviewInfo?.candidateName}</p>
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <h1 className="font-semibold truncate">{interviewInfo?.positionTitle} Interview</h1>
+            <p className="text-sm text-white/80 truncate">Welcome, {interviewInfo?.candidateName}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1 sm:gap-2 shrink-0">
             <Button
               variant="ghost"
               size="sm"
-              className="text-white hover:bg-white/10"
+              className="text-white hover:bg-white/10 px-2 sm:px-3"
               onClick={requestHuman}
+              title="Request Human"
             >
-              Request Human
+              <span className="hidden sm:inline">Request Human</span>
+              <span className="sm:hidden">Help</span>
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              className="text-white hover:bg-white/10"
+              className="text-white hover:bg-white/10 px-2 sm:px-3"
               onClick={endInterview}
+              title="End Interview"
             >
-              End Interview
+              <span className="hidden sm:inline">End Interview</span>
+              <span className="sm:hidden">End</span>
             </Button>
           </div>
         </div>

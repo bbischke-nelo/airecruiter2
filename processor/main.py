@@ -77,6 +77,19 @@ class ProcessorService:
         except ImportError:
             logger.warning("AnalyzeProcessor not available")
 
+        # Human-in-the-Loop pipeline processors
+        try:
+            from processor.processors.download_resume import DownloadResumeProcessor
+            self.worker.register_processor(DownloadResumeProcessor)
+        except ImportError:
+            logger.warning("DownloadResumeProcessor not available")
+
+        try:
+            from processor.processors.extract_facts import ExtractFactsProcessor
+            self.worker.register_processor(ExtractFactsProcessor)
+        except ImportError:
+            logger.warning("ExtractFactsProcessor not available")
+
         try:
             from processor.processors.send_interview import SendInterviewProcessor
             self.worker.register_processor(SendInterviewProcessor)

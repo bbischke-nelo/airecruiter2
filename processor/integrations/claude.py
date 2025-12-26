@@ -1,10 +1,14 @@
-"""Claude AI integration for resume analysis and interview evaluation."""
+"""Claude AI integration for resume fact extraction and interview summarization.
+
+Human-in-the-Loop Pipeline: AI extracts facts only, NO scoring or recommendations.
+All hiring decisions are made by human recruiters.
+"""
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from string import Template
-from typing import List, Optional
+from typing import Dict, List, Optional, Any
 
 import structlog
 from anthropic import Anthropic, APIError
@@ -19,13 +23,6 @@ def safe_template_substitute(template: str, **kwargs) -> str:
 
     Uses string.Template which handles $variable syntax and doesn't crash
     on curly braces in user content. Falls back to simple replacement.
-
-    Args:
-        template: Template string with {variable} or $variable placeholders
-        **kwargs: Variable values to substitute
-
-    Returns:
-        Substituted string
     """
     # First convert {var} syntax to $var for Template compatibility
     # But preserve {{ and }} as literal braces
@@ -48,54 +45,91 @@ def safe_template_substitute(template: str, **kwargs) -> str:
 
 
 @dataclass
-class AnalysisResult:
-    """Result of resume analysis."""
+class FactExtractionResult:
+    """Result of resume fact extraction.
 
-    risk_score: int  # 1-10 scale
-    relevance_summary: str
-    pros: List[str]
-    cons: List[str]
-    red_flags: List[str]
-    suggested_questions: List[str]
-    raw_response: str
+    Contains only factual information - NO scores, rankings, or recommendations.
+    Human recruiters make all hiring decisions.
+    """
+
+    extraction_version: str = "1.0"
+
+    # Employment history
+    employment_history: List[Dict[str, Any]] = field(default_factory=list)
+    # [{"employer": "...", "title": "...", "start_date": "...", "end_date": "...", "duration_months": 0, "responsibilities": [...]}]
+
+    # Skills
+    skills: Dict[str, List[str]] = field(default_factory=dict)
+    # {"technical": [...], "software": [...], "industry_specific": [...]}
+
+    # Certifications
+    certifications: List[Dict[str, Any]] = field(default_factory=list)
+    # [{"name": "...", "issuer": "...", "date_obtained": "...", "expiry": "..."}]
+
+    # Education
+    education: List[Dict[str, Any]] = field(default_factory=list)
+    # [{"institution": "...", "degree": "...", "field": "...", "graduation_date": "..."}]
+
+    # Logistics (work eligibility, location, etc.)
+    logistics: Dict[str, Any] = field(default_factory=dict)
+
+    # Timeline (for visualizing career progression)
+    timeline: List[Dict[str, Any]] = field(default_factory=list)
+
+    # Summary statistics
+    summary_stats: Dict[str, Any] = field(default_factory=dict)
+    # {"total_experience_months": 0, "employers_count": 0, "average_tenure_months": 0}
+
+    # JD keyword matches
+    jd_keyword_matches: Dict[str, Any] = field(default_factory=dict)
+    # {"found": [...], "not_found": [...], "match_percentage": 0}
+
+    # Observations (factual, tied to JD requirements)
+    observations: Dict[str, List[Dict[str, str]]] = field(default_factory=dict)
+    # {"pros": [{"category": "...", "observation": "...", "evidence": "..."}], "cons": [...], "suggested_questions": [...]}
+
+    # Factual summary
+    relevance_summary: Optional[str] = None
+
+    # Raw AI response for debugging
+    raw_response: str = ""
 
 
 @dataclass
-class EvaluationResult:
-    """Result of interview evaluation.
+class InterviewSummaryResult:
+    """Result of interview summarization.
 
-    Matches v1 evaluation schema with character gate, retention risk, etc.
+    Contains only factual summary - NO scores, rankings, or recommendations.
+    Human recruiters make all hiring decisions.
     """
 
-    # Scores (1-5 scale per v1)
-    reliability_score: int
-    accountability_score: int
-    professionalism_score: int
-    communication_score: int
-    technical_score: int
-    growth_potential_score: int
+    # Factual summary of interview
+    summary: str = ""
 
-    # Summary and lists
-    summary: str
-    strengths: List[str]
-    weaknesses: List[str]
-    red_flags: List[str]
+    # Key highlights from interview (factual observations)
+    highlights: List[Dict[str, str]] = field(default_factory=list)
+    # [{"topic": "...", "observation": "...", "quote": "..."}]
 
-    # v1 specific fields
-    character_passed: bool  # Character gate pass/fail
-    retention_risk: str  # LOW, MEDIUM, HIGH
-    authenticity_assessment: str  # PASS, FAIL, REVIEW
-    readiness: str  # READY, NEEDS SUPPORT, NEEDS DEVELOPMENT
-    next_interview_focus: List[str]  # Follow-up questions for hiring manager
+    # Topics covered
+    topics_covered: List[str] = field(default_factory=list)
 
-    # Recommendation: interview (4-5), review (3), decline (0-2)
-    recommendation: str
+    # Areas to explore in live interview
+    follow_up_areas: List[Dict[str, str]] = field(default_factory=list)
+    # [{"topic": "...", "reason": "...", "suggested_question": "..."}]
 
-    raw_response: str
+    # Candidate's stated preferences
+    candidate_preferences: Dict[str, Any] = field(default_factory=dict)
+
+    # Raw AI response for debugging
+    raw_response: str = ""
 
 
 class ClaudeClient:
-    """Client for Claude AI API."""
+    """Client for Claude AI API.
+
+    Human-in-the-Loop: Extracts facts and summarizes interviews.
+    Does NOT score, rank, or make recommendations.
+    """
 
     def __init__(self):
         """Initialize Claude client."""
@@ -103,29 +137,36 @@ class ClaudeClient:
         self.model = settings.CLAUDE_MODEL
         self.max_tokens = settings.CLAUDE_MAX_TOKENS
 
-    async def analyze_resume(
+    async def extract_facts(
         self,
         resume_text: str,
         job_description: str,
         prompt_template: str,
-    ) -> AnalysisResult:
-        """Analyze a resume against job requirements.
+        candidate_id: Optional[str] = None,
+        application_date: Optional[str] = None,
+    ) -> FactExtractionResult:
+        """Extract factual information from a resume.
+
+        NO scoring, ranking, or recommendations - only facts.
 
         Args:
             resume_text: Extracted text from resume
             job_description: Full job description/requirements
-            prompt_template: Analysis prompt template
+            prompt_template: Fact extraction prompt template
+            candidate_id: Optional candidate identifier for logging
+            application_date: Optional application date for context
 
         Returns:
-            AnalysisResult with scores and insights
+            FactExtractionResult with extracted facts
         """
-        logger.info("Analyzing resume with Claude")
+        logger.info("Extracting facts from resume with Claude", candidate_id=candidate_id)
 
-        # Build the prompt using safe substitution to handle special chars in resume
+        # Build the prompt using safe substitution
         prompt = safe_template_substitute(
             prompt_template,
             resume=resume_text,
             job_description=job_description,
+            application_date=application_date or "Not provided",
         )
 
         try:
@@ -143,39 +184,47 @@ class ClaudeClient:
             raw_response = response.content[0].text
 
             # Parse the structured response
-            result = self._parse_analysis_response(raw_response)
+            result = self._parse_fact_extraction_response(raw_response)
 
             logger.info(
-                "Resume analysis complete",
-                risk_score=result.risk_score,
-                pros_count=len(result.pros),
-                cons_count=len(result.cons),
+                "Fact extraction complete",
+                candidate_id=candidate_id,
+                employers_count=len(result.employment_history),
+                skills_count=len(result.skills.get("technical", [])),
             )
 
             return result
 
         except APIError as e:
-            logger.error("Claude API error during analysis", error=str(e))
-            raise ClaudeError(f"Resume analysis failed: {str(e)}") from e
+            logger.error("Claude API error during fact extraction", error=str(e))
+            raise ClaudeError(f"Fact extraction failed: {str(e)}") from e
 
-    async def evaluate_interview(
+    async def summarize_interview(
         self,
         transcript: str,
         prompt_template: str,
-    ) -> EvaluationResult:
-        """Evaluate a completed interview.
+        job_description: Optional[str] = None,
+    ) -> InterviewSummaryResult:
+        """Summarize a completed interview.
+
+        NO scoring, ranking, or recommendations - only factual summary.
 
         Args:
             transcript: Full interview transcript
-            prompt_template: Evaluation prompt template
+            prompt_template: Summary prompt template
+            job_description: Optional job description for context
 
         Returns:
-            EvaluationResult with scores and insights
+            InterviewSummaryResult with factual summary
         """
-        logger.info("Evaluating interview with Claude")
+        logger.info("Summarizing interview with Claude")
 
-        # Build the prompt using safe substitution to handle special chars in transcript
-        prompt = safe_template_substitute(prompt_template, transcript=transcript)
+        # Build the prompt using safe substitution
+        prompt = safe_template_substitute(
+            prompt_template,
+            transcript=transcript,
+            job_description=job_description or "Not provided",
+        )
 
         try:
             response = self.client.messages.create(
@@ -192,32 +241,26 @@ class ClaudeClient:
             raw_response = response.content[0].text
 
             # Parse the structured response
-            result = self._parse_evaluation_response(raw_response)
+            result = self._parse_interview_summary_response(raw_response)
 
             logger.info(
-                "Interview evaluation complete",
-                overall_score=(
-                    result.reliability_score +
-                    result.accountability_score +
-                    result.professionalism_score +
-                    result.communication_score +
-                    result.technical_score +
-                    result.growth_potential_score
-                ) / 6,
-                recommendation=result.recommendation,
+                "Interview summary complete",
+                highlights_count=len(result.highlights),
+                topics_count=len(result.topics_covered),
             )
 
             return result
 
         except APIError as e:
-            logger.error("Claude API error during evaluation", error=str(e))
-            raise ClaudeError(f"Interview evaluation failed: {str(e)}") from e
+            logger.error("Claude API error during interview summary", error=str(e))
+            raise ClaudeError(f"Interview summary failed: {str(e)}") from e
 
     async def generate_interview_response(
         self,
         messages: List[dict],
         persona: str,
         context: str,
+        redirect_triggers: Optional[List[str]] = None,
     ) -> str:
         """Generate an interview response.
 
@@ -225,11 +268,19 @@ class ClaudeClient:
             messages: Conversation history [{"role": "user/assistant", "content": "..."}]
             persona: Interviewer persona description
             context: Job and candidate context
+            redirect_triggers: Optional list of topics to redirect away from
 
         Returns:
             Assistant response text
         """
         logger.debug("Generating interview response")
+
+        redirect_clause = ""
+        if redirect_triggers:
+            redirect_clause = f"""
+If the candidate mentions any of these topics, acknowledge briefly and redirect to experience-focused questions:
+{', '.join(redirect_triggers)}
+"""
 
         system_prompt = f"""You are an AI interviewer conducting a job interview.
 
@@ -242,7 +293,9 @@ Guidelines:
 - Ask follow-up questions based on responses
 - Probe for specific examples and details
 - Keep responses concise (2-3 sentences typically)
+- Focus on job-related experience and skills
 - After 8-10 exchanges, wrap up the interview naturally
+{redirect_clause}
 """
 
         try:
@@ -259,94 +312,51 @@ Guidelines:
             logger.error("Claude API error during interview", error=str(e))
             raise ClaudeError(f"Interview response generation failed: {str(e)}") from e
 
-    def _parse_analysis_response(self, response: str) -> AnalysisResult:
-        """Parse analysis response from Claude.
-
-        Expected format: JSON with specific fields.
-        """
+    def _parse_fact_extraction_response(self, response: str) -> FactExtractionResult:
+        """Parse fact extraction response from Claude."""
         try:
-            # Try to extract JSON from response
             json_str = self._extract_json(response)
             data = json.loads(json_str)
 
-            return AnalysisResult(
-                risk_score=int(data.get("risk_score", 5)),
-                relevance_summary=data.get("relevance_summary", ""),
-                pros=data.get("pros", []),
-                cons=data.get("cons", []),
-                red_flags=data.get("red_flags", []),
-                suggested_questions=data.get("suggested_questions", []),
+            return FactExtractionResult(
+                extraction_version=data.get("extraction_version", "1.0"),
+                employment_history=data.get("employment_history", []),
+                skills=data.get("skills", {}),
+                certifications=data.get("certifications", []),
+                education=data.get("education", []),
+                logistics=data.get("logistics", {}),
+                timeline=data.get("timeline", []),
+                summary_stats=data.get("summary_stats", {}),
+                jd_keyword_matches=data.get("jd_keyword_matches", {}),
+                observations=data.get("observations", {}),
+                relevance_summary=data.get("relevance_summary"),
                 raw_response=response,
             )
         except (json.JSONDecodeError, KeyError, ValueError) as e:
-            logger.warning("Failed to parse analysis response", error=str(e))
-            # Return a default result with the raw response
-            return AnalysisResult(
-                risk_score=5,
+            logger.warning("Failed to parse fact extraction response", error=str(e))
+            return FactExtractionResult(
                 relevance_summary="Unable to parse structured response",
-                pros=[],
-                cons=[],
-                red_flags=[],
-                suggested_questions=[],
                 raw_response=response,
             )
 
-    def _parse_evaluation_response(self, response: str) -> EvaluationResult:
-        """Parse evaluation response from Claude.
-
-        Expected format: JSON with v1 evaluation schema fields.
-        """
+    def _parse_interview_summary_response(self, response: str) -> InterviewSummaryResult:
+        """Parse interview summary response from Claude."""
         try:
             json_str = self._extract_json(response)
             data = json.loads(json_str)
 
-            # Parse character gate - can be bool or string
-            character_passed = data.get("character_passed", True)
-            if isinstance(character_passed, str):
-                character_passed = character_passed.lower() in ("true", "pass", "yes")
-
-            return EvaluationResult(
-                # Scores (1-5 scale)
-                reliability_score=int(data.get("reliability_score", 3)),
-                accountability_score=int(data.get("accountability_score", 3)),
-                professionalism_score=int(data.get("professionalism_score", 3)),
-                communication_score=int(data.get("communication_score", 3)),
-                technical_score=int(data.get("technical_score", 3)),
-                growth_potential_score=int(data.get("growth_potential_score", 3)),
-                # Summary and lists
+            return InterviewSummaryResult(
                 summary=data.get("summary", ""),
-                strengths=data.get("strengths", []),
-                weaknesses=data.get("weaknesses", []),
-                red_flags=data.get("red_flags", []),
-                # v1 specific fields
-                character_passed=character_passed,
-                retention_risk=data.get("retention_risk", "MEDIUM"),
-                authenticity_assessment=data.get("authenticity_assessment", "PASS"),
-                readiness=data.get("readiness", "NEEDS SUPPORT"),
-                next_interview_focus=data.get("next_interview_focus", []),
-                # Recommendation
-                recommendation=data.get("recommendation", "review"),
+                highlights=data.get("highlights", []),
+                topics_covered=data.get("topics_covered", []),
+                follow_up_areas=data.get("follow_up_areas", []),
+                candidate_preferences=data.get("candidate_preferences", {}),
                 raw_response=response,
             )
         except (json.JSONDecodeError, KeyError, ValueError) as e:
-            logger.warning("Failed to parse evaluation response", error=str(e))
-            return EvaluationResult(
-                reliability_score=3,
-                accountability_score=3,
-                professionalism_score=3,
-                communication_score=3,
-                technical_score=3,
-                growth_potential_score=3,
+            logger.warning("Failed to parse interview summary response", error=str(e))
+            return InterviewSummaryResult(
                 summary="Unable to parse structured response",
-                strengths=[],
-                weaknesses=[],
-                red_flags=[],
-                character_passed=True,
-                retention_risk="MEDIUM",
-                authenticity_assessment="REVIEW",
-                readiness="NEEDS SUPPORT",
-                next_interview_focus=[],
-                recommendation="review",
                 raw_response=response,
             )
 

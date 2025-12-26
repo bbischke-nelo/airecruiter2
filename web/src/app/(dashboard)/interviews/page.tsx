@@ -134,28 +134,30 @@ export default function InterviewsPage() {
           {interviews.map((interview) => (
             <Link key={interview.id} href={`/interviews/${interview.id}`}>
               <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                <CardContent className="flex items-center justify-between py-4">
-                  <div className="flex items-center gap-4">
+                <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between py-4 gap-4">
+                  {/* Candidate Info */}
+                  <div className="flex items-center gap-4 min-w-0">
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center ${getStatusBgColor(
+                      className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${getStatusBgColor(
                         interview.status
                       )}`}
                     >
                       {getStatusIcon(interview.status)}
                     </div>
-                    <div>
-                      <p className="font-medium">
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">
                         {interview.application?.candidateName || `Interview #${interview.id}`}
                       </p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground truncate">
                         {interview.application?.candidateEmail}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-6">
+                  {/* Status and Score */}
+                  <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6 border-t sm:border-0 pt-3 sm:pt-0">
                     {interview.evaluation && (
-                      <div className="text-right">
+                      <div className="text-left sm:text-right">
                         <p className="text-lg font-bold">
                           {interview.evaluation.overallScore}
                         </p>
@@ -167,13 +169,13 @@ export default function InterviewsPage() {
 
                     <div className="text-right text-sm">
                       <p
-                        className={`px-2 py-1 rounded-full text-xs ${getStatusColor(
+                        className={`px-2 py-1 rounded-full text-xs inline-block ${getStatusColor(
                           interview.status
                         )}`}
                       >
                         {interview.status.replace(/_/g, ' ')}
                       </p>
-                      <p className="text-muted-foreground mt-1">
+                      <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
                         {interview.completedAt
                           ? `Completed ${formatRelativeTime(interview.completedAt)}`
                           : interview.startedAt
@@ -182,7 +184,7 @@ export default function InterviewsPage() {
                       </p>
                     </div>
 
-                    <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                    <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0 hidden sm:block" />
                   </div>
                 </CardContent>
               </Card>

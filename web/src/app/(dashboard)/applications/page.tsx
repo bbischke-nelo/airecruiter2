@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
 import { useState, useMemo } from 'react';
 import {
   RefreshCw,
@@ -10,11 +9,15 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  AlertCircle,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -25,20 +28,25 @@ import {
 import { api } from '@/lib/api';
 import { formatRelativeTime, cn } from '@/lib/utils';
 import { useDebounce } from '@/hooks/use-debounce';
+import { ApplicationDrawer } from '@/components/applications/ApplicationDrawer';
 
 interface Application {
   id: number;
   externalApplicationId: string;
   candidateName: string;
-  candidateEmail: string;
+  candidateEmail: string | null;
   requisitionId: number;
   requisitionName: string;
   status: string;
-  workdayStatus: string;
+  workdayStatus: string | null;
   hasAnalysis: boolean;
   hasInterview: boolean;
   hasReport: boolean;
-  riskScore: number | null;
+  jdMatchPercentage: number | null;
+  avgTenureMonths: number | null;
+  humanRequested: boolean;
+  complianceReview: boolean;
+  rejectionReasonCode: string | null;
   createdAt: string;
 }
 
@@ -54,23 +62,48 @@ interface PaginatedResponse {
 
 const statusColors: Record<string, string> = {
   new: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  analyzing: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-  analyzed: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
-  interview_pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  interview_complete: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  complete: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
+  downloading: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  downloaded: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  extracting: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  extracted: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+  generating_summary: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+  ready_for_review: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+  advancing: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
+  interview_sending: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
+  interview_sent: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+  interview_received: 'bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-200',
+  transcribing: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  interview_ready_for_review: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+  advanced: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  live_interview_pending: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
+  rejected: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  on_hold: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
   error: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
 };
 
 const statusLabels: Record<string, string> = {
   new: 'New',
-  analyzing: 'Analyzing',
-  analyzed: 'Analyzed',
-  interview_pending: 'Interview Pending',
-  interview_complete: 'Interview Complete',
-  complete: 'Complete',
+  downloading: 'Downloading',
+  downloaded: 'Downloaded',
+  extracting: 'Extracting',
+  extracted: 'Extracted',
+  generating_summary: 'Generating',
+  ready_for_review: 'Ready for Review',
+  advancing: 'Advancing',
+  interview_sending: 'Sending Interview',
+  interview_sent: 'Interview Sent',
+  interview_received: 'Interview Received',
+  transcribing: 'Transcribing',
+  interview_ready_for_review: 'Interview Ready',
+  advanced: 'Advanced',
+  live_interview_pending: 'Live Interview',
+  rejected: 'Rejected',
+  on_hold: 'On Hold',
   error: 'Error',
 };
+
+// Statuses that need human attention
+const REVIEW_STATUSES = ['ready_for_review', 'interview_ready_for_review'];
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
@@ -80,6 +113,12 @@ export default function ApplicationsPage() {
   const [status, setStatus] = useState<string>('');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
+
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  // Drawer state
+  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
 
   // Debounce search
   const debouncedSearch = useDebounce(search, 300);
@@ -118,8 +157,30 @@ export default function ApplicationsPage() {
     setPage(1);
   };
 
+  // Selection handlers
+  const toggleSelection = (id: number) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === applications.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(applications.map((a) => a.id)));
+    }
+  };
+
   const applications = data?.data || [];
   const meta = data?.meta || { page: 1, perPage: 20, total: 0, totalPages: 1 };
+
+  // Count items needing review
+  const needsReviewCount = applications.filter((a) => REVIEW_STATUSES.includes(a.status)).length;
 
   // Calculate display range
   const startItem = meta.total === 0 ? 0 : (meta.page - 1) * meta.perPage + 1;
@@ -133,6 +194,11 @@ export default function ApplicationsPage() {
           <h1 className="text-2xl font-bold">Applications</h1>
           <p className="text-muted-foreground">
             {meta.total} total application{meta.total !== 1 ? 's' : ''}
+            {needsReviewCount > 0 && (
+              <span className="ml-2 text-amber-600 dark:text-amber-400">
+                ({needsReviewCount} need{needsReviewCount === 1 ? 's' : ''} review)
+              </span>
+            )}
           </p>
         </div>
         <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
@@ -153,17 +219,19 @@ export default function ApplicationsPage() {
           />
         </div>
         <Select value={status || 'all'} onValueChange={handleStatusChange}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="ready_for_review">Ready for Review</SelectItem>
+            <SelectItem value="interview_ready_for_review">Interview Ready</SelectItem>
+            <SelectItem value="on_hold">On Hold</SelectItem>
             <SelectItem value="new">New</SelectItem>
-            <SelectItem value="analyzing">Analyzing</SelectItem>
-            <SelectItem value="analyzed">Analyzed</SelectItem>
-            <SelectItem value="interview_pending">Interview Pending</SelectItem>
-            <SelectItem value="interview_complete">Interview Complete</SelectItem>
-            <SelectItem value="complete">Complete</SelectItem>
+            <SelectItem value="extracting">Processing</SelectItem>
+            <SelectItem value="interview_sent">Interview Sent</SelectItem>
+            <SelectItem value="advanced">Advanced</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
             <SelectItem value="error">Error</SelectItem>
           </SelectContent>
         </Select>
@@ -209,36 +277,59 @@ export default function ApplicationsPage() {
       ) : (
         <>
           <div className="rounded-lg border overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-muted">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Application ID</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Candidate</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Position</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Risk</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Applied</th>
-                </tr>
-              </thead>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[800px]">
+                <thead className="bg-muted">
+                  <tr>
+                    <th scope="col" className="w-12 px-4 py-3">
+                      <Checkbox
+                        checked={selectedIds.size === applications.length}
+                        indeterminate={selectedIds.size > 0 && selectedIds.size < applications.length}
+                        onCheckedChange={toggleSelectAll}
+                      />
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium">Candidate</th>
+                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden sm:table-cell">Position</th>
+                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium">Status</th>
+                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium w-32">JD Match</th>
+                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden lg:table-cell">Tenure</th>
+                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden md:table-cell">Applied</th>
+                  </tr>
+                </thead>
               <tbody className="divide-y">
                 {applications.map((app) => (
-                  <tr key={app.id} className="hover:bg-muted/50">
-                    <td className="px-4 py-3">
-                      <Link href={`/applications/${app.id}`} className="hover:underline">
-                        <span className="font-mono text-sm">{app.externalApplicationId}</span>
-                      </Link>
+                  <tr
+                    key={app.id}
+                    onClick={() => setSelectedApp(app)}
+                    className={cn(
+                      'hover:bg-muted/50 cursor-pointer',
+                      REVIEW_STATUSES.includes(app.status) && 'bg-amber-50 dark:bg-amber-950/20',
+                      selectedIds.has(app.id) && 'bg-primary/5'
+                    )}
+                  >
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedIds.has(app.id)}
+                        onCheckedChange={() => toggleSelection(app.id)}
+                      />
                     </td>
                     <td className="px-4 py-3">
-                      <Link href={`/applications/${app.id}`} className="hover:underline">
-                        <div className="font-medium">{app.candidateName}</div>
-                        <div className="text-sm text-muted-foreground">{app.candidateEmail}</div>
-                      </Link>
+                      <div className="font-medium flex items-center gap-2">
+                        {app.candidateName}
+                        {app.humanRequested && (
+                          <span title="Human review requested">
+                            <AlertCircle className="h-4 w-4 text-amber-500" />
+                          </span>
+                        )}
+                        {app.status === 'on_hold' && (
+                          <span title="On hold">
+                            <Clock className="h-4 w-4 text-gray-500" />
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground">{app.candidateEmail}</div>
                     </td>
-                    <td className="px-4 py-3">
-                      <Link href={`/requisitions/${app.requisitionId}`} className="text-sm hover:underline">
-                        {app.requisitionName}
-                      </Link>
-                    </td>
+                    <td className="px-4 py-3 text-sm hidden sm:table-cell">{app.requisitionName}</td>
                     <td className="px-4 py-3">
                       <span
                         className={cn(
@@ -250,30 +341,30 @@ export default function ApplicationsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      {app.riskScore !== null ? (
-                        <span
-                          className={cn(
-                            'px-2 py-1 text-xs rounded-full',
-                            app.riskScore <= 3
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                              : app.riskScore <= 6
-                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                          )}
-                        >
-                          {app.riskScore}/10
-                        </span>
+                      {app.jdMatchPercentage !== null ? (
+                        <div className="flex items-center gap-2">
+                          <Progress value={app.jdMatchPercentage} className="h-2 w-16" />
+                          <span className="text-xs text-muted-foreground">{app.jdMatchPercentage}%</span>
+                        </div>
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                    <td className="px-4 py-3 text-sm hidden lg:table-cell">
+                      {app.avgTenureMonths !== null ? (
+                        <span>{Math.round(app.avgTenureMonths)} mo</span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">
                       {formatRelativeTime(app.createdAt)}
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
 
           {/* Pagination */}
@@ -327,6 +418,14 @@ export default function ApplicationsPage() {
           )}
         </>
       )}
+
+      {/* Application Drawer */}
+      <ApplicationDrawer
+        application={selectedApp}
+        applications={applications}
+        onClose={() => setSelectedApp(null)}
+        onNavigate={setSelectedApp}
+      />
     </div>
   );
 }

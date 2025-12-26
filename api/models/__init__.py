@@ -27,6 +27,7 @@ from .jobs import Job
 
 # Audit models
 from .activities import Activity
+from .application_decisions import ApplicationDecision, VALID_REASON_CODES, REASON_CODES_REQUIRING_COMMENT
 
 # Email models
 from .email_templates import EmailTemplate
@@ -55,6 +56,9 @@ __all__ = [
     "Job",
     # Audit
     "Activity",
+    "ApplicationDecision",
+    "VALID_REASON_CODES",
+    "REASON_CODES_REQUIRING_COMMENT",
     # Email
     "EmailTemplate",
     "EmailLog",

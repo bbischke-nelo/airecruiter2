@@ -6,7 +6,9 @@ import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+import httpx
 import structlog
+import xml.etree.ElementTree as ET
 from zeep import AsyncClient, Settings, Plugin
 from zeep.plugins import HistoryPlugin
 from zeep.transports import AsyncTransport
@@ -67,7 +69,7 @@ class WorkdaySOAPClient:
         # Create async transport
         self._transport = AsyncTransport(timeout=self.config.read_timeout)
 
-        # Create auth plugin
+        # Create auth plugin for Bearer token
         self._auth_plugin = WorkdayAuthPlugin(self.auth)
 
         # Load the WSDL
@@ -234,15 +236,12 @@ class WorkdaySOAPClient:
     ) -> List[Dict[str, Any]]:
         """Fetch candidates for a requisition.
 
-        Note: API filtering by Job_Requisition_Reference is broken/restricted in this tenant.
-        We fetch candidates updated since 'since' (or all if None) and filter by requisition in-memory.
-
         Args:
-            requisition_id: The Job_Requisition_ID (required for in-memory filtering)
-            wid: Optional Workday ID (ignored)
+            requisition_id: The Job_Requisition_ID
+            wid: Optional Workday ID (WID) - preferred for filtering
             page: Page number
             count: Items per page
-            since: Only return candidates updated after this time
+            since: Only return candidates applied after this time
 
         Returns:
             List of application data dictionaries
@@ -250,93 +249,95 @@ class WorkdaySOAPClient:
         logger.info(
             "Fetching candidates",
             requisition_id=requisition_id,
+            wid=wid,
             since=str(since) if since else "all",
             page=page
         )
 
         # Build Request Criteria
-        request_criteria = {}
-        
-        if since:
-            # Format datetime for XML (ISO format)
-            # Ensure it's timezone aware or naive as per Workday expectation (usually UTC)
-            updated_from = since.isoformat()
-            if not updated_from.endswith("Z") and "+" not in updated_from:
-                updated_from += "Z" # Assume UTC if naive
+        # NOTE: Job_Requisition_Reference filter doesn't work in Request_Criteria
+        # (causes validation error), so we fetch by date and filter in memory.
+        # Also, empty Request_Criteria returns 0 results, so we always need Applied_From.
+        request_criteria: Dict[str, Any] = {}
 
-            request_criteria["Transaction_Log_Criteria_Data"] = {
-                "Transaction_Date_Range_Data": {
-                    "Updated_From": updated_from
-                }
-            }
-        else:
-            # If no 'since' date, we cannot fetch ALL candidates efficiently without a filter.
-            # But since Job_Requisition_Reference fails, we might have to rely on
-            # just pagination if the tenant allows empty criteria.
-            # However, my debug test showed empty criteria returned 0 results (or None).
-            # We will try passing empty criteria which usually means "All".
-            pass
+        # Add date filter - required for Get_Candidates to return results
+        # Use provided date or default to 2020-01-01 to get all candidates
+        filter_date = since if since else datetime(2020, 1, 1)
+        applied_from = filter_date.isoformat()
+        if not applied_from.endswith("Z") and "+" not in applied_from:
+            applied_from += "Z"
+        request_criteria["Applied_From"] = applied_from
 
         params = {
+            "Request_Criteria": request_criteria,
             "Response_Filter": {
                 "Page": page,
                 "Count": count,
             },
             "Response_Group": {
                 "Include_Reference": True,
-                # We typically need Personal Data etc, which are included by default or via "Include_Reference" implies basics?
-                # Actually, earlier debug showed Response_Group only has 2 fields.
-                # Let's trust defaults for now.
             },
         }
-        
-        if request_criteria:
-            params["Request_Criteria"] = request_criteria
 
         response = await self._call_service("Get_Candidates", params)
 
         applications = []
         if response and hasattr(response, "Response_Data") and response.Response_Data:
             for candidate in getattr(response.Response_Data, "Candidate", None) or []:
-                # Parse and filter by requisition_id
-                parsed = self._parse_candidate(candidate, requisition_id)
+                # Parse candidate and filter by requisition in memory
+                parsed = self._parse_candidate(candidate, requisition_id, wid)
                 if parsed:
                     applications.append(parsed)
 
         logger.info("Fetched candidates", count=len(applications))
         return applications
 
-    def _parse_candidate(self, candidate: Any, requisition_id: str) -> Optional[Dict[str, Any]]:
-        """Parse a SOAP candidate response into a dictionary."""
+    def _parse_candidate(
+        self, candidate: Any, requisition_id: str, requisition_wid: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Parse a SOAP candidate response into a dictionary.
+
+        Filters to only return candidates with applications for the target requisition.
+        """
         data = {}
-        
+
         # Check if this candidate has an application for the target requisition
         target_application = None
-        
+        target_jat = None  # Job Applied To Data
+
         if hasattr(candidate, "Candidate_Data") and candidate.Candidate_Data:
             cd = candidate.Candidate_Data
-            
+
             # Find the specific job application
             if hasattr(cd, "Job_Application_Data"):
                 apps = cd.Job_Application_Data
                 if not isinstance(apps, list):
                     apps = [apps]
-                
+
                 for app in apps:
                     # Check Job Applied To -> Requisition Reference
-                    if hasattr(app, "Job_Applied_To_Data") and app.Job_Applied_To_Data:
-                        jat = app.Job_Applied_To_Data
-                        if hasattr(jat, "Job_Requisition_Reference") and jat.Job_Requisition_Reference:
-                            # Check IDs
-                            for id_item in getattr(jat.Job_Requisition_Reference, "ID", None) or []:
-                                if getattr(id_item, "_value_1", "") == requisition_id:
-                                    target_application = app
-                                    break
+                    jat_list = getattr(app, "Job_Applied_To_Data", None)
+                    if jat_list:
+                        if not isinstance(jat_list, list):
+                            jat_list = [jat_list]
+                        for jat in jat_list:
+                            req_ref = getattr(jat, "Job_Requisition_Reference", None)
+                            if req_ref:
+                                for id_item in getattr(req_ref, "ID", None) or []:
+                                    id_value = getattr(id_item, "_value_1", "")
+                                    id_type = getattr(id_item, "type", "")
+                                    # Match by Job_Requisition_ID or WID
+                                    if (id_type == "Job_Requisition_ID" and id_value == requisition_id) or \
+                                       (id_type == "WID" and requisition_wid and id_value == requisition_wid):
+                                        target_application = app
+                                        target_jat = jat
+                                        break
+                            if target_application:
+                                break
                     if target_application:
                         break
-        
+
         # If we didn't find an application for this requisition, skip this candidate
-        # UNLESS this is a candidate-centric view, but here we want "applications for requisition".
         if not target_application:
             return None
 
@@ -352,46 +353,75 @@ class WorkdaySOAPClient:
                 elif id_type == ID_TYPE_WID:
                     data["candidate_wid"] = id_value
 
-        # Use Application ID as external_application_id if available
-        if target_application and hasattr(target_application, "Job_Application_ID"):
-            data["external_application_id"] = target_application.Job_Application_ID
-        elif "external_candidate_id" in data:
-            # Fallback to candidate ID if application ID missing (legacy behavior)
+        # Get application ID from target_jat (the matched Job_Applied_To_Data)
+        if target_jat and hasattr(target_jat, "Job_Application_ID"):
+            data["external_application_id"] = target_jat.Job_Application_ID
+        elif target_application:
+            # Try Job_Application_Reference
+            app_ref = getattr(target_application, "Job_Application_Reference", None)
+            if app_ref:
+                for id_item in getattr(app_ref, "ID", None) or []:
+                    if getattr(id_item, "type", "") == "Job_Application_ID":
+                        data["external_application_id"] = getattr(id_item, "_value_1", "")
+                        break
+
+        # Fallback to candidate ID if application ID missing
+        if "external_application_id" not in data and "external_candidate_id" in data:
             data["external_application_id"] = data["external_candidate_id"]
 
         # Extract Candidate Data
         if hasattr(candidate, "Candidate_Data") and candidate.Candidate_Data:
             cd = candidate.Candidate_Data
 
-            # Personal Data
-            if hasattr(cd, "Personal_Data") and cd.Personal_Data:
-                pd = cd.Personal_Data
-                if hasattr(pd, "Name_Data") and pd.Name_Data:
-                    first = getattr(pd.Name_Data, "First_Name", "") or ""
-                    last = getattr(pd.Name_Data, "Last_Name", "") or ""
-                    data["candidate_name"] = f"{first} {last}".strip()
+            # Name Data (directly on Candidate_Data, or via Legal_Name)
+            if hasattr(cd, "Name_Data") and cd.Name_Data:
+                name_data = cd.Name_Data
+                # Try Legal_Name first
+                if hasattr(name_data, "Legal_Name") and name_data.Legal_Name:
+                    legal = name_data.Legal_Name
+                    if hasattr(legal, "Name_Detail_Data") and legal.Name_Detail_Data:
+                        nd = legal.Name_Detail_Data
+                        first = getattr(nd, "First_Name", "") or ""
+                        last = getattr(nd, "Last_Name", "") or ""
+                        data["candidate_name"] = f"{first} {last}".strip()
+                # Fallback to direct First_Name/Last_Name
+                if "candidate_name" not in data:
+                    first = getattr(name_data, "First_Name", "") or ""
+                    last = getattr(name_data, "Last_Name", "") or ""
+                    if first or last:
+                        data["candidate_name"] = f"{first} {last}".strip()
 
-                # Email from Contact Data
-                if hasattr(pd, "Contact_Data") and pd.Contact_Data:
-                    if hasattr(pd.Contact_Data, "Email_Address_Data"):
-                        for email in getattr(pd.Contact_Data, "Email_Address_Data", None) or []:
-                            if hasattr(email, "Email_Address"):
-                                data["candidate_email"] = email.Email_Address
+            # Email from Contact Data (directly on Candidate_Data)
+            if hasattr(cd, "Contact_Data") and cd.Contact_Data:
+                contact = cd.Contact_Data
+                # Direct Email_Address field
+                if hasattr(contact, "Email_Address") and contact.Email_Address:
+                    data["candidate_email"] = contact.Email_Address
+                # Or Email_Address_Data list
+                elif hasattr(contact, "Email_Address_Data"):
+                    for email in getattr(contact, "Email_Address_Data", None) or []:
+                        if hasattr(email, "Email_Address"):
+                            data["candidate_email"] = email.Email_Address
+                            break
+
+            # Recruiting Status - Use target_jat we already found
+            if target_jat:
+                # Try Disposition (e.g. "Screen", "Interview")
+                if hasattr(target_jat, "Disposition_Reference") and target_jat.Disposition_Reference:
+                    data["workday_status"] = getattr(target_jat.Disposition_Reference, "Descriptor", None)
+
+                # Try Stage if Disposition missing
+                if not data.get("workday_status") and hasattr(target_jat, "Stage_Reference") and target_jat.Stage_Reference:
+                    # Use Descriptor if available, else try ID value
+                    stage_ref = target_jat.Stage_Reference
+                    descriptor = getattr(stage_ref, "Descriptor", None)
+                    if descriptor:
+                        data["workday_status"] = descriptor
+                    else:
+                        for id_item in getattr(stage_ref, "ID", None) or []:
+                            if getattr(id_item, "type", "") == "Recruiting_Stage_ID":
+                                data["workday_status"] = getattr(id_item, "_value_1", "")
                                 break
-
-            # Recruiting Status - Prefer status from the specific application
-            if target_application:
-                # Look for Disposition or Stage in Job_Applied_To_Data
-                if hasattr(target_application, "Job_Applied_To_Data") and target_application.Job_Applied_To_Data:
-                    jat = target_application.Job_Applied_To_Data
-                    
-                    # Try Disposition (e.g. "Screen", "Interview")
-                    if hasattr(jat, "Disposition_Reference") and jat.Disposition_Reference:
-                        data["workday_status"] = getattr(jat.Disposition_Reference, "Descriptor", None)
-
-                    # Try Stage if Disposition missing
-                    if not data.get("workday_status") and hasattr(jat, "Stage_Reference") and jat.Stage_Reference:
-                        data["workday_status"] = getattr(jat.Stage_Reference, "Descriptor", None)
 
             # Fallback to top-level status if application status not found
             if "workday_status" not in data and hasattr(cd, "Status_Reference") and cd.Status_Reference:
@@ -409,6 +439,16 @@ class WorkdaySOAPClient:
         # Default status if not found
         if "workday_status" not in data:
             data["workday_status"] = "Unknown"
+
+        # Extract applied_at from target_jat
+        if target_jat:
+            job_app_date = getattr(target_jat, "Job_Application_Date", None)
+            if job_app_date:
+                # Convert to string if it's a datetime object
+                if hasattr(job_app_date, "isoformat"):
+                    data["applied_at"] = job_app_date.isoformat()
+                else:
+                    data["applied_at"] = str(job_app_date)
 
         # If we don't have a candidate ID, skip this record
         if "external_candidate_id" not in data:
@@ -572,6 +612,173 @@ class WorkdaySOAPClient:
                             break
 
         return data
+
+    async def put_candidate(
+        self,
+        first_name: str,
+        last_name: str,
+        email: str,
+        phone: Optional[str] = None,
+        requisition_id: Optional[str] = None,
+        requisition_wid: Optional[str] = None,
+        stage: str = "Review",
+        resume_content: Optional[bytes] = None,
+        resume_filename: Optional[str] = None,
+        source: str = "Agency",
+        country_code: str = "USA",
+    ) -> Dict[str, Any]:
+        """Create a new candidate in Workday with optional job application.
+
+        Note: Uses httpx directly instead of zeep due to authentication issues
+        with zeep's async transport for write operations.
+
+        Args:
+            first_name: Candidate's first name
+            last_name: Candidate's last name
+            email: Candidate's email address
+            phone: Candidate's phone number (optional if email provided)
+            requisition_id: Job_Requisition_ID to apply to (optional)
+            requisition_wid: Workday ID of requisition (preferred over requisition_id)
+            stage: Initial recruiting stage (e.g., "Review", "Screen")
+            resume_content: Resume file content as bytes
+            resume_filename: Resume filename
+            source: Candidate source (e.g., "Agency", "Employee Referral")
+            country_code: ISO country code for address/phone
+
+        Returns:
+            Dict with candidate_id, candidate_wid, and job_application_id if applicable
+        """
+        logger.info(
+            "Creating candidate in Workday",
+            name=f"{first_name} {last_name}",
+            email=email,
+            requisition_id=requisition_id,
+        )
+
+        # Build SOAP envelope directly - zeep has auth issues with Put_Candidate
+        # Build Contact_Data section - phone handling is complex (requires country code reference)
+        # so we only include email for now
+        contact_xml = f"<ns0:Email_Address>{email}</ns0:Email_Address>"
+
+        # Build Job_Application_Data section
+        job_app_xml = ""
+        if requisition_id or requisition_wid:
+            ref_type = "WID" if requisition_wid else "Job_Requisition_ID"
+            ref_value = requisition_wid or requisition_id
+
+            # NOTE: Resume upload via Put_Candidate requires additional permissions
+            # that may not be enabled for this API client. Skip resume for now.
+            # TODO: Use Put_Candidate_Attachment after candidate creation if resume needed
+            resume_xml = ""
+
+            job_app_xml = f"""<ns0:Job_Application_Data>
+          <ns0:Job_Applied_To_Data>
+            <ns0:Job_Requisition_Reference>
+              <ns0:ID ns0:type="{ref_type}">{ref_value}</ns0:ID>
+            </ns0:Job_Requisition_Reference>
+            <ns0:Stage_Reference>
+              <ns0:ID ns0:type="Recruiting_Stage_ID">{stage}</ns0:ID>
+            </ns0:Stage_Reference>
+          </ns0:Job_Applied_To_Data>
+          {resume_xml}
+        </ns0:Job_Application_Data>"""
+
+        soap_envelope = f'''<soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap-env:Body>
+    <ns0:Put_Candidate_Request xmlns:ns0="urn:com.workday/bsvc">
+      <ns0:Candidate_Data>
+        <ns0:Name_Data>
+          <ns0:Legal_Name>
+            <ns0:Name_Detail_Data>
+              <ns0:First_Name>{first_name}</ns0:First_Name>
+              <ns0:Last_Name>{last_name}</ns0:Last_Name>
+            </ns0:Name_Detail_Data>
+          </ns0:Legal_Name>
+        </ns0:Name_Data>
+        <ns0:Contact_Data>
+          {contact_xml}
+        </ns0:Contact_Data>
+        {job_app_xml}
+      </ns0:Candidate_Data>
+    </ns0:Put_Candidate_Request>
+  </soap-env:Body>
+</soap-env:Envelope>'''
+
+        # Get access token
+        access_token = await self.auth.get_token()
+
+        url = self.config.recruiting_service_url
+        headers = {
+            "SOAPAction": '""',
+            "Content-Type": "text/xml; charset=utf-8",
+            "Authorization": f"Bearer {access_token}",
+        }
+
+        async with httpx.AsyncClient(timeout=self.config.read_timeout) as client:
+            response = await client.post(url, content=soap_envelope, headers=headers)
+
+            if response.status_code != 200:
+                logger.error(
+                    "Put_Candidate failed",
+                    status=response.status_code,
+                    response=response.text[:500],
+                )
+                raise WorkdaySOAPError(f"Put_Candidate failed: {response.text[:500]}")
+
+        # Parse XML response
+        root = ET.fromstring(response.text)
+
+        # Define namespaces
+        ns = {"wd": "urn:com.workday/bsvc"}
+
+        result = {
+            "candidate_id": None,
+            "candidate_wid": None,
+            "job_application_ids": [],
+        }
+
+        # Extract Candidate_Reference IDs
+        for id_elem in root.findall(".//wd:Candidate_Reference/wd:ID", ns):
+            id_type = id_elem.get(f"{{{ns['wd']}}}type")
+            id_value = id_elem.text
+            if id_type == "Candidate_ID":
+                result["candidate_id"] = id_value
+            elif id_type == "WID":
+                result["candidate_wid"] = id_value
+
+        # Extract Job_Application IDs
+        for id_elem in root.findall(".//wd:Job_Application_Reference/wd:ID", ns):
+            id_type = id_elem.get(f"{{{ns['wd']}}}type")
+            if id_type == "Job_Application_ID":
+                result["job_application_ids"].append(id_elem.text)
+
+        logger.info(
+            "Candidate created in Workday",
+            candidate_id=result["candidate_id"],
+            candidate_wid=result["candidate_wid"],
+            job_applications=result["job_application_ids"],
+        )
+
+        return result
+
+    async def get_recruiting_stages(self) -> List[Dict[str, Any]]:
+        """Fetch available recruiting stages.
+
+        Returns:
+            List of stage dictionaries with id and name
+        """
+        logger.info("Fetching recruiting stages")
+
+        # Try to get stages - this may require a different service or may not be directly available
+        # For now, return common default stages
+        # TODO: Implement actual stage fetching if the API supports it
+        return [
+            {"id": "Review", "name": "Review"},
+            {"id": "Screen", "name": "Screen"},
+            {"id": "Interview", "name": "Interview"},
+            {"id": "Offer", "name": "Offer"},
+            {"id": "Background_Check", "name": "Background Check"},
+        ]
 
     def _parse_attachment(self, attachment: Any) -> Dict[str, Any]:
         """Parse a SOAP attachment response into a dictionary."""

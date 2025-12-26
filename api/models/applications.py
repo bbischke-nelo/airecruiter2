@@ -44,6 +44,14 @@ class Application(Base):
     # {"resume": "s3://...", "analysis": "s3://...", "report": "s3://..."}
     artifacts = Column(Text, default="{}")
 
+    # Decision tracking (Human-in-the-Loop)
+    rejection_reason_code = Column(String(50), nullable=True)
+    rejection_comment = Column(Text, nullable=True)
+    rejected_by = Column(Integer, ForeignKey("recruiters.id", ondelete="SET NULL"), nullable=True)
+    rejected_at = Column(DateTime, nullable=True)
+    advanced_by = Column(Integer, ForeignKey("recruiters.id", ondelete="SET NULL"), nullable=True)
+    advanced_at = Column(DateTime, nullable=True)
+
     # Metadata
     created_at = Column(DateTime, default=func.getutcdate())
     updated_at = Column(DateTime, onupdate=func.getutcdate())
@@ -61,6 +69,7 @@ class Application(Base):
     reports = relationship("Report", back_populates="application")
     activities = relationship("Activity", back_populates="application")
     jobs = relationship("Job", back_populates="application")
+    decisions = relationship("ApplicationDecision", back_populates="application", order_by="ApplicationDecision.created_at.desc()")
 
     def __repr__(self) -> str:
         return f"<Application(id={self.id}, candidate={self.candidate_name}, status={self.status})>"

@@ -337,9 +337,9 @@ class SyncProcessor(BaseProcessor):
                 filename=filename,
             )
 
-        # Queue analysis job
+        # Queue resume download job (starts Human-in-the-Loop pipeline)
         self.enqueue_next(
-            job_type="analyze",
+            job_type="download_resume",
             application_id=app_id,
             priority=0,
         )

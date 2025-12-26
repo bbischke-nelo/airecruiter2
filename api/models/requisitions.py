@@ -32,10 +32,24 @@ class Requisition(Base):
     sync_interval_minutes = Column(Integer, default=15)  # Minutes between sync checks
     lookback_hours = Column(Integer, nullable=True)  # Override system default
 
-    # Interview config
+    # Interview config (legacy)
     interview_instructions = Column(Text, nullable=True)  # Extra prompts for AI
     auto_send_interview = Column(Boolean, default=False)
     auto_send_on_status = Column(String(100), nullable=True)  # Only send when candidate reaches this status
+
+    # Human-in-the-Loop interview config (NULL = use global)
+    interview_enabled = Column(Boolean, nullable=True)
+    interview_expiry_days = Column(Integer, nullable=True)
+    auto_update_stage = Column(Boolean, nullable=True)
+    advance_to_stage = Column(String(50), nullable=True)
+
+    # Compliance config
+    blind_hiring_enabled = Column(Boolean, nullable=True)
+    role_level = Column(String(50), nullable=False, default="individual_contributor")
+
+    # Custom prompts and JD requirements
+    custom_interview_instructions = Column(Text, nullable=True)
+    jd_requirements_json = Column(Text, nullable=True)  # Extracted JD requirements
 
     # Workday sync metadata
     last_synced_at = Column(DateTime, nullable=True)
