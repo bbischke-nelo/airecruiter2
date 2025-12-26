@@ -595,6 +595,10 @@ class WorkdaySOAPClient:
                 "Page": page,
                 "Count": count,
             },
+            # Request file content to be included in response
+            "Response_Group": {
+                "Include_Attachment_Data": True,
+            },
         }
 
         response = await self._call_service("Get_Candidate_Attachments", params)
@@ -1071,16 +1075,60 @@ class WorkdaySOAPClient:
         """Parse a SOAP attachment response into a dictionary."""
         data = {}
 
-        data["filename"] = getattr(attachment, "Filename", None)
-        data["content_type"] = getattr(attachment, "Content_Type", "application/octet-stream")
+        # Log available attributes for debugging
+        attrs = [a for a in dir(attachment) if not a.startswith('_')]
+        logger.debug("Attachment attributes", attrs=attrs[:20])  # Limit to first 20
 
-        # Decode base64 content
-        if hasattr(attachment, "File_Content") and attachment.File_Content:
-            try:
-                data["content"] = base64.b64decode(attachment.File_Content)
-            except Exception as e:
-                logger.error("Failed to decode attachment", error=str(e), filename=data["filename"])
-                raise WorkdaySOAPError(f"Failed to decode attachment {data['filename']}") from e
+        # Try to find filename - could be in various places
+        data["filename"] = (
+            getattr(attachment, "Filename", None)
+            or getattr(attachment, "File_Name", None)
+            or getattr(attachment, "Document_Name", None)
+        )
+
+        # Try to find content type
+        data["content_type"] = (
+            getattr(attachment, "Content_Type", None)
+            or getattr(attachment, "Mime_Type", None)
+            or "application/octet-stream"
+        )
+
+        # Check for nested Attachment_Data structure (common in Workday)
+        attachment_data = getattr(attachment, "Attachment_Data", None)
+        if attachment_data:
+            logger.debug("Found Attachment_Data, checking for content")
+            if not data["filename"]:
+                data["filename"] = getattr(attachment_data, "Filename", None)
+            file_content = getattr(attachment_data, "File_Content", None) or getattr(attachment_data, "File", None)
+            if file_content:
+                try:
+                    data["content"] = base64.b64decode(file_content)
+                    logger.debug("Decoded content from Attachment_Data", size=len(data["content"]))
+                except Exception as e:
+                    logger.error("Failed to decode attachment from Attachment_Data", error=str(e))
+
+        # Direct File_Content on attachment (original behavior)
+        if "content" not in data:
+            file_content = (
+                getattr(attachment, "File_Content", None)
+                or getattr(attachment, "File", None)
+                or getattr(attachment, "Content", None)
+            )
+            if file_content:
+                try:
+                    data["content"] = base64.b64decode(file_content)
+                    logger.debug("Decoded content directly", size=len(data["content"]))
+                except Exception as e:
+                    logger.error("Failed to decode attachment", error=str(e), filename=data["filename"])
+
+        # Log what we found
+        logger.info(
+            "Parsed attachment",
+            filename=data.get("filename"),
+            content_type=data.get("content_type"),
+            has_content=("content" in data),
+            content_size=len(data["content"]) if "content" in data else 0,
+        )
 
         return data
 
