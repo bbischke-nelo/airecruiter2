@@ -7,7 +7,7 @@ This client only handles interview response generation.
 from typing import List, Optional
 
 import structlog
-from anthropic import Anthropic, APIError
+from anthropic import AsyncAnthropic, APIError
 
 from api.config.settings import settings
 
@@ -18,8 +18,8 @@ class ClaudeClient:
     """Claude AI client for interview response generation."""
 
     def __init__(self):
-        """Initialize Claude client."""
-        self.client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        """Initialize Claude client with async support."""
+        self.client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
         self.model = getattr(settings, "CLAUDE_MODEL", "claude-sonnet-4-20250514")
         self.max_tokens = getattr(settings, "CLAUDE_MAX_TOKENS", 4096)
 
@@ -67,7 +67,7 @@ Guidelines:
 """
 
         try:
-            response = self.client.messages.create(
+            response = await self.client.messages.create(
                 model=self.model,
                 max_tokens=500,
                 system=system_prompt,
