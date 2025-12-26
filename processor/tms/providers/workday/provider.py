@@ -241,6 +241,45 @@ class WorkdayProvider(TMSProvider):
         )
         return doc_id
 
+    async def move_candidate(
+        self,
+        application_external_id: str,
+        stage_id: Optional[str] = None,
+        disposition_id: Optional[str] = None,
+    ) -> bool:
+        """Move a candidate to a new stage or disposition in Workday.
+
+        Either stage_id or disposition_id must be provided (not both).
+        - stage_id: Move to an active pipeline stage (e.g., "Screen", "Interview")
+        - disposition_id: Move to a terminal disposition (rejection reason)
+
+        Args:
+            application_external_id: The Workday Job_Application_ID
+            stage_id: Target Recruiting_Stage_ID (for advancing)
+            disposition_id: Target Disposition_ID (for rejecting)
+
+        Returns:
+            True if successful
+
+        Raises:
+            ValueError: If neither or both stage_id and disposition_id provided
+            WorkdaySOAPError: If the Workday API call fails
+        """
+        result = await self._client.move_candidate(
+            application_id=application_external_id,
+            stage_id=stage_id,
+            disposition_id=disposition_id,
+        )
+
+        logger.info(
+            "Moved candidate in Workday",
+            application_id=application_external_id,
+            stage_id=stage_id,
+            disposition_id=disposition_id,
+        )
+
+        return result
+
     def _is_resume(self, filename: str, content_type: str) -> bool:
         """Check if a file is likely a resume."""
         filename_lower = filename.lower()

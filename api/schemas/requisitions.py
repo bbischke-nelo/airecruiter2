@@ -22,7 +22,6 @@ class RequisitionCreate(RequisitionBase):
     recruiter_id: Optional[int] = None
     is_active: bool = True
     sync_interval_minutes: int = 15
-    lookback_hours: Optional[int] = None
     interview_instructions: Optional[str] = None
     auto_send_interview: bool = False
     auto_send_on_status: Optional[str] = None
@@ -38,7 +37,6 @@ class RequisitionUpdate(CamelModel):
     recruiter_id: Optional[int] = None
     is_active: Optional[bool] = None
     sync_interval_minutes: Optional[int] = None
-    lookback_hours: Optional[int] = None
     interview_instructions: Optional[str] = None
     auto_send_interview: Optional[bool] = None
     auto_send_on_status: Optional[str] = None
@@ -56,7 +54,6 @@ class RequisitionResponse(CamelModel):
     recruiter_id: Optional[int] = None
     is_active: bool
     sync_interval_minutes: int
-    lookback_hours: Optional[int] = None
     interview_instructions: Optional[str] = None
     auto_send_interview: bool
     auto_send_on_status: Optional[str] = None

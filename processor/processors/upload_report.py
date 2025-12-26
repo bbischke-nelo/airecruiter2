@@ -70,52 +70,73 @@ class UploadReportProcessor(BaseProcessor):
             # Download report from S3
             pdf_content = await self.s3.download(data.s3_key)
 
-            # Get TMS provider
-            provider = await self.tms_service.get_provider()
-
-            # Upload to Workday
-            filename = f"CandidateReport_{application_id}.pdf"
-            doc_id = await provider.upload_attachment(
-                candidate_external_id=data.external_candidate_id,
-                filename=filename,
-                content=pdf_content,
-                content_type="application/pdf",
-                category="Other",  # Or use a custom category if configured
-                comment="AI-generated candidate screening report",
+            # TEMPORARY WORKAROUND: Skip Workday upload while Put_Candidate_Attachment is broken
+            # Remove this block once Workday support resolves auth issue
+            # ---
+            self.logger.warning(
+                "Skipping Workday upload (API broken), marking as uploaded locally only",
+                application_id=application_id,
             )
+            doc_id = None  # No Workday document ID
 
-            # Update report record
+            # Update report record (mark as uploaded but no Workday doc ID)
             update_query = text("""
                 UPDATE reports
-                SET uploaded_to_workday = 1,
-                    workday_document_id = :doc_id,
+                SET uploaded_to_workday = 0,
                     uploaded_at = GETUTCDATE()
                 WHERE id = :report_id
             """)
-            self.db.execute(
-                update_query,
-                {"report_id": data.report_id, "doc_id": doc_id},
-            )
+            self.db.execute(update_query, {"report_id": data.report_id})
             self.db.commit()
+            # ---
+            # END TEMPORARY WORKAROUND
+
+            # COMMENTED OUT: Actual Workday upload - restore when API is fixed
+            # # Get TMS provider
+            # provider = await self.tms_service.get_provider()
+            #
+            # # Upload to Workday
+            # filename = f"CandidateReport_{application_id}.pdf"
+            # doc_id = await provider.upload_attachment(
+            #     candidate_external_id=data.external_candidate_id,
+            #     filename=filename,
+            #     content=pdf_content,
+            #     content_type="application/pdf",
+            #     category="Other",  # Or use a custom category if configured
+            #     comment="AI-generated candidate screening report",
+            # )
+            #
+            # # Update report record
+            # update_query = text("""
+            #     UPDATE reports
+            #     SET uploaded_to_workday = 1,
+            #         workday_document_id = :doc_id,
+            #         uploaded_at = GETUTCDATE()
+            #     WHERE id = :report_id
+            # """)
+            # self.db.execute(
+            #     update_query,
+            #     {"report_id": data.report_id, "doc_id": doc_id},
+            # )
+            # self.db.commit()
 
             # Mark application as complete
             await self._mark_complete(application_id, data.report_id)
 
             # Log activity
             self.log_activity(
-                action="report_uploaded",
+                action="report_upload_skipped",  # Changed from report_uploaded
                 application_id=application_id,
                 requisition_id=data.requisition_id,
                 details={
                     "report_id": data.report_id,
-                    "workday_document_id": doc_id,
+                    "workday_upload_skipped": True,  # Workaround flag
                 },
             )
 
             self.logger.info(
-                "Report uploaded to Workday",
+                "Report processing complete (Workday upload skipped)",
                 application_id=application_id,
-                document_id=doc_id,
             )
 
         finally:

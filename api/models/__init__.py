@@ -36,6 +36,9 @@ from .email_log import EmailLog
 # Report templates
 from .report_templates import ReportTemplate
 
+# Rejection reasons
+from .workday_config import RejectionReason, DEFAULT_REJECTION_REASONS
+
 __all__ = [
     "Base",
     # Core
@@ -64,4 +67,7 @@ __all__ = [
     "EmailLog",
     # Reports
     "ReportTemplate",
+    # Workday configuration
+    "RejectionReason",
+    "DEFAULT_REJECTION_REASONS",
 ]

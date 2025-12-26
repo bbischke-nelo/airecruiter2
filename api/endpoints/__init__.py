@@ -16,6 +16,7 @@ from .queue import router as queue_router
 from .logs import router as logs_router
 from .email_templates import router as email_templates_router
 from .report_templates import router as report_templates_router
+from .workday_config import router as workday_config_router
 
 # Create main API router
 api_router = APIRouter()
@@ -35,5 +36,6 @@ api_router.include_router(queue_router, prefix="/queue", tags=["Queue"])
 api_router.include_router(logs_router, prefix="/logs", tags=["Logs"])
 api_router.include_router(email_templates_router, prefix="/email-templates", tags=["Email Templates"])
 api_router.include_router(report_templates_router, prefix="/report-templates", tags=["Report Templates"])
+api_router.include_router(workday_config_router, prefix="/workday", tags=["Workday Configuration"])
 
 __all__ = ["api_router"]

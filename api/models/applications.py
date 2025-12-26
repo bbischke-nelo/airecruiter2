@@ -36,6 +36,11 @@ class Application(Base):
     workday_status = Column(String(100), nullable=True)  # Current status in Workday
     workday_status_changed = Column(DateTime, nullable=True)
 
+    # TMS sync tracking (for async stage/disposition updates)
+    tms_sync_status = Column(String(20), nullable=False, default="synced")  # synced, pending, failed
+    tms_sync_error = Column(String(500), nullable=True)  # Error message if sync failed
+    tms_sync_at = Column(DateTime, nullable=True)  # Last sync attempt timestamp
+
     # Flags
     human_requested = Column(Boolean, default=False)  # Candidate asked for human
     compliance_review = Column(Boolean, default=False)  # Flagged for review

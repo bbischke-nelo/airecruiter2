@@ -75,7 +75,7 @@ class SyncProcessor(BaseProcessor):
 
         # Get requisition from database
         query = text("""
-            SELECT id, external_id, name, last_synced_at, lookback_hours,
+            SELECT id, external_id, name, last_synced_at,
                    auto_send_interview, auto_send_on_status, external_data
             FROM requisitions
             WHERE id = :req_id

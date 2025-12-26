@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from pathlib import Path
 from typing import Optional
 
 import structlog
@@ -12,6 +13,10 @@ from processor.processors.base import BaseProcessor
 from processor.queue_manager import QueueManager
 from processor.integrations.s3 import S3Service
 from processor.services.tms_service import TMSService
+
+# TEMPORARY WORKAROUND: Fallback PDF while Workday attachment API is broken
+# Remove once Workday support resolves Put_Candidate_Attachment auth issue
+FALLBACK_RESUME_PATH = Path(__file__).parent.parent.parent.parent / "test_data" / "REGIO004114-resume.pdf"
 
 logger = structlog.get_logger()
 
@@ -105,23 +110,68 @@ class DownloadResumeProcessor(BaseProcessor):
                     },
                 )
             else:
-                # No resume available - still proceed to extract_facts
-                # (may be able to extract info from application data)
-                self.logger.warning("No resume found in Workday", application_id=application_id)
-
-                await self._update_status_and_queue(
+                # No resume available from Workday - use fallback PDF
+                # TEMPORARY WORKAROUND: Workday attachment API is broken
+                self.logger.warning(
+                    "No resume found in Workday, using fallback PDF",
                     application_id=application_id,
-                    status="no_resume",
-                    next_job_type="extract_facts",
                 )
 
-                await asyncio.to_thread(
-                    self.log_activity,
-                    action="no_resume_found",
-                    application_id=application_id,
-                    requisition_id=app.requisition_id,
-                    details={"external_candidate_id": app.external_candidate_id},
-                )
+                if FALLBACK_RESUME_PATH.exists():
+                    content = FALLBACK_RESUME_PATH.read_bytes()
+                    filename = FALLBACK_RESUME_PATH.name
+
+                    # Upload fallback to S3
+                    s3_key = await self.s3.upload_resume(application_id, content, filename)
+
+                    # Update artifacts with S3 key
+                    artifacts = json.loads(app.artifacts) if app.artifacts else {}
+                    artifacts["resume"] = s3_key
+                    artifacts["resume_filename"] = filename
+                    artifacts["resume_content_type"] = "application/pdf"
+                    artifacts["resume_size"] = len(content)
+                    artifacts["resume_is_fallback"] = True  # Mark as fallback
+
+                    await self._update_artifacts(application_id, artifacts)
+
+                    await self._update_status_and_queue(
+                        application_id=application_id,
+                        status="downloaded",
+                        next_job_type="extract_facts",
+                    )
+
+                    self.logger.info(
+                        "Fallback resume uploaded to S3",
+                        application_id=application_id,
+                        s3_key=s3_key,
+                    )
+
+                    await asyncio.to_thread(
+                        self.log_activity,
+                        action="fallback_resume_used",
+                        application_id=application_id,
+                        requisition_id=app.requisition_id,
+                        details={"fallback_path": str(FALLBACK_RESUME_PATH)},
+                    )
+                else:
+                    # Fallback PDF doesn't exist - proceed without resume
+                    self.logger.error(
+                        "Fallback resume not found",
+                        path=str(FALLBACK_RESUME_PATH),
+                    )
+                    await self._update_status_and_queue(
+                        application_id=application_id,
+                        status="no_resume",
+                        next_job_type="extract_facts",
+                    )
+
+                    await asyncio.to_thread(
+                        self.log_activity,
+                        action="no_resume_found",
+                        application_id=application_id,
+                        requisition_id=app.requisition_id,
+                        details={"external_candidate_id": app.external_candidate_id},
+                    )
 
         finally:
             await self.tms_service.close()

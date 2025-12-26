@@ -132,7 +132,6 @@ async def get_requisition(
         recruiter_id=requisition.recruiter_id,
         is_active=bool(requisition.is_active),
         sync_interval_minutes=requisition.sync_interval_minutes,
-        lookback_hours=requisition.lookback_hours,
         interview_instructions=requisition.interview_instructions,
         auto_send_interview=bool(requisition.auto_send_interview) if requisition.auto_send_interview is not None else False,
         auto_send_on_status=requisition.auto_send_on_status,

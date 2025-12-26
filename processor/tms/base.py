@@ -154,3 +154,30 @@ class TMSProvider(ABC):
             Document ID from TMS
         """
         pass
+
+    @abstractmethod
+    async def move_candidate(
+        self,
+        application_external_id: str,
+        stage_id: Optional[str] = None,
+        disposition_id: Optional[str] = None,
+    ) -> bool:
+        """Move a candidate to a new stage or disposition in the TMS.
+
+        Either stage_id or disposition_id must be provided (not both).
+        - stage_id: Move to an active pipeline stage (e.g., "Screen", "Interview")
+        - disposition_id: Move to a terminal disposition (rejection reason)
+
+        Args:
+            application_external_id: The TMS job application ID
+            stage_id: Target recruiting stage ID (for advancing)
+            disposition_id: Target disposition ID (for rejecting)
+
+        Returns:
+            True if successful
+
+        Raises:
+            ValueError: If neither or both stage_id and disposition_id provided
+            TMSError: If the TMS API call fails
+        """
+        pass

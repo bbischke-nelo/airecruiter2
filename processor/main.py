@@ -114,6 +114,12 @@ class ProcessorService:
         except ImportError:
             logger.warning("UploadReportProcessor not available")
 
+        try:
+            from processor.processors.update_workday_stage import UpdateWorkdayStageProcessor
+            self.worker.register_processor(UpdateWorkdayStageProcessor)
+        except ImportError:
+            logger.warning("UpdateWorkdayStageProcessor not available")
+
     async def start(self) -> None:
         """Start all processor components."""
         self.running = True

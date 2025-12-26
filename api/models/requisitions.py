@@ -30,7 +30,6 @@ class Requisition(Base):
     is_active = Column(Boolean, default=True)
     sync_enabled = Column(Boolean, default=True)  # Whether to sync this requisition
     sync_interval_minutes = Column(Integer, default=15)  # Minutes between sync checks
-    lookback_hours = Column(Integer, nullable=True)  # Override system default
 
     # Interview config (legacy)
     interview_instructions = Column(Text, nullable=True)  # Extra prompts for AI

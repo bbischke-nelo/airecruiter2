@@ -505,17 +505,20 @@ class WorkdaySOAPClient:
         filename: str,
         content: bytes,
         content_type: str = "application/pdf",
-        category: str = "Other",
+        category: str = "Resume",
         comment: Optional[str] = None,
     ) -> str:
         """Upload an attachment to a candidate profile.
+
+        Note: Uses raw httpx instead of zeep due to authentication issues
+        with zeep's async transport for write operations.
 
         Args:
             candidate_id: The candidate external ID
             filename: Name for the file
             content: File content as bytes
             content_type: MIME type
-            category: Attachment category
+            category: Attachment category (Resume, Cover_Letter, etc.)
             comment: Optional comment
 
         Returns:
@@ -531,33 +534,61 @@ class WorkdaySOAPClient:
         # Base64 encode the content
         encoded_content = base64.b64encode(content).decode("utf-8")
 
-        params = {
-            "Candidate_Attachment_Data": {
-                "Candidate_Reference": {
-                    "ID": [{"type": ID_TYPE_CANDIDATE, "_value_1": candidate_id}]
-                },
-                "Attachment_Data": {
-                    "File_Name": filename,
-                    "File": encoded_content,
-                    "Category_Reference": {
-                        "ID": [{"type": ID_TYPE_ATTACHMENT_CATEGORY, "_value_1": category}]
-                    },
-                    "Comment": comment or "",
-                },
-            }
+        # Build SOAP envelope directly - zeep has auth issues
+        comment_xml = f"<ns0:Comment>{comment}</ns0:Comment>" if comment else ""
+
+        soap_envelope = f'''<soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap-env:Body>
+    <ns0:Put_Candidate_Attachment_Request xmlns:ns0="urn:com.workday/bsvc">
+      <ns0:Candidate_Attachment_Data>
+        <ns0:Candidate_Attachment_Reference>
+          <ns0:ID ns0:type="{ID_TYPE_CANDIDATE}">{candidate_id}</ns0:ID>
+        </ns0:Candidate_Attachment_Reference>
+        <ns0:Attachment_Data>
+          <ns0:Filename>{filename}</ns0:Filename>
+          <ns0:File_Content>{encoded_content}</ns0:File_Content>
+          {comment_xml}
+        </ns0:Attachment_Data>
+        <ns0:Document_Category_Reference>
+          <ns0:ID ns0:type="Document_Category_ID">{category}</ns0:ID>
+        </ns0:Document_Category_Reference>
+      </ns0:Candidate_Attachment_Data>
+    </ns0:Put_Candidate_Attachment_Request>
+  </soap-env:Body>
+</soap-env:Envelope>'''
+
+        # Get access token
+        access_token = await self.auth.get_token()
+
+        url = self.config.recruiting_service_url
+        headers = {
+            "SOAPAction": '""',
+            "Content-Type": "text/xml; charset=utf-8",
+            "Authorization": f"Bearer {access_token}",
         }
 
-        response = await self._call_service("Put_Candidate_Attachment", params)
+        async with httpx.AsyncClient(timeout=self.config.read_timeout) as client:
+            response = await client.post(url, content=soap_envelope, headers=headers)
 
-        # Extract document ID from response
+            if response.status_code != 200:
+                logger.error(
+                    "Put_Candidate_Attachment failed",
+                    status=response.status_code,
+                    response=response.text[:500],
+                )
+                raise WorkdaySOAPError(f"Put_Candidate_Attachment failed: {response.text[:500]}")
+
+        # Parse XML response
+        root = ET.fromstring(response.text)
+        ns = {"wd": "urn:com.workday/bsvc"}
+
+        # Extract attachment ID from response
         doc_id = None
-        if response and hasattr(response, "Candidate_Attachment_Reference"):
-            ref = response.Candidate_Attachment_Reference
-            if hasattr(ref, "ID"):
-                for id_item in ref.ID or []:
-                    if hasattr(id_item, "_value_1"):
-                        doc_id = id_item._value_1
-                        break
+        for id_elem in root.findall(".//wd:Candidate_Attachment_Reference/wd:ID", ns):
+            id_type = id_elem.get(f"{{{ns['wd']}}}type")
+            if id_type == "Candidate_Attachment_ID":
+                doc_id = id_elem.text
+                break
 
         logger.info("Attachment uploaded", document_id=doc_id)
         return doc_id or ""
@@ -667,11 +698,6 @@ class WorkdaySOAPClient:
             ref_type = "WID" if requisition_wid else "Job_Requisition_ID"
             ref_value = requisition_wid or requisition_id
 
-            # NOTE: Resume upload via Put_Candidate requires additional permissions
-            # that may not be enabled for this API client. Skip resume for now.
-            # TODO: Use Put_Candidate_Attachment after candidate creation if resume needed
-            resume_xml = ""
-
             job_app_xml = f"""<ns0:Job_Application_Data>
           <ns0:Job_Applied_To_Data>
             <ns0:Job_Requisition_Reference>
@@ -681,8 +707,12 @@ class WorkdaySOAPClient:
               <ns0:ID ns0:type="Recruiting_Stage_ID">{stage}</ns0:ID>
             </ns0:Stage_Reference>
           </ns0:Job_Applied_To_Data>
-          {resume_xml}
         </ns0:Job_Application_Data>"""
+
+        # Note: Resume attachment is NOT included inline in Put_Candidate because
+        # Workday returns auth errors when Resume_Attachment_Data is included.
+        # Resume upload must be attempted separately via Put_Candidate_Attachment
+        # (which also requires special Workday permissions).
 
         soap_envelope = f'''<soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
   <soap-env:Body>
@@ -760,6 +790,36 @@ class WorkdaySOAPClient:
             job_applications=result["job_application_ids"],
         )
 
+        # Attempt to upload resume as a separate attachment if provided
+        # Note: This often fails with auth error due to Workday permission requirements
+        if resume_content and resume_filename and result["candidate_id"]:
+            try:
+                logger.info(
+                    "Attempting resume upload",
+                    candidate_id=result["candidate_id"],
+                    filename=resume_filename,
+                    size=len(resume_content),
+                )
+
+                doc_id = await self.put_candidate_attachment(
+                    candidate_id=result["candidate_id"],
+                    filename=resume_filename,
+                    content=resume_content,
+                    category="Resume",
+                    comment="Resume uploaded with application",
+                )
+                result["resume_document_id"] = doc_id
+                logger.info("Resume uploaded successfully", document_id=doc_id)
+            except Exception as e:
+                # Log but don't fail the candidate creation
+                # This commonly fails due to Workday permission restrictions
+                logger.warning(
+                    "Resume upload failed (Workday may require additional permissions)",
+                    candidate_id=result["candidate_id"],
+                    error=str(e),
+                )
+                result["resume_upload_error"] = str(e)
+
         return result
 
     async def get_recruiting_stages(self) -> List[Dict[str, Any]]:
@@ -780,6 +840,122 @@ class WorkdaySOAPClient:
             {"id": "Offer", "name": "Offer"},
             {"id": "Background_Check", "name": "Background Check"},
         ]
+
+    async def move_candidate(
+        self,
+        application_id: str,
+        stage_id: Optional[str] = None,
+        disposition_id: Optional[str] = None,
+    ) -> bool:
+        """Move a candidate to a new recruiting stage or disposition.
+
+        Uses the Workday Move_Candidate SOAP operation to transition
+        a job application to a new stage (for advancing) or disposition
+        (for rejecting).
+
+        Args:
+            application_id: The Job_Application_ID (external application ID)
+            stage_id: Target Recruiting_Stage_ID (e.g., "Screen", "Interview")
+            disposition_id: Target Disposition_ID (e.g., "Experience/Skills")
+
+        Returns:
+            True if successful
+
+        Raises:
+            ValueError: If neither or both stage_id and disposition_id provided
+            WorkdaySOAPError: If the API call fails
+        """
+        if (stage_id is None) == (disposition_id is None):
+            raise ValueError("Exactly one of stage_id or disposition_id must be provided")
+
+        await self._ensure_initialized()
+
+        logger.info(
+            "Moving candidate",
+            application_id=application_id,
+            stage_id=stage_id,
+            disposition_id=disposition_id,
+        )
+
+        # Build the Move_Candidate SOAP request manually
+        # The structure is based on Workday Recruiting v42+ API
+        ns0 = "ns0"
+
+        if stage_id:
+            # Moving to a new stage (advancing)
+            move_data = f"""
+              <{ns0}:Recruiting_Stage_Reference>
+                <{ns0}:ID {ns0}:type="Recruiting_Stage_ID">{stage_id}</{ns0}:ID>
+              </{ns0}:Recruiting_Stage_Reference>
+            """
+        else:
+            # Moving to disposition (rejecting)
+            move_data = f"""
+              <{ns0}:Disposition_Reference>
+                <{ns0}:ID {ns0}:type="Disposition_ID">{disposition_id}</{ns0}:ID>
+              </{ns0}:Disposition_Reference>
+            """
+
+        xml = f'''<?xml version="1.0" encoding="utf-8"?>
+<soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap-env:Body>
+    <{ns0}:Move_Candidate_Request xmlns:{ns0}="urn:com.workday/bsvc" {ns0}:version="{self.config.api_version}">
+      <{ns0}:Job_Application_Reference>
+        <{ns0}:ID {ns0}:type="Job_Application_ID">{application_id}</{ns0}:ID>
+      </{ns0}:Job_Application_Reference>
+      <{ns0}:Move_Candidate_Data>
+        {move_data}
+      </{ns0}:Move_Candidate_Data>
+    </{ns0}:Move_Candidate_Request>
+  </soap-env:Body>
+</soap-env:Envelope>'''
+
+        headers = {
+            "SOAPAction": '""',
+            "Content-Type": "text/xml; charset=utf-8",
+            "Authorization": f"Bearer {self._token}",
+        }
+
+        try:
+            response = await self._client.post(
+                self.config.recruiting_service_url,
+                content=xml,
+                headers=headers,
+                timeout=60.0,
+            )
+
+            if "authenticationError" in response.text:
+                logger.error(
+                    "Move_Candidate auth error",
+                    application_id=application_id,
+                    response_snippet=response.text[:500],
+                )
+                raise WorkdaySOAPError(f"Authentication error moving candidate {application_id}")
+
+            if response.status_code != 200 or "Fault" in response.text:
+                logger.error(
+                    "Move_Candidate failed",
+                    application_id=application_id,
+                    status=response.status_code,
+                    response_snippet=response.text[:500],
+                )
+                raise WorkdaySOAPError(f"Failed to move candidate {application_id}: {response.text[:200]}")
+
+            logger.info(
+                "Candidate moved successfully",
+                application_id=application_id,
+                stage_id=stage_id,
+                disposition_id=disposition_id,
+            )
+            return True
+
+        except httpx.HTTPError as e:
+            logger.error(
+                "Move_Candidate HTTP error",
+                application_id=application_id,
+                error=str(e),
+            )
+            raise WorkdaySOAPError(f"HTTP error moving candidate {application_id}: {e}") from e
 
     def _parse_attachment(self, attachment: Any) -> Dict[str, Any]:
         """Parse a SOAP attachment response into a dictionary."""
