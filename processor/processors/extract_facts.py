@@ -248,8 +248,6 @@ Return as JSON with this structure:
     ],
     "summary_stats": {{
         "total_experience_months": 0,
-        "employers_count": 0,
-        "average_tenure_months": 0,
         "recent_5yr_employers_count": 0,
         "recent_5yr_average_tenure_months": 0
     }},

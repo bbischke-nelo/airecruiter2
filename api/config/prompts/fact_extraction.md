@@ -96,13 +96,11 @@ Return this exact structure:
 
   "summary_stats": {
     "total_experience_months": <calculated across all history>,
-    "employers_count": <total number of employers>,
-    "average_tenure_months": <average across all employers>,
+    "recent_5yr_employers_count": <employers with end_date within last 5 years or is_current>,
+    "recent_5yr_average_tenure_months": <average tenure at those recent employers only>,
     "most_recent_employer": "<name>",
     "most_recent_title": "<title>",
-    "years_since_last_employment": <if gap to present>,
-    "recent_5yr_employers_count": <employers with end_date within last 5 years or is_current>,
-    "recent_5yr_average_tenure_months": <average tenure at those recent employers only>
+    "years_since_last_employment": <if gap to present>
   },
 
   "jd_keyword_matches": {
