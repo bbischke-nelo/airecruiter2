@@ -270,9 +270,8 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
                 "employment_history": facts.employment_history if hasattr(facts, "employment_history") else [],
                 "skills": facts.skills if hasattr(facts, "skills") else {},
                 "certifications": facts.certifications if hasattr(facts, "certifications") else [],
+                "licenses": facts.licenses if hasattr(facts, "licenses") else [],
                 "education": facts.education if hasattr(facts, "education") else [],
-                "logistics": facts.logistics if hasattr(facts, "logistics") else {},
-                "timeline": facts.timeline if hasattr(facts, "timeline") else [],
                 "summary_stats": facts.summary_stats if hasattr(facts, "summary_stats") else {},
                 "jd_keyword_matches": facts.jd_keyword_matches if hasattr(facts, "jd_keyword_matches") else {},
             })

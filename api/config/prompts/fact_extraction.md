@@ -77,23 +77,6 @@ Return this exact structure:
     }
   ],
 
-  "logistics": {
-    "location_stated": "<city, state or null>",
-    "willing_to_relocate": "<yes/no/not stated>",
-    "remote_preference": "<remote/hybrid/onsite/not stated>",
-    "travel_willingness": "<percentage or description or null>"
-  },
-
-  "timeline": [
-    {
-      "type": "employment|education|gap",
-      "entity": "<employer or school name>",
-      "from": "<YYYY-MM>",
-      "to": "<YYYY-MM or null>",
-      "duration_months": <number>
-    }
-  ],
-
   "summary_stats": {
     "total_experience_months": <calculated across all history>,
     "recent_5yr_employers_count": <employers with end_date within last 5 years or is_current>,

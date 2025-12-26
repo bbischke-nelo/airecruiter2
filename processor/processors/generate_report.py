@@ -157,6 +157,7 @@ class GenerateReportProcessor(BaseProcessor):
             "employment_history": extracted_facts.get("employment_history", []),
             "skills": extracted_facts.get("skills", {}),
             "certifications": extracted_facts.get("certifications", []),
+            "licenses": extracted_facts.get("licenses", []),
             "education": extracted_facts.get("education", []),
 
             # Summary stats
@@ -398,16 +399,28 @@ class GenerateReportProcessor(BaseProcessor):
                 html += f'            <span class="badge badge-blue">{skill}</span>\n'
             html += "        </p>\n    </div>\n"
 
-        # Certifications
-        if data.get('certifications'):
+        # Licenses & Certifications
+        licenses = data.get('licenses', [])
+        certs = data.get('certifications', [])
+        if licenses or certs:
             html += """
     <div class="section">
-        <h2>Certifications</h2>
-        <ul>
+        <h2>Licenses & Certifications</h2>
+        <table>
+            <tr><th>Type</th><th>Details</th></tr>
 """
-            for cert in data['certifications']:
-                html += f"            <li>{cert}</li>\n"
-            html += "        </ul>\n    </div>\n"
+            for lic in licenses:
+                lic_type = lic.get('type', 'Unknown')
+                lic_class = f" (Class {lic.get('class')})" if lic.get('class') else ""
+                endorsements = ", ".join(lic.get('endorsements', [])) if lic.get('endorsements') else ""
+                details = f"{lic_class} {endorsements}".strip() or "N/A"
+                html += f'            <tr><td><span class="badge badge-blue">{lic_type}</span></td><td>{details}</td></tr>\n'
+            for cert in certs:
+                cert_name = cert.get('name', cert) if isinstance(cert, dict) else cert
+                cert_issuer = cert.get('issuer', '') if isinstance(cert, dict) else ''
+                details = cert_issuer or "N/A"
+                html += f'            <tr><td><span class="badge badge-green">{cert_name}</span></td><td>{details}</td></tr>\n'
+            html += "        </table>\n    </div>\n"
 
         # JD Match Analysis
         if data.get('jd_matches') or data.get('jd_gaps'):
