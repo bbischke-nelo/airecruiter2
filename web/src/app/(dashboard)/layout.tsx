@@ -7,7 +7,6 @@ import {
   Briefcase,
   Users,
   MessageSquare,
-  ListTodo,
   Settings,
   Activity,
   Menu,
@@ -26,7 +25,6 @@ const navigation = [
   { name: 'Requisitions', href: '/requisitions', icon: Briefcase },
   { name: 'Applications', href: '/applications', icon: Users },
   { name: 'Interviews', href: '/interviews', icon: MessageSquare },
-  { name: 'Queue', href: '/queue', icon: ListTodo },
   { name: 'Activity Log', href: '/logs', icon: Activity },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];

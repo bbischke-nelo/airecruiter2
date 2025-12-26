@@ -310,18 +310,37 @@ function getActionBgColor(action: string): string {
 
 function formatAction(action: string): string {
   const map: Record<string, string> = {
-    analysis_completed: 'Resume analyzed',
-    interview_sent: 'Interview invite sent',
-    interview_started: 'Interview started',
-    interview_completed: 'Interview completed',
-    evaluation_completed: 'Interview evaluated',
-    report_generated: 'Report generated',
-    report_uploaded: 'Report uploaded to Workday',
-    status_changed: 'Application status changed',
-    human_requested: 'Human review requested',
-    sync_completed: 'Requisition synced',
+    // Sync actions
+    sync_completed: 'Sync Completed',
+    requisition_synced: 'Requisition Synced',
+    application_created: 'Application Created',
+    workday_status_changed: 'Workday Status Changed',
+    // Analysis/extraction
+    analysis_completed: 'Resume Analyzed',
+    facts_extracted: 'Facts Extracted',
+    extraction_failed: 'Extraction Failed',
+    // Interview
+    interview_sent: 'Interview Invite Sent',
+    interview_started: 'Interview Started',
+    interview_completed: 'Interview Completed',
+    evaluation_completed: 'Interview Evaluated',
+    human_requested: 'Human Review Requested',
+    // Report
+    report_generated: 'Report Generated',
+    report_uploaded: 'Report Uploaded',
+    // HITL decisions
+    application_advanced: 'Application Advanced',
+    application_rejected: 'Application Rejected',
+    application_held: 'Application Held',
+    application_unheld: 'Application Unheld',
+    // Status
+    status_changed: 'Status Changed',
   };
-  return map[action] || action.replace(/_/g, ' ');
+  // Fallback: convert snake_case to Title Case
+  return map[action] || action
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }
 
 function formatDetails(details: Record<string, unknown>): string {
