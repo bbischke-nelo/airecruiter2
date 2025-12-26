@@ -1,7 +1,7 @@
 """Pydantic schemas for Interview endpoints."""
 
 from datetime import datetime
-from typing import Optional, Any
+from typing import Optional, Any, Literal
 
 from pydantic import field_validator
 
@@ -139,3 +139,85 @@ class PublicMessageResponse(CamelModel):
     user_message: MessageResponse
     assistant_message: MessageResponse
     is_complete: bool = False
+
+
+# Prepare/Activate interview schemas (2-step send flow)
+class EmailPreview(CamelModel):
+    """Email preview for interview invitation."""
+
+    to_email: str
+    subject: str
+    body_html: str
+
+
+class PrepareInterviewRequest(CamelModel):
+    """Request to prepare an interview (creates draft, returns preview)."""
+
+    email_override: Optional[str] = None  # Override candidate email
+    persona_id: Optional[int] = None
+    expiry_days: int = 7
+
+
+class PrepareInterviewResponse(CamelModel):
+    """Response for prepare interview request."""
+
+    interview_id: int
+    interview_token: str
+    interview_url: str
+    expires_at: datetime
+    email_preview: EmailPreview
+
+
+class ActivateInterviewRequest(CamelModel):
+    """Request to activate an interview (send email or just make link active)."""
+
+    method: Literal["email", "link_only"]  # "email" sends email, "link_only" just activates
+    email_override: Optional[str] = None  # Can override at send time too
+
+
+class ActivateInterviewResponse(CamelModel):
+    """Response for activate interview request."""
+
+    interview_id: int
+    interview_url: str
+    expires_at: datetime
+    email_sent: bool
+    email_sent_to: Optional[str] = None
+
+
+# Proxy interview schemas (recruiter conducting on candidate's behalf)
+class StartProxyInterviewRequest(CamelModel):
+    """Request to start a proxy interview."""
+
+    persona_id: Optional[int] = None
+
+
+class StartProxyInterviewResponse(CamelModel):
+    """Response for starting a proxy interview."""
+
+    interview_id: int
+    status: str
+    initial_message: MessageResponse
+
+
+class ProxyMessageRequest(CamelModel):
+    """Request to send a message in proxy interview."""
+
+    content: str  # Candidate's response (typed by recruiter)
+
+
+class ProxyMessageResponse(CamelModel):
+    """Response for proxy interview message."""
+
+    user_message: MessageResponse
+    ai_response: MessageResponse
+    is_complete: bool = False
+
+
+class EndProxyResponse(CamelModel):
+    """Response for ending a proxy interview."""
+
+    interview_id: int
+    status: str
+    message_count: int
+    completed_at: datetime

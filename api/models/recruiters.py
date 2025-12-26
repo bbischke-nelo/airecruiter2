@@ -34,6 +34,7 @@ class Recruiter(Base):
 
     # Relationships
     requisitions = relationship("Requisition", back_populates="recruiter")
+    interviews = relationship("Interview", back_populates="recruiter")
 
     def __repr__(self) -> str:
         return f"<Recruiter(id={self.id}, name={self.name})>"

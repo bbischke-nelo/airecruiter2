@@ -15,6 +15,7 @@ from api.schemas.interviews import (
     PublicMessageResponse,
     MessageResponse,
 )
+from api.services.interview_service import InterviewService
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -67,42 +68,63 @@ async def start_interview(
     db: Session = Depends(get_db),
 ):
     """Start an interview session."""
-    interview = get_interview_by_token(token, db)
+    # Use row locking to prevent race condition from double-clicks
+    interview = (
+        db.query(Interview)
+        .filter(Interview.token == token)
+        .with_for_update()
+        .first()
+    )
+
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    # Check expiration
+    if interview.token_expires_at and interview.token_expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=410, detail="Interview link has expired")
+
+    # Check status
+    if interview.status in ["completed", "abandoned"]:
+        raise HTTPException(status_code=410, detail="Interview is no longer active")
 
     if interview.status == "in_progress":
+        # Get existing messages
+        messages = (
+            db.query(Message)
+            .filter(Message.interview_id == interview.id)
+            .order_by(Message.created_at)
+            .all()
+        )
+        if messages:
+            return {
+                "message": "Interview already in progress",
+                "initial_message": MessageResponse(
+                    id=messages[0].id,
+                    role=messages[0].role,
+                    content=messages[0].content,
+                    created_at=messages[0].created_at,
+                ),
+            }
         return {"message": "Interview already in progress"}
 
-    interview.status = "in_progress"
-    interview.started_at = datetime.now(timezone.utc)
-    db.commit()
+    # Use InterviewService to start interview with proper greeting
+    service = InterviewService(db)
+    initial_message = await service.start_interview(
+        interview_id=interview.id,
+        interview_type="self_service",
+    )
 
-    logger.info("Interview started", interview_id=interview.id)
+    logger.info("Interview started via public link", interview_id=interview.id)
 
-    # Get initial greeting message if exists, or create one
-    messages = db.query(Message).filter(Message.interview_id == interview.id).all()
-
-    if not messages:
-        # TODO: Generate initial greeting from persona
-        initial_message = Message(
-            interview_id=interview.id,
-            role="assistant",
-            content=f"Hello! Thank you for taking the time to interview for the {interview.application.requisition.name} position. I'm here to learn more about your experience and qualifications. Let's get started - can you tell me a bit about yourself and what interests you about this role?",
-        )
-        db.add(initial_message)
-        db.commit()
-        db.refresh(initial_message)
-
-        return {
-            "message": "Interview started",
-            "initial_message": MessageResponse(
-                id=initial_message.id,
-                role=initial_message.role,
-                content=initial_message.content,
-                created_at=initial_message.created_at,
-            ),
-        }
-
-    return {"message": "Interview resumed"}
+    return {
+        "message": "Interview started",
+        "initial_message": MessageResponse(
+            id=initial_message.id,
+            role=initial_message.role,
+            content=initial_message.content,
+            created_at=initial_message.created_at,
+        ),
+    }
 
 
 @router.post("/{token}/messages", response_model=PublicMessageResponse)
@@ -117,36 +139,16 @@ async def send_message(
     if interview.status != "in_progress":
         raise HTTPException(status_code=400, detail="Interview is not in progress")
 
-    # Save user message
-    user_message = Message(
+    # Use InterviewService to process message
+    service = InterviewService(db)
+    user_message, assistant_message = await service.process_message(
         interview_id=interview.id,
-        role="user",
-        content=data.content,
+        user_message=data.content,
     )
-    db.add(user_message)
-    db.commit()
-    db.refresh(user_message)
 
-    # TODO: Call Claude API to generate response
-    # For now, return a placeholder
-    assistant_content = "Thank you for sharing that. [AI response will be generated here]"
-
-    # Check if interview should end (TODO: implement logic)
-    is_complete = False
-
-    assistant_message = Message(
-        interview_id=interview.id,
-        role="assistant",
-        content=assistant_content,
-    )
-    db.add(assistant_message)
-    db.commit()
-    db.refresh(assistant_message)
-
-    if is_complete:
-        interview.status = "completed"
-        interview.completed_at = datetime.now(timezone.utc)
-        db.commit()
+    # Check if interview completed
+    db.refresh(interview)
+    is_complete = interview.status == "completed"
 
     return PublicMessageResponse(
         user_message=MessageResponse(

@@ -1,25 +1,30 @@
 """Interview CRUD endpoints."""
 
 import json
+from datetime import datetime, timezone
 from typing import Optional
 
 import structlog
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from api.config.database import get_db
 from api.middleware.error_handler import NotFoundError
-from api.models import Interview, Application, Requisition, Message, Evaluation, Job
+from api.models import Interview, Application, Requisition, Message, Evaluation, Job, Activity
 from api.schemas.interviews import (
     InterviewCreate,
     InterviewListItem,
     InterviewResponse,
     MessageResponse,
     EvaluationResponse,
+    ProxyMessageRequest,
+    ProxyMessageResponse,
+    EndProxyResponse,
 )
 from api.schemas.base import PaginatedResponse, PaginationMeta
 from api.services.rbac import require_role
+from api.services.interview_service import InterviewService
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -250,3 +255,126 @@ async def resend_interview_invite(
 
     logger.info("Interview invite resend queued", interview_id=interview_id)
     return {"message": "Invite resend queued"}
+
+
+@router.post("/{interview_id}/proxy-message", response_model=ProxyMessageResponse)
+async def send_proxy_message(
+    interview_id: int,
+    data: ProxyMessageRequest,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_role(["admin", "recruiter"])),
+):
+    """Send a message in a proxy interview (recruiter typing on behalf of candidate)."""
+    interview = db.query(Interview).filter(Interview.id == interview_id).first()
+    if not interview:
+        raise NotFoundError("Interview", interview_id)
+
+    # Validate this is a proxy interview
+    if interview.interview_type != "proxy":
+        raise HTTPException(
+            status_code=400,
+            detail="This endpoint is only for proxy interviews",
+        )
+
+    # Validate interview is in progress
+    if interview.status != "in_progress":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Interview is not in progress (status: {interview.status})",
+        )
+
+    # Process message via InterviewService
+    service = InterviewService(db)
+    user_msg, ai_msg = await service.process_message(
+        interview_id=interview_id,
+        user_message=data.content,
+    )
+
+    # Check if interview completed
+    db.refresh(interview)
+    is_complete = interview.status == "completed"
+
+    logger.info(
+        "Proxy message processed",
+        interview_id=interview_id,
+        is_complete=is_complete,
+    )
+
+    return ProxyMessageResponse(
+        user_message=MessageResponse(
+            id=user_msg.id,
+            role=user_msg.role,
+            content=user_msg.content,
+            created_at=user_msg.created_at,
+        ),
+        ai_response=MessageResponse(
+            id=ai_msg.id,
+            role=ai_msg.role,
+            content=ai_msg.content,
+            created_at=ai_msg.created_at,
+        ),
+        is_complete=is_complete,
+    )
+
+
+@router.post("/{interview_id}/end-proxy", response_model=EndProxyResponse)
+async def end_proxy_interview(
+    interview_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_role(["admin", "recruiter"])),
+):
+    """End a proxy interview and queue evaluation."""
+    interview = db.query(Interview).filter(Interview.id == interview_id).first()
+    if not interview:
+        raise NotFoundError("Interview", interview_id)
+
+    # Validate this is a proxy interview
+    if interview.interview_type != "proxy":
+        raise HTTPException(
+            status_code=400,
+            detail="This endpoint is only for proxy interviews",
+        )
+
+    # Validate interview can be ended
+    if interview.status not in ("in_progress", "scheduled"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot end interview with status: {interview.status}",
+        )
+
+    # End the interview
+    service = InterviewService(db)
+    interview = await service.end_interview(interview_id)
+
+    # Queue evaluation job
+    job = Job(
+        application_id=interview.application_id,
+        job_type="evaluate",
+        priority=5,
+    )
+    db.add(job)
+
+    # Log activity
+    activity = Activity(
+        application_id=interview.application_id,
+        activity_type="interview_completed",
+        details=f"Proxy interview completed (ID: {interview_id})",
+    )
+    db.add(activity)
+    db.commit()
+
+    # Get message count
+    message_count = db.query(Message).filter(Message.interview_id == interview_id).count()
+
+    logger.info(
+        "Proxy interview ended",
+        interview_id=interview_id,
+        message_count=message_count,
+    )
+
+    return EndProxyResponse(
+        interview_id=interview.id,
+        status=interview.status,
+        message_count=message_count,
+        completed_at=interview.completed_at,
+    )

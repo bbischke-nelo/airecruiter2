@@ -11,7 +11,17 @@ class Interview(Base):
     """
     AI interview sessions.
 
-    Supports self-service (candidate-facing) and admin (recruiter-initiated) interviews.
+    Interview Types:
+    - self_service: Candidate conducts interview via token link
+    - proxy: Recruiter conducts interview on candidate's behalf
+
+    Status Values:
+    - draft: Created but not activated (pending recruiter confirmation)
+    - scheduled: Ready for candidate (token active)
+    - in_progress: Interview started
+    - completed: Interview finished
+    - abandoned: Cancelled
+    - expired: Token expired
     """
 
     __tablename__ = "interviews"
@@ -19,18 +29,27 @@ class Interview(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     application_id = Column(Integer, ForeignKey("applications.id"), nullable=False)
 
-    # Type
-    interview_type = Column(String(20), default="self_service")  # self_service, admin
+    # Type: self_service (candidate via link) or proxy (recruiter on behalf)
+    interview_type = Column(String(20), default="self_service")
 
     # Self-service access
     token = Column(String(64), unique=True, nullable=True)
     token_expires_at = Column(DateTime, nullable=True)
 
-    # Status: scheduled, in_progress, completed, abandoned, expired
+    # Status: draft, scheduled, in_progress, completed, abandoned, expired
     status = Column(String(50), default="scheduled")
 
     # Configuration
     persona_id = Column(Integer, ForeignKey("personas.id"), nullable=True)
+
+    # Recruiter who conducted proxy interview (NULL for self-service)
+    recruiter_id = Column(Integer, ForeignKey("recruiters.id", ondelete="SET NULL"), nullable=True)
+
+    # Email override for self-service interviews
+    candidate_email = Column(String(255), nullable=True)
+
+    # When the interview invite email was actually sent (NULL if link-only)
+    invite_sent_at = Column(DateTime, nullable=True)
 
     # Flags
     human_requested = Column(Boolean, default=False)
@@ -47,6 +66,7 @@ class Interview(Base):
     # Relationships
     application = relationship("Application", back_populates="interviews")
     persona = relationship("Persona")
+    recruiter = relationship("Recruiter", back_populates="interviews")
     messages = relationship("Message", back_populates="interview", cascade="all, delete-orphan")
     evaluation = relationship("Evaluation", back_populates="interview", uselist=False)
 
