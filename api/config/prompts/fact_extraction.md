@@ -95,12 +95,14 @@ Return this exact structure:
   ],
 
   "summary_stats": {
-    "total_experience_months": <calculated>,
-    "employers_count": <number>,
-    "average_tenure_months": <calculated>,
+    "total_experience_months": <calculated across all history>,
+    "employers_count": <total number of employers>,
+    "average_tenure_months": <average across all employers>,
     "most_recent_employer": "<name>",
     "most_recent_title": "<title>",
-    "years_since_last_employment": <if gap to present>
+    "years_since_last_employment": <if gap to present>,
+    "recent_5yr_employers_count": <employers with end_date within last 5 years or is_current>,
+    "recent_5yr_average_tenure_months": <average tenure at those recent employers only>
   },
 
   "jd_keyword_matches": {
@@ -185,3 +187,4 @@ Return this exact structure:
 5. Do not include personal information beyond what's job-relevant (no age, race, gender inference)
 6. Pros/cons must tie directly to a JD requirement - not general observations
 7. Suggested questions should clarify facts, not probe character or personality
+8. For recent_5yr_ stats: Count only employers where end_date is within 5 years of application_date, or is_current is true. Ignore employment from before the 5-year window.
