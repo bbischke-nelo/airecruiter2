@@ -61,7 +61,7 @@ class RequisitionResponse(CamelModel):
     auto_send_interview: bool
     auto_send_on_status: Optional[str] = None
     last_synced_at: Optional[datetime] = None
-    workday_data: Optional[dict[str, Any]] = None
+    external_data: Optional[dict[str, Any]] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 

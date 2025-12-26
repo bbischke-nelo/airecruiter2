@@ -51,9 +51,9 @@ class Requisition(Base):
     custom_interview_instructions = Column(Text, nullable=True)
     jd_requirements_json = Column(Text, nullable=True)  # Extracted JD requirements
 
-    # Workday sync metadata
+    # Sync metadata
     last_synced_at = Column(DateTime, nullable=True)
-    workday_data = Column(Text, nullable=True)  # Raw Workday fields (JSON string)
+    external_data = Column(Text, nullable=True)  # Raw data from external provider (JSON string)
 
     # Metadata
     created_at = Column(DateTime, default=func.getutcdate())

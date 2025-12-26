@@ -44,6 +44,9 @@ class Application(Base):
     # {"resume": "s3://...", "analysis": "s3://...", "report": "s3://..."}
     artifacts = Column(Text, default="{}")
 
+    # Raw data from external provider (JSON string)
+    external_data = Column(Text, nullable=True)
+
     # Decision tracking (Human-in-the-Loop)
     rejection_reason_code = Column(String(50), nullable=True)
     rejection_comment = Column(Text, nullable=True)

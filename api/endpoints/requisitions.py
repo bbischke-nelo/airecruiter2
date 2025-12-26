@@ -137,7 +137,7 @@ async def get_requisition(
         auto_send_interview=bool(requisition.auto_send_interview) if requisition.auto_send_interview is not None else False,
         auto_send_on_status=requisition.auto_send_on_status,
         last_synced_at=requisition.last_synced_at,
-        workday_data=json.loads(requisition.workday_data) if requisition.workday_data else None,
+        external_data=json.loads(requisition.external_data) if requisition.external_data else None,
         created_at=requisition.created_at,
         updated_at=requisition.updated_at,
     )

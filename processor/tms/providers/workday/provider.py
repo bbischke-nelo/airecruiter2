@@ -93,7 +93,7 @@ class WorkdayProvider(TMSProvider):
                     location=raw.get("location"),
                     recruiter_name=raw.get("recruiter_name"),
                     is_active=raw.get("is_active", True),
-                    workday_data=raw,
+                    external_data=raw,
                 )
                 all_requisitions.append(req)
 
@@ -173,7 +173,7 @@ class WorkdayProvider(TMSProvider):
                     candidate_email=raw.get("candidate_email", ""),
                     workday_status=raw.get("workday_status", "Unknown"),
                     applied_at=applied_at,
-                    workday_data=raw,
+                    external_data=raw,
                 )
                 all_applications.append(app)
 

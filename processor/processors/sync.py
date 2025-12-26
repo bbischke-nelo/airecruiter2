@@ -76,7 +76,7 @@ class SyncProcessor(BaseProcessor):
         # Get requisition from database
         query = text("""
             SELECT id, external_id, name, last_synced_at, lookback_hours,
-                   auto_send_interview, auto_send_on_status, workday_data
+                   auto_send_interview, auto_send_on_status, external_data
             FROM requisitions
             WHERE id = :req_id
         """)
@@ -92,11 +92,11 @@ class SyncProcessor(BaseProcessor):
         if req.last_synced_at:
             since = req.last_synced_at
 
-        # Extract WID from workday_data if available
+        # Extract WID from external_data if available
         wid = None
-        if req.workday_data:
-            workday_data = json.loads(req.workday_data) if isinstance(req.workday_data, str) else req.workday_data
-            wid = workday_data.get("wid")
+        if req.external_data:
+            external_data = json.loads(req.external_data) if isinstance(req.external_data, str) else req.external_data
+            wid = external_data.get("wid")
 
         # Fetch applications from Workday - use WID if available
         applications = await provider.get_applications(req.external_id, since=since, wid=wid)
@@ -157,7 +157,7 @@ class SyncProcessor(BaseProcessor):
                     detailed_description = :detailed_description,
                     location = :location,
                     is_active = :is_active,
-                    workday_data = :workday_data,
+                    external_data = :external_data,
                     updated_at = GETUTCDATE()
                 WHERE id = :req_id
             """)
@@ -170,7 +170,7 @@ class SyncProcessor(BaseProcessor):
                     "detailed_description": tms_req.detailed_description,
                     "location": tms_req.location,
                     "is_active": tms_req.is_active,
-                    "workday_data": json.dumps(tms_req.workday_data) if tms_req.workday_data else None,
+                    "external_data": json.dumps(tms_req.external_data) if tms_req.external_data else None,
                 },
             )
             self.db.commit()
@@ -180,10 +180,10 @@ class SyncProcessor(BaseProcessor):
             insert_query = text("""
                 INSERT INTO requisitions (external_id, name, description, detailed_description,
                                          location, is_active, sync_enabled, sync_interval_minutes,
-                                         auto_send_interview, workday_data, created_at)
+                                         auto_send_interview, external_data, created_at)
                 OUTPUT INSERTED.id
                 VALUES (:external_id, :name, :description, :detailed_description,
-                        :location, :is_active, 1, 15, 0, :workday_data, GETUTCDATE())
+                        :location, :is_active, 1, 15, 0, :external_data, GETUTCDATE())
             """)
             result = self.db.execute(
                 insert_query,
@@ -194,7 +194,7 @@ class SyncProcessor(BaseProcessor):
                     "detailed_description": tms_req.detailed_description,
                     "location": tms_req.location,
                     "is_active": tms_req.is_active,
-                    "workday_data": json.dumps(tms_req.workday_data) if tms_req.workday_data else None,
+                    "external_data": json.dumps(tms_req.external_data) if tms_req.external_data else None,
                 },
             )
             # Must fetch before commit with pyodbc
@@ -278,10 +278,10 @@ class SyncProcessor(BaseProcessor):
         insert_query = text("""
             INSERT INTO applications (requisition_id, external_application_id, external_candidate_id,
                                      candidate_name, candidate_email, workday_status, status,
-                                     workday_data, created_at)
+                                     external_data, created_at)
             OUTPUT INSERTED.id
             VALUES (:req_id, :ext_app_id, :ext_cand_id, :name, :email, :wd_status, 'new',
-                    :workday_data, GETUTCDATE())
+                    :external_data, GETUTCDATE())
         """)
         result = self.db.execute(
             insert_query,
@@ -292,7 +292,7 @@ class SyncProcessor(BaseProcessor):
                 "name": tms_app.candidate_name,
                 "email": tms_app.candidate_email,
                 "wd_status": tms_app.workday_status,
-                "workday_data": json.dumps(tms_app.workday_data) if tms_app.workday_data else None,
+                "external_data": json.dumps(tms_app.external_data) if tms_app.external_data else None,
             },
         )
         # Must fetch before commit with pyodbc

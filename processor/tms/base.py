@@ -20,7 +20,7 @@ class TMSRequisition:
     recruiter_name: Optional[str] = None
     hiring_manager: Optional[str] = None
     is_active: bool = True
-    workday_data: Optional[dict] = None  # Raw TMS data for reference
+    external_data: Optional[dict] = None  # Raw data from TMS for reference
 
 
 @dataclass
@@ -37,7 +37,7 @@ class TMSApplication:
     resume_content: Optional[bytes] = None  # Resume file content if available
     resume_filename: Optional[str] = None
     resume_content_type: Optional[str] = None
-    workday_data: Optional[dict] = None  # Raw TMS data for reference
+    external_data: Optional[dict] = None  # Raw data from TMS for reference
 
 
 @dataclass
