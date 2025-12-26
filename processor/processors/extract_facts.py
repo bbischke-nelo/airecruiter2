@@ -314,7 +314,7 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
                 "licenses": facts.licenses if hasattr(facts, "licenses") else [],
                 "education": facts.education if hasattr(facts, "education") else [],
                 "summary_stats": facts.summary_stats if hasattr(facts, "summary_stats") else {},
-                "jd_keyword_matches": facts.jd_keyword_matches if hasattr(facts, "jd_keyword_matches") else {},
+                "jd_requirements_match": facts.jd_requirements_match if hasattr(facts, "jd_requirements_match") else {},
             })
 
             observations = facts.observations if hasattr(facts, "observations") else {}

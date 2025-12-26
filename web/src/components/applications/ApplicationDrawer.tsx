@@ -113,9 +113,21 @@ interface ExtractedFacts {
       most_recent_title: string | null;
       months_since_last_employment: number;
     };
-    jd_keyword_matches?: {
-      found: string[];
-      not_found: string[];
+    jd_requirements_match?: {
+      requirements: Array<{
+        requirement: string;
+        category: string;
+        met: 'yes' | 'no' | 'partial';
+        evidence: string | null;
+        explanation: string;
+      }>;
+      summary: {
+        total_requirements: number;
+        fully_met: number;
+        partially_met: number;
+        not_met: number;
+        match_percentage: number;
+      };
     };
   } | null;
   pros: Array<{ category: string; observation: string; evidence: string }>;
@@ -480,14 +492,13 @@ export function ApplicationDrawer({
   const canReconsider = application?.status === 'rejected';
   const isOnHold = application?.status === 'on_hold';
 
-  // Calculate JD match percentage from facts
-  const jdMatch = facts?.extractedFacts?.jd_keyword_matches;
-  const matchPercentage = (() => {
-    if (!jdMatch) return null;
-    const total = (jdMatch.found?.length || 0) + (jdMatch.not_found?.length || 0);
-    if (total === 0) return null;
-    return Math.round(((jdMatch.found?.length || 0) / total) * 100);
-  })();
+  // Get JD requirements match from facts
+  const jdMatch = facts?.extractedFacts?.jd_requirements_match;
+  const matchPercentage = jdMatch?.summary?.match_percentage ?? null;
+  const requirements = jdMatch?.requirements ?? [];
+  const metRequirements = requirements.filter(r => r.met === 'yes');
+  const partialRequirements = requirements.filter(r => r.met === 'partial');
+  const unmetRequirements = requirements.filter(r => r.met === 'no');
 
   // Get most recent position for header
   const summaryStats = facts?.extractedFacts?.summary_stats;
@@ -598,55 +609,89 @@ export function ApplicationDrawer({
                       </div>
                     ) : facts?.extractedFacts ? (
                       <div className="space-y-6">
-                        {/* JD Match Summary */}
+                        {/* JD Requirements Match */}
                         {matchPercentage !== null && (
                           <div className="p-4 rounded-lg border">
                             <div className="flex items-center justify-between mb-2">
-                              <span className="font-medium">JD Keyword Match</span>
+                              <span className="font-medium">JD Requirements Match</span>
                               <span className="text-sm font-medium">{matchPercentage}%</span>
                             </div>
                             <Progress value={matchPercentage} />
-                            <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <span className="text-green-600 dark:text-green-400 font-medium">
-                                  Found ({jdMatch?.found.length || 0})
-                                </span>
-                                <div className="mt-1 flex flex-wrap gap-1">
-                                  {jdMatch?.found.slice(0, 5).map((kw) => (
-                                    <span
-                                      key={kw}
-                                      className="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded"
-                                    >
-                                      {kw}
-                                    </span>
-                                  ))}
-                                  {(jdMatch?.found.length || 0) > 5 && (
-                                    <span className="text-xs text-muted-foreground">
-                                      +{(jdMatch?.found.length || 0) - 5} more
-                                    </span>
-                                  )}
+                            <div className="mt-3 space-y-3 text-sm">
+                              {/* Met Requirements */}
+                              {metRequirements.length > 0 && (
+                                <div>
+                                  <span className="text-green-600 dark:text-green-400 font-medium">
+                                    Met ({metRequirements.length})
+                                  </span>
+                                  <div className="mt-1 space-y-1">
+                                    {metRequirements.slice(0, 3).map((req, i) => (
+                                      <div
+                                        key={i}
+                                        className="px-2 py-1 text-xs bg-green-50 dark:bg-green-900/30 rounded border border-green-200 dark:border-green-800"
+                                      >
+                                        <div className="font-medium text-green-800 dark:text-green-200">{req.requirement}</div>
+                                        {req.evidence && (
+                                          <div className="text-green-600 dark:text-green-400 mt-0.5">{req.evidence}</div>
+                                        )}
+                                      </div>
+                                    ))}
+                                    {metRequirements.length > 3 && (
+                                      <span className="text-xs text-muted-foreground">
+                                        +{metRequirements.length - 3} more met
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                              <div>
-                                <span className="text-red-600 dark:text-red-400 font-medium">
-                                  Missing ({jdMatch?.not_found.length || 0})
-                                </span>
-                                <div className="mt-1 flex flex-wrap gap-1">
-                                  {jdMatch?.not_found.slice(0, 5).map((kw) => (
-                                    <span
-                                      key={kw}
-                                      className="px-2 py-0.5 text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded"
-                                    >
-                                      {kw}
-                                    </span>
-                                  ))}
-                                  {(jdMatch?.not_found.length || 0) > 5 && (
-                                    <span className="text-xs text-muted-foreground">
-                                      +{(jdMatch?.not_found.length || 0) - 5} more
-                                    </span>
-                                  )}
+                              )}
+                              {/* Partial Requirements */}
+                              {partialRequirements.length > 0 && (
+                                <div>
+                                  <span className="text-yellow-600 dark:text-yellow-400 font-medium">
+                                    Partial ({partialRequirements.length})
+                                  </span>
+                                  <div className="mt-1 space-y-1">
+                                    {partialRequirements.slice(0, 2).map((req, i) => (
+                                      <div
+                                        key={i}
+                                        className="px-2 py-1 text-xs bg-yellow-50 dark:bg-yellow-900/30 rounded border border-yellow-200 dark:border-yellow-800"
+                                      >
+                                        <div className="font-medium text-yellow-800 dark:text-yellow-200">{req.requirement}</div>
+                                        <div className="text-yellow-600 dark:text-yellow-400 mt-0.5">{req.explanation}</div>
+                                      </div>
+                                    ))}
+                                    {partialRequirements.length > 2 && (
+                                      <span className="text-xs text-muted-foreground">
+                                        +{partialRequirements.length - 2} more partial
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
+                              )}
+                              {/* Unmet Requirements */}
+                              {unmetRequirements.length > 0 && (
+                                <div>
+                                  <span className="text-red-600 dark:text-red-400 font-medium">
+                                    Not Met ({unmetRequirements.length})
+                                  </span>
+                                  <div className="mt-1 space-y-1">
+                                    {unmetRequirements.slice(0, 3).map((req, i) => (
+                                      <div
+                                        key={i}
+                                        className="px-2 py-1 text-xs bg-red-50 dark:bg-red-900/30 rounded border border-red-200 dark:border-red-800"
+                                      >
+                                        <div className="font-medium text-red-800 dark:text-red-200">{req.requirement}</div>
+                                        <div className="text-red-600 dark:text-red-400 mt-0.5">{req.explanation}</div>
+                                      </div>
+                                    ))}
+                                    {unmetRequirements.length > 3 && (
+                                      <span className="text-xs text-muted-foreground">
+                                        +{unmetRequirements.length - 3} more not met
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}

@@ -80,9 +80,12 @@ class FactExtractionResult:
     summary_stats: Dict[str, Any] = field(default_factory=dict)
     # {"total_experience_months": 0, "employers_count": 0, "average_tenure_months": 0}
 
-    # JD keyword matches
-    jd_keyword_matches: Dict[str, Any] = field(default_factory=dict)
-    # {"found": [...], "not_found": [...], "match_percentage": 0}
+    # JD requirements match (semantic matching, not keyword matching)
+    jd_requirements_match: Dict[str, Any] = field(default_factory=dict)
+    # {
+    #   "requirements": [{"requirement": "...", "category": "...", "met": "yes|no|partial", "evidence": "...", "explanation": "..."}],
+    #   "summary": {"total_requirements": 0, "fully_met": 0, "partially_met": 0, "not_met": 0, "match_percentage": 0}
+    # }
 
     # Observations (factual, tied to JD requirements)
     observations: Dict[str, List[Dict[str, str]]] = field(default_factory=dict)
@@ -438,7 +441,7 @@ Guidelines:
                 logistics=data.get("logistics", {}),
                 timeline=data.get("timeline", []),
                 summary_stats=data.get("summary_stats", {}),
-                jd_keyword_matches=data.get("jd_keyword_matches", {}),
+                jd_requirements_match=data.get("jd_requirements_match", {}),
                 observations=data.get("observations", {}),
                 relevance_summary=data.get("relevance_summary"),
                 raw_response=response,

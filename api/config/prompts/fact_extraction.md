@@ -86,9 +86,23 @@ Return this exact structure:
     "months_since_last_employment": <if gap to present, else 0 if currently employed>
   },
 
-  "jd_keyword_matches": {
-    "found": ["<keywords from JD found in resume>"],
-    "not_found": ["<keywords from JD not found in resume>"]
+  "jd_requirements_match": {
+    "requirements": [
+      {
+        "requirement": "<specific requirement from JD, e.g. '3+ years B2B sales experience'>",
+        "category": "<experience|skills|certification|education|other>",
+        "met": "<yes|no|partial>",
+        "evidence": "<specific resume content that supports this, or null if not found>",
+        "explanation": "<brief explanation of how candidate does/doesn't meet this>"
+      }
+    ],
+    "summary": {
+      "total_requirements": "<count of distinct requirements extracted from JD>",
+      "fully_met": "<count where met='yes'>",
+      "partially_met": "<count where met='partial'>",
+      "not_met": "<count where met='no'>",
+      "match_percentage": "<(fully_met + 0.5*partially_met) / total * 100, rounded>"
+    }
   },
 
   "observations": {
@@ -163,7 +177,15 @@ Return this exact structure:
 ### Rules:
 1. Calculate duration_months from dates when possible
 2. List timeline entries in reverse chronological order
-3. For JD keyword matching, extract key requirements from JD and check resume
+3. **JD Requirements Matching (IMPORTANT):**
+   - Extract SPECIFIC requirements from the JD (not just keywords)
+   - For each requirement, evaluate whether the candidate's ACTUAL EXPERIENCE meets it
+   - "met=yes" means they have demonstrable experience doing exactly what's required
+   - "met=partial" means they have related but not exact experience
+   - "met=no" means no evidence of relevant experience
+   - Example: JD says "B2B sales experience" - a Salesforce Developer who built sales tools does NOT meet this (they built tools FOR salespeople, not did sales themselves)
+   - Example: JD says "cold calling" - look for evidence they actually made cold calls, not just used a phone system
+   - Focus on what the candidate ACTUALLY DID, not just job titles or keyword matches
 4. If resume is unparseable (image, corrupted), return minimal structure with extraction_notes explaining the issue
 5. Do not include personal information beyond what's job-relevant (no age, race, gender inference)
 6. Pros/cons must tie directly to a JD requirement - not general observations

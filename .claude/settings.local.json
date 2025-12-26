@@ -23,7 +23,10 @@
       "WebFetch(domain:support.beamery.com)",
       "WebFetch(domain:help.gograyscale.com)",
       "WebFetch(domain:docs.cloud-elements.com)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(npx tsc:*)",
+      "Bash(PYTHONPATH=. ./venv/bin/python:*)",
+      "Bash(open:*)"
     ]
   }
 }
