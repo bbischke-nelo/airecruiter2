@@ -31,6 +31,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code - processor needs access to api models
 COPY processor ./processor
 COPY api ./api
+COPY test_data ./test_data
 
 # Create required directories
 RUN mkdir -p /app/logs && chmod 755 /app/logs

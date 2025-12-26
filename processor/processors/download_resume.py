@@ -16,7 +16,8 @@ from processor.services.tms_service import TMSService
 
 # TEMPORARY WORKAROUND: Fallback PDF while Workday attachment API is broken
 # Remove once Workday support resolves Put_Candidate_Attachment auth issue
-FALLBACK_RESUME_PATH = Path(__file__).parent.parent.parent.parent / "test_data" / "REGIO004114-resume.pdf"
+# Path: processor/processors/download_resume.py -> 3 parents -> project root -> test_data
+FALLBACK_RESUME_PATH = Path(__file__).parent.parent.parent / "test_data" / "REGIO004114-resume.pdf"
 
 logger = structlog.get_logger()
 
