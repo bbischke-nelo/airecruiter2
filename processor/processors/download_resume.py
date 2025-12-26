@@ -12,6 +12,7 @@ from processor.processors.base import BaseProcessor
 from processor.queue_manager import QueueManager
 from processor.integrations.s3 import S3Service
 from processor.services.tms_service import TMSService
+from processor.utils.docx_to_pdf import convert_docx_to_pdf, is_docx, ConversionError
 
 logger = structlog.get_logger()
 
@@ -65,6 +66,28 @@ class DownloadResumeProcessor(BaseProcessor):
 
             if resume_data:
                 content, filename, content_type = resume_data
+                original_filename = filename
+
+                # Convert DOCX to PDF for browser preview
+                if is_docx(filename, content_type):
+                    try:
+                        content, filename, content_type = await asyncio.to_thread(
+                            convert_docx_to_pdf, content, filename
+                        )
+                        self.logger.info(
+                            "Converted DOCX to PDF",
+                            application_id=application_id,
+                            original_filename=original_filename,
+                            new_filename=filename,
+                        )
+                    except ConversionError as e:
+                        # Log but continue with original DOCX
+                        self.logger.warning(
+                            "DOCX conversion failed, using original",
+                            application_id=application_id,
+                            filename=filename,
+                            error=str(e),
+                        )
 
                 # Upload to S3
                 s3_key = await self.s3.upload_resume(application_id, content, filename)
