@@ -44,9 +44,20 @@ class GenerateReportProcessor(BaseProcessor):
             application_id: Application to generate report for
             requisition_id: Not used
             payload: Additional options
+
+        NOTE: This processor is disabled pending HITL rewrite.
+        The old scoring columns (reliability_score, strengths, etc.) were removed.
+        Report generation will be reimplemented to use extracted_facts instead.
         """
         if not application_id:
             raise ValueError("application_id is required for generate_report")
+
+        # TODO: Rewrite for HITL - use extracted_facts instead of scoring columns
+        self.logger.warning(
+            "generate_report processor disabled pending HITL rewrite",
+            application_id=application_id,
+        )
+        return  # Skip report generation for now
 
         self.logger.info("Generating candidate report", application_id=application_id)
 
