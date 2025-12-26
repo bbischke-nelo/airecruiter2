@@ -39,6 +39,19 @@ class TMSApplication:
     resume_content_type: Optional[str] = None
     external_data: Optional[dict] = None  # Raw data from TMS for reference
 
+    # Additional candidate metadata (populated from external_data)
+    phone_number: Optional[str] = None
+    secondary_email: Optional[str] = None
+    application_source: Optional[str] = None
+    candidate_wid: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+
+    # Background data (from Workday profile)
+    work_history: Optional[list] = None  # List of work experience dicts
+    education: Optional[list] = None     # List of education dicts
+    skills: Optional[list] = None        # List of skill names
+
 
 @dataclass
 class TMSHealthStatus:

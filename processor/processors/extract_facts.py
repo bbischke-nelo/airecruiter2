@@ -118,6 +118,38 @@ class ExtractFactsProcessor(BaseProcessor):
         # Get fact extraction prompt
         prompt_template = await self._get_prompt("fact_extraction", app.requisition_id)
 
+        # Build Workday profile dict if data available (from joined candidate_profiles table)
+        workday_profile = None
+        # Access profile data from SQL result (cp.work_history, cp.education, cp.skills)
+        work_history = getattr(app, "work_history", None)
+        education = getattr(app, "education", None)
+        skills = getattr(app, "skills", None)
+
+        if work_history or education or skills:
+            workday_profile = {}
+            if work_history:
+                try:
+                    workday_profile["work_history"] = json.loads(work_history) if isinstance(work_history, str) else work_history
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            if education:
+                try:
+                    workday_profile["education"] = json.loads(education) if isinstance(education, str) else education
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            if skills:
+                try:
+                    workday_profile["skills"] = json.loads(skills) if isinstance(skills, str) else skills
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+        # Use applied_at if available, fall back to created_at
+        application_date = None
+        if hasattr(app, "applied_at") and app.applied_at:
+            application_date = str(app.applied_at)
+        elif app.created_at:
+            application_date = str(app.created_at)
+
         # Call Claude for fact extraction (even if resume text is empty/partial)
         # Claude can still extract facts from application data
         try:
@@ -126,7 +158,13 @@ class ExtractFactsProcessor(BaseProcessor):
                 job_description=app.detailed_description or f"Position: {app.position}",
                 prompt_template=prompt_template,
                 candidate_id=app.external_candidate_id,
-                application_date=str(app.created_at) if app.created_at else None,
+                application_date=application_date,
+                # Additional context
+                requisition_title=app.position,
+                role_level=getattr(app, "role_level", None),
+                location=getattr(app, "location", None),
+                application_source=getattr(app, "application_source", None),
+                workday_profile=workday_profile if workday_profile else None,
             )
 
             # Store extraction results
@@ -175,14 +213,17 @@ class ExtractFactsProcessor(BaseProcessor):
             )
 
     async def _get_application(self, application_id: int):
-        """Get application with requisition data (async-safe)."""
+        """Get application with requisition and candidate profile data (async-safe)."""
         def _query():
             query = text("""
                 SELECT a.id, a.external_candidate_id, a.candidate_name, a.artifacts,
-                       a.requisition_id, a.created_at,
-                       r.detailed_description, r.name as position
+                       a.requisition_id, a.created_at, a.applied_at, a.application_source,
+                       a.candidate_profile_id,
+                       r.detailed_description, r.name as position, r.role_level, r.location,
+                       cp.work_history, cp.education, cp.skills
                 FROM applications a
                 JOIN requisitions r ON a.requisition_id = r.id
+                LEFT JOIN candidate_profiles cp ON a.candidate_profile_id = cp.id
                 WHERE a.id = :app_id
             """)
             result = self.db.execute(query, {"app_id": application_id})

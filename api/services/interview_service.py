@@ -5,13 +5,14 @@ This service contains the core interview logic that is shared between:
 - Proxy interviews (recruiter conducting on candidate's behalf)
 """
 
+import json
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
 import structlog
 from sqlalchemy.orm import Session
 
-from api.models import Interview, Message, Application, Requisition, Persona
+from api.models import Interview, Message, Application, Requisition, Persona, Analysis, CandidateProfile
 from processor.integrations.claude import ClaudeClient
 
 logger = structlog.get_logger()
@@ -210,31 +211,144 @@ Ask follow-up questions to get specific examples."""
         application: Application,
         requisition: Requisition,
     ) -> str:
-        """Build context string for AI response generation."""
+        """Build context string for AI response generation.
+
+        Includes:
+        - Position and job description
+        - Candidate information and application metadata
+        - Resume analysis insights (pros, cons, suggested questions)
+        - Candidate profile from Workday (work history, education, skills)
+        """
         interview_type = interview.interview_type
         candidate_name = application.candidate_name
 
-        context = f"""
+        # Build position context
+        context = f"""## Position Information
 Position: {requisition.name}
-Candidate: {candidate_name}
 """
+        if hasattr(requisition, "role_level") and requisition.role_level:
+            context += f"Role Level: {requisition.role_level}\n"
+        if hasattr(requisition, "location") and requisition.location:
+            context += f"Location: {requisition.location}\n"
 
+        # Build candidate context
+        context += f"""
+## Candidate Information
+Name: {candidate_name}
+"""
+        if hasattr(application, "applied_at") and application.applied_at:
+            context += f"Applied: {application.applied_at.strftime('%Y-%m-%d') if hasattr(application.applied_at, 'strftime') else application.applied_at}\n"
+        if hasattr(application, "application_source") and application.application_source:
+            context += f"Source: {application.application_source}\n"
+
+        # Add job description
         if requisition.detailed_description:
-            context += f"\nJob Description:\n{requisition.detailed_description[:1000]}"
+            context += f"\n## Job Description\n{requisition.detailed_description[:1500]}\n"
+
+        # Load and add analysis insights
+        analysis = self.db.query(Analysis).filter(
+            Analysis.application_id == application.id
+        ).first()
+
+        if analysis:
+            context += self._format_analysis_context(analysis)
+
+        # Load and add candidate profile
+        if hasattr(application, "candidate_profile") and application.candidate_profile:
+            context += self._format_profile_context(application.candidate_profile)
 
         # Add proxy mode context if applicable
         if interview_type == "proxy":
             context += f"""
-
-IMPORTANT: This is a RECRUITER-ASSISTED INTERVIEW.
-The recruiter is typing the candidate's responses as they speak with the candidate.
+## INTERVIEW MODE: RECRUITER-ASSISTED (Proxy)
+IMPORTANT: The recruiter is typing the candidate's responses as they speak with the candidate.
 Frame ALL questions in THIRD PERSON about the candidate ({candidate_name}).
+Examples:
 - Instead of "Tell me about your experience" → "What is {candidate_name}'s experience?"
 - Instead of "Why are you interested?" → "Why is {candidate_name} interested in this role?"
 - Instead of "What are your strengths?" → "What would {candidate_name} say are their strengths?"
 """
+        else:
+            context += "\n## INTERVIEW MODE: Self-Service\nSpeak directly to the candidate in a friendly, professional manner.\n"
 
         return context
+
+    def _safe_parse_json(self, data) -> list:
+        """Safely parse JSON strings or return lists."""
+        if not data:
+            return []
+        if isinstance(data, list):
+            return data
+        try:
+            return json.loads(data)
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    def _format_analysis_context(self, analysis: Analysis) -> str:
+        """Format resume analysis data for interview context."""
+        sections = ["\n## Resume Analysis Insights"]
+
+        if analysis.relevance_summary:
+            sections.append(f"\nSummary: {analysis.relevance_summary}")
+
+        pros = self._safe_parse_json(analysis.pros)
+        if pros:
+            sections.append("\nStrengths:")
+            for p in pros[:5]:
+                sections.append(f"- {p}")
+
+        cons = self._safe_parse_json(analysis.cons)
+        if cons:
+            sections.append("\nGaps/Areas to Probe:")
+            for c in cons[:5]:
+                sections.append(f"- {c}")
+
+        red_flags = self._safe_parse_json(getattr(analysis, "red_flags", None))
+        if red_flags:
+            sections.append("\nRed Flags to Address:")
+            for f in red_flags[:3]:
+                sections.append(f"- {f}")
+
+        suggested_questions = self._safe_parse_json(analysis.suggested_questions)
+        if suggested_questions:
+            sections.append("\nSuggested Questions from Resume Review:")
+            for q in suggested_questions[:5]:
+                sections.append(f"- {q}")
+
+        return "\n".join(sections)
+
+    def _format_profile_context(self, profile: CandidateProfile) -> str:
+        """Format candidate profile data for interview context."""
+        sections = ["\n## Candidate Profile (from Workday)"]
+
+        # Work history
+        work_history = self._safe_parse_json(profile.work_history)
+        if work_history:
+            sections.append("\nRecent Work History:")
+            for job in work_history[:3]:
+                title = job.get("title", "Unknown Role")
+                company = job.get("company", "Unknown Company")
+                start = job.get("start_date", "?")[:7] if job.get("start_date") else "?"
+                end = job.get("end_date", "Present")[:7] if job.get("end_date") else "Present"
+                sections.append(f"- {title} at {company} ({start} - {end})")
+
+        # Education
+        education = self._safe_parse_json(profile.education)
+        if education:
+            sections.append("\nEducation:")
+            for edu in education[:2]:
+                degree = edu.get("degree", "Degree")
+                school = edu.get("school", "Unknown School")
+                field = edu.get("field", "")
+                field_str = f" in {field}" if field else ""
+                sections.append(f"- {degree}{field_str} from {school}")
+
+        # Skills
+        skills = self._safe_parse_json(profile.skills)
+        if skills:
+            sections.append(f"\nSkills: {', '.join(skills[:10])}")
+
+        return "\n".join(sections)
 
     def _get_conversation_history(self, interview_id: int) -> List[Dict[str, str]]:
         """Get conversation history in Claude message format."""

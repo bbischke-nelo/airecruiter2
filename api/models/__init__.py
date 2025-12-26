@@ -16,6 +16,7 @@ from .interviews import Interview
 from .messages import Message
 from .evaluations import Evaluation
 from .reports import Report
+from .candidate_profiles import CandidateProfile
 
 # Configuration models
 from .prompts import Prompt
@@ -50,6 +51,7 @@ __all__ = [
     "Message",
     "Evaluation",
     "Report",
+    "CandidateProfile",
     # Configuration
     "Prompt",
     "Persona",

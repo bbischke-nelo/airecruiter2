@@ -399,10 +399,43 @@ class WorkdaySOAPClient:
                     data["candidate_email"] = contact.Email_Address
                 # Or Email_Address_Data list
                 elif hasattr(contact, "Email_Address_Data"):
+                    emails = []
                     for email in getattr(contact, "Email_Address_Data", None) or []:
                         if hasattr(email, "Email_Address"):
-                            data["candidate_email"] = email.Email_Address
-                            break
+                            emails.append(email.Email_Address)
+                    if emails:
+                        data["candidate_email"] = emails[0]
+                        if len(emails) > 1:
+                            data["secondary_email"] = emails[1]
+
+                # Phone number from Contact Data
+                if hasattr(contact, "Phone_Data"):
+                    phone_list = getattr(contact, "Phone_Data", None)
+                    if phone_list:
+                        if not isinstance(phone_list, list):
+                            phone_list = [phone_list]
+                        for phone in phone_list:
+                            phone_num = getattr(phone, "Phone_Number", None) or getattr(phone, "Complete_Phone_Number", None)
+                            if phone_num:
+                                data["phone_number"] = str(phone_num)
+                                break
+
+                # Address from Contact Data
+                if hasattr(contact, "Address_Data"):
+                    addr_list = getattr(contact, "Address_Data", None)
+                    if addr_list:
+                        if not isinstance(addr_list, list):
+                            addr_list = [addr_list]
+                        for addr in addr_list:
+                            if hasattr(addr, "Municipality"):
+                                data["city"] = getattr(addr, "Municipality", None)
+                            if hasattr(addr, "Region_Reference"):
+                                region = getattr(addr, "Region_Reference", None)
+                                if region and hasattr(region, "Descriptor"):
+                                    data["state"] = region.Descriptor
+                            # Only take first address
+                            if data.get("city") or data.get("state"):
+                                break
 
             # Recruiting Status - Use target_jat we already found
             if target_jat:
@@ -449,6 +482,82 @@ class WorkdaySOAPClient:
                     data["applied_at"] = job_app_date.isoformat()
                 else:
                     data["applied_at"] = str(job_app_date)
+
+        # Extract application source from Job_Application_Data
+        if target_application:
+            source_ref = getattr(target_application, "Source_Reference", None)
+            if source_ref:
+                data["application_source"] = getattr(source_ref, "Descriptor", None)
+            # Try alternate location
+            if not data.get("application_source"):
+                source_data = getattr(target_application, "Source_Data", None)
+                if source_data:
+                    data["application_source"] = getattr(source_data, "Source", None)
+
+        # Extract work history (Employment_History) if available
+        if hasattr(candidate, "Candidate_Data") and candidate.Candidate_Data:
+            cd = candidate.Candidate_Data
+
+            # Work history
+            work_history = []
+            emp_history = getattr(cd, "Employment_History", None) or getattr(cd, "Employment_History_Data", None)
+            if emp_history:
+                if not isinstance(emp_history, list):
+                    emp_history = [emp_history]
+                for job in emp_history[:10]:  # Limit to 10 entries
+                    job_entry = {}
+                    job_entry["company"] = getattr(job, "Company_Name", None) or getattr(job, "Employer_Name", None)
+                    job_entry["title"] = getattr(job, "Job_Title", None) or getattr(job, "Position_Title", None)
+                    start = getattr(job, "Start_Date", None)
+                    end = getattr(job, "End_Date", None)
+                    if start:
+                        job_entry["start_date"] = start.isoformat() if hasattr(start, "isoformat") else str(start)
+                    if end:
+                        job_entry["end_date"] = end.isoformat() if hasattr(end, "isoformat") else str(end)
+                    job_entry["description"] = getattr(job, "Job_Description", None) or getattr(job, "Responsibilities", None)
+                    if job_entry.get("company") or job_entry.get("title"):
+                        work_history.append(job_entry)
+            if work_history:
+                data["work_history"] = work_history
+
+            # Education history
+            education = []
+            edu_history = getattr(cd, "Education_History", None) or getattr(cd, "Education_Data", None)
+            if edu_history:
+                if not isinstance(edu_history, list):
+                    edu_history = [edu_history]
+                for edu in edu_history[:5]:  # Limit to 5 entries
+                    edu_entry = {}
+                    edu_entry["school"] = getattr(edu, "School_Name", None) or getattr(edu, "School", None)
+                    edu_entry["degree"] = getattr(edu, "Degree", None)
+                    degree_ref = getattr(edu, "Degree_Reference", None)
+                    if degree_ref and not edu_entry.get("degree"):
+                        edu_entry["degree"] = getattr(degree_ref, "Descriptor", None)
+                    edu_entry["field"] = getattr(edu, "Field_of_Study", None) or getattr(edu, "Major", None)
+                    grad_date = getattr(edu, "Graduation_Date", None) or getattr(edu, "End_Date", None)
+                    if grad_date:
+                        edu_entry["graduation_date"] = grad_date.isoformat() if hasattr(grad_date, "isoformat") else str(grad_date)
+                    if edu_entry.get("school") or edu_entry.get("degree"):
+                        education.append(edu_entry)
+            if education:
+                data["education"] = education
+
+            # Skills
+            skills = []
+            skills_data = getattr(cd, "Skills_Data", None) or getattr(cd, "Skill_Data", None)
+            if skills_data:
+                if not isinstance(skills_data, list):
+                    skills_data = [skills_data]
+                for skill in skills_data[:20]:  # Limit to 20 skills
+                    skill_name = getattr(skill, "Skill_Name", None) or getattr(skill, "Skill", None)
+                    if not skill_name:
+                        skill_ref = getattr(skill, "Skill_Reference", None)
+                        if skill_ref:
+                            skill_name = getattr(skill_ref, "Descriptor", None)
+                    if skill_name:
+                        skills.append(skill_name)
+            if skills:
+                data["skills"] = skills
 
         # If we don't have a candidate ID, skip this record
         if "external_candidate_id" not in data:

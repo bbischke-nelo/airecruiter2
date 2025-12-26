@@ -274,14 +274,30 @@ class SyncProcessor(BaseProcessor):
 
     async def _create_new_application(self, req, tms_app: TMSApplication, provider) -> None:
         """Create a new application from TMS data."""
-        # Insert application
+        # Create/update CandidateProfile first
+        profile_id = await self._upsert_candidate_profile(tms_app)
+
+        # Parse applied_at if it's a string
+        applied_at = None
+        if tms_app.applied_at:
+            if hasattr(tms_app.applied_at, "isoformat"):
+                applied_at = tms_app.applied_at
+            else:
+                try:
+                    from datetime import datetime
+                    applied_at = datetime.fromisoformat(str(tms_app.applied_at).replace("Z", "+00:00"))
+                except (ValueError, TypeError):
+                    pass
+
+        # Insert application with new metadata fields
         insert_query = text("""
             INSERT INTO applications (requisition_id, external_application_id, external_candidate_id,
-                                     candidate_name, candidate_email, workday_status, status,
-                                     external_data, created_at)
+                                     candidate_name, candidate_email, phone_number, workday_status,
+                                     application_source, applied_at, candidate_profile_id,
+                                     status, external_data, created_at)
             OUTPUT INSERTED.id
-            VALUES (:req_id, :ext_app_id, :ext_cand_id, :name, :email, :wd_status, 'new',
-                    :external_data, GETUTCDATE())
+            VALUES (:req_id, :ext_app_id, :ext_cand_id, :name, :email, :phone, :wd_status,
+                    :source, :applied_at, :profile_id, 'new', :external_data, GETUTCDATE())
         """)
         result = self.db.execute(
             insert_query,
@@ -291,7 +307,11 @@ class SyncProcessor(BaseProcessor):
                 "ext_cand_id": tms_app.external_candidate_id,
                 "name": tms_app.candidate_name,
                 "email": tms_app.candidate_email,
+                "phone": tms_app.phone_number,
                 "wd_status": tms_app.workday_status,
+                "source": tms_app.application_source,
+                "applied_at": applied_at,
+                "profile_id": profile_id,
                 "external_data": json.dumps(tms_app.external_data) if tms_app.external_data else None,
             },
         )
@@ -354,3 +374,99 @@ class SyncProcessor(BaseProcessor):
                 "has_resume": resume_data is not None,
             },
         )
+
+    async def _upsert_candidate_profile(self, tms_app: TMSApplication) -> Optional[int]:
+        """Create or update a CandidateProfile from TMS data.
+
+        Returns:
+            Profile ID or None if no external_candidate_id
+        """
+        if not tms_app.external_candidate_id:
+            return None
+
+        # Check if profile exists
+        query = text("""
+            SELECT id FROM candidate_profiles
+            WHERE external_candidate_id = :ext_cand_id
+        """)
+        result = self.db.execute(query, {"ext_cand_id": tms_app.external_candidate_id})
+        existing = result.fetchone()
+
+        # Serialize lists to JSON
+        work_history_json = json.dumps(tms_app.work_history) if tms_app.work_history else None
+        education_json = json.dumps(tms_app.education) if tms_app.education else None
+        skills_json = json.dumps(tms_app.skills) if tms_app.skills else None
+
+        if existing:
+            # Update existing profile
+            update_query = text("""
+                UPDATE candidate_profiles
+                SET candidate_wid = COALESCE(:wid, candidate_wid),
+                    primary_email = COALESCE(:email, primary_email),
+                    secondary_email = COALESCE(:secondary_email, secondary_email),
+                    phone_number = COALESCE(:phone, phone_number),
+                    city = COALESCE(:city, city),
+                    state = COALESCE(:state, state),
+                    work_history = COALESCE(:work_history, work_history),
+                    education = COALESCE(:education, education),
+                    skills = COALESCE(:skills, skills),
+                    last_synced_at = GETUTCDATE(),
+                    updated_at = GETUTCDATE()
+                WHERE id = :profile_id
+            """)
+            self.db.execute(
+                update_query,
+                {
+                    "profile_id": existing.id,
+                    "wid": tms_app.candidate_wid,
+                    "email": tms_app.candidate_email,
+                    "secondary_email": tms_app.secondary_email,
+                    "phone": tms_app.phone_number,
+                    "city": tms_app.city,
+                    "state": tms_app.state,
+                    "work_history": work_history_json,
+                    "education": education_json,
+                    "skills": skills_json,
+                },
+            )
+            self.db.commit()
+            return existing.id
+        else:
+            # Insert new profile
+            insert_query = text("""
+                INSERT INTO candidate_profiles (
+                    external_candidate_id, candidate_wid, primary_email, secondary_email,
+                    phone_number, city, state, work_history, education, skills,
+                    last_synced_at, created_at
+                )
+                OUTPUT INSERTED.id
+                VALUES (
+                    :ext_cand_id, :wid, :email, :secondary_email,
+                    :phone, :city, :state, :work_history, :education, :skills,
+                    GETUTCDATE(), GETUTCDATE()
+                )
+            """)
+            result = self.db.execute(
+                insert_query,
+                {
+                    "ext_cand_id": tms_app.external_candidate_id,
+                    "wid": tms_app.candidate_wid,
+                    "email": tms_app.candidate_email,
+                    "secondary_email": tms_app.secondary_email,
+                    "phone": tms_app.phone_number,
+                    "city": tms_app.city,
+                    "state": tms_app.state,
+                    "work_history": work_history_json,
+                    "education": education_json,
+                    "skills": skills_json,
+                },
+            )
+            profile_id = result.scalar()
+            self.db.commit()
+
+            self.logger.info(
+                "Created candidate profile",
+                profile_id=profile_id,
+                external_candidate_id=tms_app.external_candidate_id,
+            )
+            return profile_id

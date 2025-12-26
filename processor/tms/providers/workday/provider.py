@@ -174,6 +174,17 @@ class WorkdayProvider(TMSProvider):
                     workday_status=raw.get("workday_status", "Unknown"),
                     applied_at=applied_at,
                     external_data=raw,
+                    # Additional metadata from Workday
+                    phone_number=raw.get("phone_number"),
+                    secondary_email=raw.get("secondary_email"),
+                    application_source=raw.get("application_source"),
+                    candidate_wid=raw.get("candidate_wid"),
+                    city=raw.get("city"),
+                    state=raw.get("state"),
+                    # Background data
+                    work_history=raw.get("work_history"),
+                    education=raw.get("education"),
+                    skills=raw.get("skills"),
                 )
                 all_applications.append(app)
 

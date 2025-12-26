@@ -144,6 +144,12 @@ class ClaudeClient:
         prompt_template: str,
         candidate_id: Optional[str] = None,
         application_date: Optional[str] = None,
+        # Additional context parameters
+        requisition_title: Optional[str] = None,
+        role_level: Optional[str] = None,
+        location: Optional[str] = None,
+        application_source: Optional[str] = None,
+        workday_profile: Optional[dict] = None,
     ) -> FactExtractionResult:
         """Extract factual information from a resume.
 
@@ -155,11 +161,37 @@ class ClaudeClient:
             prompt_template: Fact extraction prompt template
             candidate_id: Optional candidate identifier for logging
             application_date: Optional application date for context
+            requisition_title: Position title
+            role_level: Level of role (IC, Manager, etc.)
+            location: Job location
+            application_source: Where candidate applied from
+            workday_profile: Candidate profile data from Workday (work history, education, skills)
 
         Returns:
             FactExtractionResult with extracted facts
         """
         logger.info("Extracting facts from resume with Claude", candidate_id=candidate_id)
+
+        # Build Workday profile context if available
+        workday_context = ""
+        if workday_profile:
+            workday_context = "\n## Workday Profile Data\n"
+            if workday_profile.get("work_history"):
+                workday_context += "Work History:\n"
+                for job in workday_profile["work_history"][:5]:
+                    title = job.get("title", "Unknown")
+                    company = job.get("company", "Unknown")
+                    start = job.get("start_date", "?")
+                    end = job.get("end_date", "Present")
+                    workday_context += f"- {title} at {company} ({start} - {end})\n"
+            if workday_profile.get("education"):
+                workday_context += "Education:\n"
+                for edu in workday_profile["education"][:3]:
+                    degree = edu.get("degree", "Degree")
+                    school = edu.get("school", "Unknown")
+                    workday_context += f"- {degree} from {school}\n"
+            if workday_profile.get("skills"):
+                workday_context += f"Skills: {', '.join(workday_profile['skills'][:15])}\n"
 
         # Build the prompt using safe substitution
         prompt = safe_template_substitute(
@@ -167,6 +199,11 @@ class ClaudeClient:
             resume=resume_text,
             job_description=job_description,
             application_date=application_date or "Not provided",
+            requisition_title=requisition_title or "Not specified",
+            role_level=role_level or "Not specified",
+            location=location or "Not specified",
+            application_source=application_source or "Unknown",
+            workday_profile=workday_context or "No Workday profile data available",
         )
 
         try:

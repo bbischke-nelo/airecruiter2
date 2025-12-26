@@ -26,6 +26,14 @@ class Application(Base):
     # Candidate info (denormalized for convenience)
     candidate_name = Column(String(255), nullable=False)
     candidate_email = Column(String(255), nullable=True)
+    phone_number = Column(String(50), nullable=True)
+
+    # Application metadata from Workday
+    application_source = Column(String(100), nullable=True)  # Where candidate applied from
+    applied_at = Column(DateTime, nullable=True)  # Actual application date from Workday
+
+    # Link to candidate profile (rich background data)
+    candidate_profile_id = Column(Integer, ForeignKey("candidate_profiles.id", ondelete="SET NULL"), nullable=True)
 
     # Processing status
     # new, analyzing, analyzed, interview_pending, interview_in_progress,
@@ -78,6 +86,7 @@ class Application(Base):
     activities = relationship("Activity", back_populates="application")
     jobs = relationship("Job", back_populates="application")
     decisions = relationship("ApplicationDecision", back_populates="application", order_by="ApplicationDecision.created_at.desc()")
+    candidate_profile = relationship("CandidateProfile", back_populates="applications")
 
     def __repr__(self) -> str:
         return f"<Application(id={self.id}, candidate={self.candidate_name}, status={self.status})>"
