@@ -595,9 +595,8 @@ class WorkdaySOAPClient:
                 "Page": page,
                 "Count": count,
             },
-            # Request file content to be included in response
             "Response_Group": {
-                "Include_Attachment_Data": True,
+                "Include_Reference": True,
             },
         }
 
