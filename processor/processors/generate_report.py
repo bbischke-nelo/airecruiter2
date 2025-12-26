@@ -53,7 +53,7 @@ class GenerateReportProcessor(BaseProcessor):
         # Get application data
         query = text("""
             SELECT a.id, a.candidate_name, a.candidate_email, a.requisition_id,
-                   a.workday_requisition_id, a.created_at as applied_at, r.name as position
+                   r.external_id as workday_requisition_id, a.created_at as applied_at, r.name as position
             FROM applications a
             JOIN requisitions r ON a.requisition_id = r.id
             WHERE a.id = :app_id

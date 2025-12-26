@@ -173,7 +173,8 @@ class QueueManager:
             logger.error("Job not found for failure", job_id=job_id)
             return
 
-        attempts, max_attempts = row.attempts, row.max_attempts
+        attempts = row.attempts or 0
+        max_attempts = row.max_attempts or 3  # Default to 3 retries
 
         if attempts >= max_attempts:
             # Move to dead letter
