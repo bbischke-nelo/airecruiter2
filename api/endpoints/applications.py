@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from api.config.database import get_db
-from processor.integrations.s3 import S3Service
+from api.services.s3 import S3Service
 from api.middleware.error_handler import NotFoundError
 from api.models import Application, Requisition, Analysis, Interview, Report, Job, ApplicationDecision, Activity
 from api.schemas.applications import (
