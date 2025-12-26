@@ -11,13 +11,10 @@ import { Switch } from '@/components/ui/switch';
 import { api } from '@/lib/api';
 
 interface Settings {
-  emailFromAddress: string;
-  emailFromName: string;
   interviewTokenExpiryDays: number;
   autoSendInterviewDefault: boolean;
   advanceStageId: string | null;
   rejectDispositionId: string | null;
-  defaultRecruiterId: number | null;
 }
 
 export default function DefaultsSettingsPage() {
@@ -141,7 +138,7 @@ export default function DefaultsSettingsPage() {
         <CardHeader>
           <CardTitle>Workday Stage Mapping</CardTitle>
           <CardDescription>
-            Configure which Workday stages to use for candidate actions
+            Configure which Workday stages to use for candidate actions (optional - leave blank to use config defaults)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -169,38 +166,6 @@ export default function DefaultsSettingsPage() {
             <p className="text-sm text-muted-foreground">
               Workday Disposition ID to use when rejecting candidates
             </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Email Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Email Settings</CardTitle>
-          <CardDescription>
-            Configure email sender information for candidate communications
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="emailFromName">Sender Name</Label>
-            <Input
-              id="emailFromName"
-              placeholder="e.g., AIRecruiter"
-              value={formData.emailFromName ?? ''}
-              onChange={(e) => handleChange('emailFromName', e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="emailFromAddress">Sender Email Address</Label>
-            <Input
-              id="emailFromAddress"
-              type="email"
-              placeholder="e.g., noreply@company.com"
-              value={formData.emailFromAddress ?? ''}
-              onChange={(e) => handleChange('emailFromAddress', e.target.value)}
-            />
           </div>
         </CardContent>
       </Card>
