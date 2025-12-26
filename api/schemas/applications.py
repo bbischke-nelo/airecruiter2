@@ -68,8 +68,8 @@ class ApplicationResponse(CamelModel):
     status: str
     workday_status: Optional[str] = None
     workday_status_changed: Optional[datetime] = None
-    human_requested: bool
-    compliance_review: bool
+    human_requested: bool = False
+    compliance_review: bool = False
     artifacts: dict[str, Any] = {}
     created_at: datetime
     updated_at: Optional[datetime] = None

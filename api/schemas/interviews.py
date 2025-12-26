@@ -22,7 +22,7 @@ class InterviewListItem(CamelModel):
     requisition_name: str
     interview_type: str
     status: str
-    human_requested: bool
+    human_requested: bool = False
     created_at: datetime
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
@@ -40,7 +40,7 @@ class InterviewResponse(CamelModel):
     status: str
     token: Optional[str] = None
     token_expires_at: Optional[datetime] = None
-    human_requested: bool
+    human_requested: bool = False
     human_requested_at: Optional[datetime] = None
     persona_id: Optional[int] = None
     created_at: datetime
