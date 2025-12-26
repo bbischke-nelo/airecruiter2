@@ -474,10 +474,11 @@ class WorkdaySOAPClient:
         """
         logger.info("Fetching candidate attachments", candidate_id=candidate_id, page=page)
 
-        # Use Get_Candidate_Attachments operation directly
+        # Use Request_Criteria to filter by candidate, not Request_References
+        # Request_References is for fetching specific attachments by attachment ID
         params = {
-            "Request_References": {
-                "Candidate_Attachment_Reference": {
+            "Request_Criteria": {
+                "Candidate_Reference": {
                     "ID": [{"type": ID_TYPE_CANDIDATE, "_value_1": candidate_id}]
                 }
             },
