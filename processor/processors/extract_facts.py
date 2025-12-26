@@ -170,6 +170,10 @@ class ExtractFactsProcessor(BaseProcessor):
             # Store extraction results
             await self._store_extraction(application_id, facts, extraction_notes)
 
+            # Update candidate profile with extracted data
+            if app.candidate_profile_id:
+                await self._update_candidate_profile(app.candidate_profile_id, facts)
+
             # ATOMIC: Set status + queue next job
             status = "extracted" if not extraction_notes else "extraction_failed"
             await self._update_status_and_queue(
@@ -401,3 +405,59 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
             status=status,
             next_job=next_job_type,
         )
+
+    async def _update_candidate_profile(self, profile_id: int, facts) -> None:
+        """Update candidate profile with extracted facts (async-safe).
+
+        Populates work_history, education, and skills from resume extraction.
+        """
+        def _update():
+            # Build work history JSON
+            work_history = None
+            if hasattr(facts, "employment_history") and facts.employment_history:
+                work_history = json.dumps(facts.employment_history)
+
+            # Build education JSON
+            education = None
+            if hasattr(facts, "education") and facts.education:
+                education = json.dumps(facts.education)
+
+            # Build skills JSON - flatten if it's a dict with categories
+            skills = None
+            if hasattr(facts, "skills") and facts.skills:
+                if isinstance(facts.skills, dict):
+                    # Flatten skill categories into a single list
+                    all_skills = []
+                    for category_skills in facts.skills.values():
+                        if isinstance(category_skills, list):
+                            all_skills.extend(category_skills)
+                    skills = json.dumps(all_skills) if all_skills else None
+                elif isinstance(facts.skills, list):
+                    skills = json.dumps(facts.skills)
+
+            # Only update if we have data
+            if work_history or education or skills:
+                query = text("""
+                    UPDATE candidate_profiles
+                    SET work_history = COALESCE(:work_history, work_history),
+                        education = COALESCE(:education, education),
+                        skills = COALESCE(:skills, skills),
+                        last_synced_at = GETUTCDATE()
+                    WHERE id = :profile_id
+                """)
+                self.db.execute(query, {
+                    "profile_id": profile_id,
+                    "work_history": work_history,
+                    "education": education,
+                    "skills": skills,
+                })
+                self.db.commit()
+                self.logger.info(
+                    "Updated candidate profile with extracted data",
+                    profile_id=profile_id,
+                    has_work_history=work_history is not None,
+                    has_education=education is not None,
+                    has_skills=skills is not None,
+                )
+
+        await asyncio.to_thread(_update)
