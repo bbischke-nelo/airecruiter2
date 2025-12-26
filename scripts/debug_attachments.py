@@ -80,11 +80,11 @@ async def debug_attachments(candidate_id: str = None):
                 print(f"Found {len(candidates)} candidates\n")
 
                 for cand in candidates[:3]:
-                    # Extract candidate ID
+                    # Extract candidate ID (use Candidate_ID, not WID)
                     cand_id = None
                     if hasattr(cand, "Candidate_Reference") and cand.Candidate_Reference:
                         for id_obj in (cand.Candidate_Reference.ID or []):
-                            if id_obj.type == "WID":
+                            if id_obj.type == "Candidate_ID":
                                 cand_id = id_obj._value_1
                                 break
 
@@ -104,7 +104,7 @@ async def test_candidate_attachments(client, candidate_id: str):
     service = client._client.service
 
     # Refresh token
-    auth = WorkdayAuth(client._config)
+    auth = WorkdayAuth(client.config)
     access_token = await auth.get_token()
     client._auth_plugin.set_token(access_token)
 
