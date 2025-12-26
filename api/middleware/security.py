@@ -269,14 +269,14 @@ class SecurityMiddleware(BaseHTTPMiddleware):
 
         # Auth endpoints - strict limits
         if "/auth/" in path:
-            return rate_limiter.is_rate_limited(f"{identity}:auth", limit=5, window=60)
+            return rate_limiter.is_rate_limited(f"{identity}:auth", limit=10, window=60)
 
         # Public endpoints - moderate limits
         if "/public/" in path:
-            return rate_limiter.is_rate_limited(f"{identity}:public", limit=20, window=60)
+            return rate_limiter.is_rate_limited(f"{identity}:public", limit=60, window=60)
 
         # Authenticated API - generous limits
-        return rate_limiter.is_rate_limited(f"{identity}:api", limit=100, window=60)
+        return rate_limiter.is_rate_limited(f"{identity}:api", limit=300, window=60)
 
     async def _check_malicious_request(self, request: Request, identity: str) -> bool:
         """Check for malicious patterns in request."""
