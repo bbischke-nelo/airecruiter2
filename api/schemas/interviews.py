@@ -153,6 +153,7 @@ class EmailPreview(CamelModel):
 class PrepareInterviewRequest(CamelModel):
     """Request to prepare an interview (creates draft, returns preview)."""
 
+    mode: Literal["email", "link_only"] = "email"  # Whether email will be sent
     email_override: Optional[str] = None  # Override candidate email
     persona_id: Optional[int] = None
     expiry_days: int = 7
@@ -165,7 +166,7 @@ class PrepareInterviewResponse(CamelModel):
     interview_token: str
     interview_url: str
     expires_at: datetime
-    email_preview: EmailPreview
+    email_preview: Optional[EmailPreview] = None  # Only for email mode
 
 
 class ActivateInterviewRequest(CamelModel):

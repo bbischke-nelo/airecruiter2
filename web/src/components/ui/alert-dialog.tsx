@@ -126,15 +126,18 @@ export function AlertDialogAction({
   children,
   onClick,
   variant = 'default',
+  disabled = false,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
   variant?: 'default' | 'destructive';
+  disabled?: boolean;
 }) {
   const { onOpenChange } = React.useContext(AlertDialogContext);
   return (
     <Button
       variant={variant}
+      disabled={disabled}
       onClick={() => {
         onClick?.();
         onOpenChange(false);

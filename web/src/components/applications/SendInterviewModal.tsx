@@ -22,7 +22,7 @@ interface PrepareInterviewResponse {
   interviewToken: string;
   interviewUrl: string;
   expiresAt: string;
-  emailPreview: {
+  emailPreview?: {
     toEmail: string;
     subject: string;
     bodyHtml: string;
@@ -84,6 +84,7 @@ export function SendInterviewModal({
   const prepareMutation = useMutation({
     mutationFn: async () => {
       const response = await api.post(`/applications/${application?.id}/prepare-interview`, {
+        mode,
         emailOverride: emailOverride || undefined,
         expiryDays,
       });
@@ -264,22 +265,22 @@ export function SendInterviewModal({
               </div>
 
               {/* Email Preview (for email mode) */}
-              {mode === 'email' && (
+              {mode === 'email' && preparedData.emailPreview && (
                 <div className="space-y-2">
                   <Label>Email Preview</Label>
-                  <div className="rounded-md border p-4 bg-muted/50">
+                  <div className="rounded-md border p-4 bg-white text-gray-900">
                     <div className="text-sm space-y-2">
                       <p>
-                        <span className="text-muted-foreground">To:</span>{' '}
+                        <span className="text-gray-500">To:</span>{' '}
                         {preparedData.emailPreview.toEmail}
                       </p>
                       <p>
-                        <span className="text-muted-foreground">Subject:</span>{' '}
+                        <span className="text-gray-500">Subject:</span>{' '}
                         {preparedData.emailPreview.subject}
                       </p>
-                      <div className="mt-4 pt-4 border-t">
+                      <div className="mt-4 pt-4 border-t border-gray-200 max-h-[300px] overflow-y-auto">
                         <div
-                          className="prose prose-sm max-w-none dark:prose-invert"
+                          className="prose prose-sm max-w-none"
                           dangerouslySetInnerHTML={{
                             __html: preparedData.emailPreview.bodyHtml,
                           }}
@@ -308,7 +309,7 @@ export function SendInterviewModal({
           {!preparedData ? (
             <Button onClick={handlePrepare} disabled={isLoading}>
               {isPreparing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Preview
+              {mode === 'email' ? 'Preview Email' : 'Generate Link'}
             </Button>
           ) : (
             <Button onClick={handleSend} disabled={isLoading}>

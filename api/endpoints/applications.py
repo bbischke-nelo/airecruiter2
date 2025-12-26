@@ -896,9 +896,9 @@ async def prepare_interview(
             detail=f"Application already has an active interview (id={existing.id}, status={existing.status})",
         )
 
-    # Determine email address
+    # Determine email address (required for email mode, optional for link_only)
     candidate_email = data.email_override or application.candidate_email
-    if not candidate_email:
+    if data.mode == "email" and not candidate_email:
         raise HTTPException(
             status_code=400,
             detail="No email address available. Please provide email_override.",
@@ -916,7 +916,7 @@ async def prepare_interview(
         token_expires_at=expires_at,
         status="draft",
         persona_id=data.persona_id,
-        candidate_email=candidate_email,
+        candidate_email=candidate_email,  # May be None for link_only
     )
     db.add(interview)
     db.commit()
@@ -925,25 +925,27 @@ async def prepare_interview(
     # Build interview URL
     interview_url = f"{settings.FRONTEND_URL}/interview/{token}"
 
-    # Get recruiter name for email
-    recruiter_name = None
-    if application.requisition.recruiter:
-        recruiter_name = application.requisition.recruiter.name
+    # Generate email preview only for email mode
+    email_preview = None
+    if data.mode == "email" and candidate_email:
+        recruiter_name = None
+        if application.requisition.recruiter:
+            recruiter_name = application.requisition.recruiter.name
 
-    # Generate email preview
-    email_preview = generate_interview_email_preview(
-        candidate_email=candidate_email,
-        candidate_name=application.candidate_name,
-        position_title=application.requisition.name,
-        interview_url=interview_url,
-        recruiter_name=recruiter_name,
-        expiry_days=data.expiry_days,
-    )
+        email_preview = generate_interview_email_preview(
+            candidate_email=candidate_email,
+            candidate_name=application.candidate_name,
+            position_title=application.requisition.name,
+            interview_url=interview_url,
+            recruiter_name=recruiter_name,
+            expiry_days=data.expiry_days,
+        )
 
     logger.info(
         "Interview prepared (draft)",
         interview_id=interview.id,
         application_id=application_id,
+        mode=data.mode,
         user_id=user.get("id"),
     )
 

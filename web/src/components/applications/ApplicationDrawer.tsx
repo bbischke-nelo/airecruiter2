@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import {
   ChevronLeft,
   ChevronRight,
@@ -21,6 +22,9 @@ import {
   MessageSquare,
   Send,
   RotateCcw,
+  Phone,
+  Loader2,
+  Link2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetBody, SheetFooter } from '@/components/ui/sheet';
@@ -37,6 +41,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 import { formatRelativeTime, cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 import { RejectReasonSelector, type RejectionReasonCode } from './RejectReasonSelector';
 import { SendInterviewModal } from './SendInterviewModal';
 
@@ -209,6 +214,8 @@ export function ApplicationDrawer({
   onNavigate,
 }: ApplicationDrawerProps) {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const { toast } = useToast();
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [showReconsiderDialog, setShowReconsiderDialog] = useState(false);
@@ -355,6 +362,78 @@ export function ApplicationDrawer({
       queryClient.invalidateQueries({ queryKey: ['applications'] });
       setShowReconsiderDialog(false);
       setReconsiderComment('');
+    },
+  });
+
+  const startProxyMutation = useMutation<{ interviewId: number }, Error>({
+    mutationFn: async () => {
+      const response = await api.post(`/applications/${application?.id}/start-proxy-interview`, {});
+      return response.data;
+    },
+    onSuccess: (data) => {
+      // Navigate to the proxy interview conduct page
+      onClose();
+      router.push(`/interviews/${data.interviewId}/conduct`);
+    },
+    onError: (error) => {
+      toast({
+        title: 'Failed to start proxy interview',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Quick link mutation - creates and activates interview in one step
+  const quickLinkMutation = useMutation<{ interviewUrl: string }, Error>({
+    mutationFn: async () => {
+      if (!application?.id) {
+        throw new Error('Application ID missing');
+      }
+      // Step 1: Prepare (creates draft) - may fail if draft already exists
+      try {
+        await api.post(`/applications/${application.id}/prepare-interview`, {
+          mode: 'link_only',
+          expiryDays: 7,
+        });
+      } catch (err: unknown) {
+        // If prepare fails because draft exists, continue to activate
+        // Otherwise re-throw
+        const error = err as { response?: { status?: number } };
+        if (error.response?.status !== 400) {
+          throw err;
+        }
+        // 400 likely means draft already exists, try to activate anyway
+      }
+      // Step 2: Activate
+      const activateRes = await api.post(`/applications/${application.id}/activate-interview`, {
+        method: 'link_only',
+      });
+      return { interviewUrl: activateRes.data.interviewUrl };
+    },
+    onSuccess: async (data) => {
+      queryClient.invalidateQueries({ queryKey: ['applications'] });
+      // Try to copy to clipboard, but don't fail if blocked
+      try {
+        await navigator.clipboard.writeText(data.interviewUrl);
+        toast({
+          title: 'Interview link copied!',
+          description: data.interviewUrl,
+        });
+      } catch {
+        // Clipboard blocked (async context), show link in toast instead
+        toast({
+          title: 'Interview link ready',
+          description: data.interviewUrl,
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: 'Failed to generate link',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
     },
   });
 
@@ -919,17 +998,42 @@ export function ApplicationDrawer({
                       <>
                         <Button
                           variant="outline"
-                          onClick={() => handleAdvance(true)}
-                          disabled={advanceMutation.isPending}
+                          onClick={() => quickLinkMutation.mutate()}
+                          disabled={quickLinkMutation.isPending}
+                          title="Generate interview link and copy to clipboard"
                         >
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Skip to Live Interview
+                          {quickLinkMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Link2 className="h-4 w-4 mr-2" />
+                          )}
+                          Get Link
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => startProxyMutation.mutate()}
+                          disabled={startProxyMutation.isPending}
+                        >
+                          {startProxyMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Phone className="h-4 w-4 mr-2" />
+                          )}
+                          Proxy
                         </Button>
                         <Button
                           onClick={() => setShowInterviewModal(true)}
                         >
                           <Send className="h-4 w-4 mr-2" />
-                          Send AI Interview
+                          Email Interview
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleAdvance(true)}
+                          disabled={advanceMutation.isPending}
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Skip AI
                         </Button>
                       </>
                     )}
