@@ -19,14 +19,26 @@ import {
   ExternalLink,
   Download,
   MessageSquare,
+  Send,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetBody, SheetFooter } from '@/components/ui/sheet';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 import { formatRelativeTime, cn } from '@/lib/utils';
 import { RejectReasonSelector, type RejectionReasonCode } from './RejectReasonSelector';
+import { SendInterviewModal } from './SendInterviewModal';
 
 interface Application {
   id: number;
@@ -198,6 +210,9 @@ export function ApplicationDrawer({
 }: ApplicationDrawerProps) {
   const queryClient = useQueryClient();
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [showInterviewModal, setShowInterviewModal] = useState(false);
+  const [showReconsiderDialog, setShowReconsiderDialog] = useState(false);
+  const [reconsiderComment, setReconsiderComment] = useState('');
   const [activeTab, setActiveTab] = useState('screening');
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
 
@@ -329,6 +344,20 @@ export function ApplicationDrawer({
     },
   });
 
+  const unrejectMutation = useMutation<DecisionResponse, Error, { comment: string }>({
+    mutationFn: async ({ comment }) => {
+      const response = await api.post(`/applications/${application?.id}/unreject`, {
+        comment,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['applications'] });
+      setShowReconsiderDialog(false);
+      setReconsiderComment('');
+    },
+  });
+
   const handleAdvance = (skipInterview = false) => {
     advanceMutation.mutate({ skipInterview });
   };
@@ -339,6 +368,12 @@ export function ApplicationDrawer({
 
   const handleHold = () => {
     holdMutation.mutate();
+  };
+
+  const handleReconsider = () => {
+    if (reconsiderComment.trim()) {
+      unrejectMutation.mutate({ comment: reconsiderComment.trim() });
+    }
   };
 
   // Download handlers
@@ -363,6 +398,7 @@ export function ApplicationDrawer({
   const canAdvance = application && ADVANCE_VALID_STATUSES.includes(application.status);
   const canReject = application && REJECT_VALID_STATUSES.includes(application.status);
   const canHold = application && HOLD_VALID_STATUSES.includes(application.status);
+  const canReconsider = application?.status === 'rejected';
   const isOnHold = application?.status === 'on_hold';
 
   // Calculate JD match percentage from facts
@@ -880,26 +916,39 @@ export function ApplicationDrawer({
                       </Button>
                     )}
                     {canAdvance && application.status === 'ready_for_review' && (
-                      <Button
-                        variant="outline"
-                        onClick={() => handleAdvance(true)}
-                        disabled={advanceMutation.isPending}
-                      >
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Skip to Live Interview
-                      </Button>
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleAdvance(true)}
+                          disabled={advanceMutation.isPending}
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Skip to Live Interview
+                        </Button>
+                        <Button
+                          onClick={() => setShowInterviewModal(true)}
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          Send AI Interview
+                        </Button>
+                      </>
                     )}
-                    {canAdvance && (
+                    {canAdvance && application.status === 'interview_ready_for_review' && (
                       <Button
                         onClick={() => handleAdvance(false)}
                         disabled={advanceMutation.isPending}
                       >
                         <CheckCircle className="h-4 w-4 mr-2" />
-                        {advanceMutation.isPending
-                          ? 'Advancing...'
-                          : application.status === 'ready_for_review'
-                            ? 'Send AI Interview'
-                            : 'Advance'}
+                        {advanceMutation.isPending ? 'Advancing...' : 'Advance'}
+                      </Button>
+                    )}
+                    {canReconsider && (
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowReconsiderDialog(true)}
+                      >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Reconsider
                       </Button>
                     )}
                   </>
@@ -917,6 +966,73 @@ export function ApplicationDrawer({
         isLoading={rejectMutation.isPending}
         candidateName={application?.candidateName}
       />
+
+      <SendInterviewModal
+        application={application}
+        open={showInterviewModal}
+        onOpenChange={setShowInterviewModal}
+        onSuccess={() => {
+          // Navigate to next application or close drawer after sending interview
+          if (hasNext) {
+            onNavigate(applications[currentIndex + 1]);
+          } else {
+            onClose();
+          }
+        }}
+      />
+
+      {/* Reconsider Dialog */}
+      <Dialog open={showReconsiderDialog} onOpenChange={(open) => {
+        setShowReconsiderDialog(open);
+        if (!open) setReconsiderComment('');
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reconsider Application</DialogTitle>
+            <DialogDescription className="space-y-2">
+              <p>
+                This will move <strong>{application?.candidateName}</strong> back to the review queue.
+              </p>
+              <p className="text-amber-600 dark:text-amber-400 font-medium">
+                Note: This change will NOT sync to Workday. The candidate will remain rejected in Workday.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <label className="text-sm font-medium" htmlFor="reconsider-comment">
+              Reason for reconsideration (required)
+            </label>
+            <Textarea
+              id="reconsider-comment"
+              placeholder="e.g., Rejected in error - meant different candidate"
+              value={reconsiderComment}
+              onChange={(e) => setReconsiderComment(e.target.value)}
+              className="mt-2"
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              This comment will be stored in the audit trail.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowReconsiderDialog(false);
+                setReconsiderComment('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleReconsider}
+              disabled={!reconsiderComment.trim() || unrejectMutation.isPending}
+            >
+              {unrejectMutation.isPending ? 'Processing...' : 'Reconsider'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

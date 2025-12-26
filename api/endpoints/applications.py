@@ -25,6 +25,7 @@ from api.schemas.applications import (
     AdvanceRequest,
     RejectRequest,
     HoldRequest,
+    UnrejectRequest,
     DecisionResponse,
     ApplicationDecisionItem,
     ExtractedFactsResponse,
@@ -629,6 +630,99 @@ async def hold_application(
         from_status=from_status,
         to_status=to_status,
         message="Application placed on hold",
+    )
+
+
+@router.post("/{application_id}/unreject", response_model=DecisionResponse)
+async def unreject_application(
+    application_id: int,
+    data: UnrejectRequest,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_role(["admin", "recruiter"])),
+):
+    """Unreject an application (move back to ready_for_review).
+
+    WARNING: This action does NOT sync to Workday. The candidate will
+    remain rejected in Workday. A comment is required to explain why
+    the unreject is needed.
+
+    This is an unusual action that should only be used when:
+    - The wrong candidate was rejected by mistake
+    - New information warrants reconsideration
+    """
+    # Use row locking to prevent race conditions
+    application = db.query(Application).filter(Application.id == application_id).with_for_update().first()
+    if not application:
+        raise NotFoundError("Application", application_id)
+
+    if application.status != "rejected":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot unreject application with status '{application.status}'. Only rejected applications can be unrejected.",
+        )
+
+    # Find the status before rejection from the decision audit trail
+    last_rejection = (
+        db.query(ApplicationDecision)
+        .filter(
+            ApplicationDecision.application_id == application_id,
+            ApplicationDecision.action == "reject",
+        )
+        .order_by(ApplicationDecision.created_at.desc())
+        .first()
+    )
+
+    from_status = application.status
+    # Restore to status before rejection, or default to ready_for_review
+    to_status = last_rejection.from_status if last_rejection else "ready_for_review"
+
+    # Update application
+    application.status = to_status
+    # Keep rejection_reason_code for audit trail but clear rejected_by/at
+    application.rejected_by = None
+    application.rejected_at = None
+
+    # Log decision WITH comment (unusual action needs audit trail)
+    decision = ApplicationDecision(
+        application_id=application_id,
+        action="unreject",
+        from_status=from_status,
+        to_status=to_status,
+        comment=data.comment,  # Store the justification
+        user_id=user.get("id", 0),
+    )
+    db.add(decision)
+
+    # Log activity
+    activity = Activity(
+        action="application_unrejected",
+        application_id=application_id,
+        requisition_id=application.requisition_id,
+        recruiter_id=user.get("id"),
+        details=json.dumps({
+            "from_status": from_status,
+            "comment": data.comment,
+            "workday_synced": False,  # Explicitly note this is local-only
+        }),
+    )
+    db.add(activity)
+
+    db.commit()
+
+    logger.info(
+        "Application unrejected (local only - not synced to Workday)",
+        application_id=application_id,
+        user_id=user.get("id"),
+        comment=data.comment,
+    )
+
+    return DecisionResponse(
+        success=True,
+        application_id=application_id,
+        action="unreject",
+        from_status=from_status,
+        to_status=to_status,
+        message="Application moved back to review. Note: This change was NOT synced to Workday.",
     )
 
 

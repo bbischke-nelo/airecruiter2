@@ -977,7 +977,8 @@ class WorkdaySOAPClient:
         if (stage_id is None) == (disposition_id is None):
             raise ValueError("Exactly one of stage_id or disposition_id must be provided")
 
-        await self._ensure_initialized()
+        # Get authentication token
+        access_token = await self.auth.get_token()
 
         logger.info(
             "Moving candidate",
@@ -1022,16 +1023,16 @@ class WorkdaySOAPClient:
         headers = {
             "SOAPAction": '""',
             "Content-Type": "text/xml; charset=utf-8",
-            "Authorization": f"Bearer {self._token}",
+            "Authorization": f"Bearer {access_token}",
         }
 
         try:
-            response = await self._client.post(
-                self.config.recruiting_service_url,
-                content=xml,
-                headers=headers,
-                timeout=60.0,
-            )
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    self.config.recruiting_service_url,
+                    content=xml,
+                    headers=headers,
+                )
 
             if "authenticationError" in response.text:
                 logger.error(

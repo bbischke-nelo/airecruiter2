@@ -149,6 +149,19 @@ class UnholdRequest(CamelModel):
     pass
 
 
+class UnrejectRequest(CamelModel):
+    """Request to unreject an application (move back to review).
+
+    Note: This is an unusual action that requires justification.
+    The comment is stored for audit purposes but should be brief
+    and factual (e.g., "Rejected in error - meant different candidate").
+    WARNING: This will NOT sync to Workday - the candidate will remain
+    rejected in Workday.
+    """
+
+    comment: str  # Required - explain why unreject is needed
+
+
 class DecisionResponse(CamelModel):
     """Response for decision actions (advance/reject/hold)."""
 

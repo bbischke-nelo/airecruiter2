@@ -11,12 +11,11 @@ import {
   ChevronsRight,
   AlertCircle,
   Clock,
-  X,
-  Star,
-  Send,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  X,
+  Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +34,8 @@ import { api } from '@/lib/api';
 import { formatRelativeTime, cn } from '@/lib/utils';
 import { useDebounce } from '@/hooks/use-debounce';
 import { ApplicationDrawer } from '@/components/applications/ApplicationDrawer';
+import { RejectReasonSelector, type RejectionReasonCode } from '@/components/applications/RejectReasonSelector';
+import { useToast } from '@/hooks/use-toast';
 
 interface Application {
   id: number;
@@ -139,6 +140,7 @@ function formatTenure(months: number | null): { text: string; isWarning: boolean
 
 export default function ApplicationsPage() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   // Filter state
   const [search, setSearch] = useState('');
@@ -156,37 +158,12 @@ export default function ApplicationsPage() {
   // Drawer state
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
 
-  // Hover state for quick actions
-  const [hoveredAppId, setHoveredAppId] = useState<number | null>(null);
+  // Bulk actions state
+  const [showBulkRejectDialog, setShowBulkRejectDialog] = useState(false);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
   // Debounce search
   const debouncedSearch = useDebounce(search, 300);
-
-  // Quick advance mutation (send AI interview)
-  const advanceMutation = useMutation({
-    mutationFn: async (appId: number) => {
-      const response = await api.post(`/applications/${appId}/advance`, {
-        skipInterview: false,
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['applications'] });
-    },
-  });
-
-  // Quick reject mutation (uses QUAL_SKILLS as default quick-reject reason)
-  const rejectMutation = useMutation({
-    mutationFn: async (appId: number) => {
-      const response = await api.post(`/applications/${appId}/reject`, {
-        reasonCode: 'QUAL_SKILLS',
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['applications'] });
-    },
-  });
 
   // Build query params
   const queryParams = useMemo(() => {
@@ -268,6 +245,55 @@ export default function ApplicationsPage() {
     }
   };
 
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  // Bulk reject handler - uses Promise.allSettled for parallel execution
+  const handleBulkReject = async (reasonCode: RejectionReasonCode) => {
+    setIsBulkProcessing(true);
+    const appIds = Array.from(selectedIds);
+
+    // Execute all rejections in parallel
+    const results = await Promise.allSettled(
+      appIds.map((appId) =>
+        api.post(`/applications/${appId}/reject`, { reasonCode })
+          .then(() => ({ appId, success: true }))
+          .catch(() => ({ appId, success: false }))
+      )
+    );
+
+    // Count successes and collect failed IDs
+    const successCount = results.filter(
+      (r) => r.status === 'fulfilled' && r.value.success
+    ).length;
+    const failedIds = results
+      .filter((r) => r.status === 'fulfilled' && !r.value.success)
+      .map((r) => (r as PromiseFulfilledResult<{ appId: number; success: boolean }>).value.appId);
+
+    setIsBulkProcessing(false);
+    setShowBulkRejectDialog(false);
+    setSelectedIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ['applications'] });
+
+    if (failedIds.length === 0) {
+      toast({ title: `${successCount} application(s) rejected` });
+    } else {
+      // Find candidate names for failed IDs to show in error message
+      const failedNames = applications
+        .filter((a) => failedIds.includes(a.id))
+        .map((a) => a.candidateName)
+        .slice(0, 3); // Show at most 3 names
+      const moreCount = failedIds.length - failedNames.length;
+
+      toast({
+        title: `Rejected ${successCount} of ${appIds.length} applications`,
+        description: `Failed: ${failedNames.join(', ')}${moreCount > 0 ? ` +${moreCount} more` : ''}`,
+        variant: 'destructive',
+      });
+    }
+  };
+
   const applications = data?.data || [];
   const meta = data?.meta || { page: 1, perPage: 20, total: 0, totalPages: 1 };
 
@@ -343,6 +369,37 @@ export default function ApplicationsPage() {
           </Select>
         </div>
       </div>
+
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between gap-4 p-3 mb-4 rounded-lg border bg-primary/5">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">
+              {selectedIds.size} selected
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearSelection}
+              className="h-7 px-2"
+            >
+              <X className="h-4 w-4 mr-1" />
+              Clear
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowBulkRejectDialog(true)}
+              disabled={isBulkProcessing}
+            >
+              <X className="h-4 w-4 mr-1" />
+              Reject Selected
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       {isLoading ? (
@@ -433,31 +490,6 @@ export default function ApplicationsPage() {
                       </div>
                     )}
                   </div>
-
-                  {/* Action buttons for review statuses */}
-                  {REVIEW_STATUSES.includes(app.status) && (
-                    <div className="flex items-center gap-2 mt-3 pt-3 border-t" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
-                        onClick={() => rejectMutation.mutate(app.id)}
-                        disabled={rejectMutation.isPending}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Reject
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => advanceMutation.mutate(app.id)}
-                        disabled={advanceMutation.isPending}
-                      >
-                        <Send className="h-4 w-4 mr-1" />
-                        Interview
-                      </Button>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             ))}
@@ -520,7 +552,6 @@ export default function ApplicationsPage() {
                         <SortIndicator column="createdAt" />
                       </span>
                     </th>
-                    <th scope="col" className="w-24 px-4 py-3"></th>
                   </tr>
                 </thead>
               <tbody className="divide-y">
@@ -528,8 +559,6 @@ export default function ApplicationsPage() {
                   <tr
                     key={app.id}
                     onClick={() => setSelectedApp(app)}
-                    onMouseEnter={() => setHoveredAppId(app.id)}
-                    onMouseLeave={() => setHoveredAppId(null)}
                     className={cn(
                       'hover:bg-muted/50 cursor-pointer group',
                       REVIEW_STATUSES.includes(app.status) && 'bg-amber-50 dark:bg-amber-950/20',
@@ -615,37 +644,6 @@ export default function ApplicationsPage() {
                     <td className="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">
                       {formatRelativeTime(app.createdAt)}
                     </td>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <div className={cn(
-                        'flex items-center gap-1 transition-opacity',
-                        hoveredAppId === app.id ? 'opacity-100' : 'opacity-0'
-                      )}>
-                        {REVIEW_STATUSES.includes(app.status) && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              title="Quick Reject"
-                              onClick={() => rejectMutation.mutate(app.id)}
-                              disabled={rejectMutation.isPending}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                              title="Send AI Interview"
-                              onClick={() => advanceMutation.mutate(app.id)}
-                              disabled={advanceMutation.isPending}
-                            >
-                              <Send className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -711,6 +709,15 @@ export default function ApplicationsPage() {
         applications={applications}
         onClose={() => setSelectedApp(null)}
         onNavigate={setSelectedApp}
+      />
+
+      {/* Bulk Reject Dialog */}
+      <RejectReasonSelector
+        open={showBulkRejectDialog}
+        onOpenChange={setShowBulkRejectDialog}
+        onConfirm={handleBulkReject}
+        isLoading={isBulkProcessing}
+        candidateName={`${selectedIds.size} candidate(s)`}
       />
     </div>
   );
