@@ -58,6 +58,15 @@ REJECT_VALID_STATUSES = {"ready_for_review", "interview_ready_for_review", "on_h
 HOLD_VALID_STATUSES = {"ready_for_review", "interview_ready_for_review"}
 
 
+# Valid sort columns for server-side sorting
+SORTABLE_COLUMNS = {
+    "candidateName": Application.candidate_name,
+    "status": Application.status,
+    "createdAt": Application.created_at,
+    "requisitionName": Requisition.name,
+}
+
+
 @router.get("", response_model=PaginatedResponse[ApplicationListItem])
 async def list_applications(
     db: Session = Depends(get_db),
@@ -68,9 +77,11 @@ async def list_applications(
     search: Optional[str] = Query(None),
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query(None, description="Column to sort by"),
+    sort_order: Optional[str] = Query("desc", regex="^(asc|desc)$", description="Sort order: asc or desc"),
     user: dict = Depends(require_role(["admin", "recruiter"])),
 ):
-    """List all applications with pagination."""
+    """List all applications with pagination and server-side sorting."""
     query = db.query(Application).join(Requisition)
 
     # Filters
@@ -86,8 +97,19 @@ async def list_applications(
     # Count total
     total = query.count()
 
+    # Server-side sorting
+    if sort_by and sort_by in SORTABLE_COLUMNS:
+        sort_column = SORTABLE_COLUMNS[sort_by]
+        if sort_order == "asc":
+            query = query.order_by(sort_column.asc())
+        else:
+            query = query.order_by(sort_column.desc())
+    else:
+        # Default sort: newest first
+        query = query.order_by(Application.created_at.desc())
+
     # Paginate
-    applications = query.order_by(Application.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    applications = query.offset((page - 1) * per_page).limit(per_page).all()
 
     # Get related data
     app_ids = [a.id for a in applications]

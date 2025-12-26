@@ -229,9 +229,9 @@ export default function EmailSettingsPage() {
 
       {/* Email Templates */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <CardTitle>Email Templates</CardTitle>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -243,15 +243,16 @@ export default function EmailSettingsPage() {
             </label>
             <Button
               variant="outline"
+              size="sm"
               onClick={() => seedDefaultsMutation.mutate()}
               disabled={seedDefaultsMutation.isPending}
             >
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Seed Defaults
+              <RotateCcw className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Seed Defaults</span>
             </Button>
-            <Button onClick={() => setIsCreating(true)} disabled={isCreating}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Template
+            <Button size="sm" onClick={() => setIsCreating(true)} disabled={isCreating}>
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">New Template</span>
             </Button>
           </div>
         </CardHeader>

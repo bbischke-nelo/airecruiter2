@@ -93,41 +93,41 @@ export default function ApplicationDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex items-start gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="flex-shrink-0">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold">{application.candidateName}</h1>
-            <p className="text-muted-foreground">{application.candidateEmail}</p>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold">{application.candidateName}</h1>
+            <p className="text-muted-foreground truncate">{application.candidateEmail}</p>
             {application.requisition && (
               <Link
                 href={`/requisitions/${application.requisition.id}`}
                 className="text-sm text-primary hover:underline flex items-center gap-1 mt-1"
               >
-                {application.requisition.name}
-                <ExternalLink className="h-3 w-3" />
+                <span className="truncate">{application.requisition.name}</span>
+                <ExternalLink className="h-3 w-3 flex-shrink-0" />
               </Link>
             )}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 ml-auto sm:ml-0">
           <Button
             variant="outline"
             onClick={() => reprocessMutation.mutate()}
             disabled={reprocessMutation.isPending}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${reprocessMutation.isPending ? 'animate-spin' : ''}`} />
-            Reprocess
+            <span className="hidden sm:inline">Reprocess</span>
           </Button>
           {!application.interviewSent && (
             <Button
               onClick={() => sendInterviewMutation.mutate()}
               disabled={sendInterviewMutation.isPending}
             >
-              <Mail className="h-4 w-4 mr-2" />
-              Send Interview
+              <Mail className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Send Interview</span>
             </Button>
           )}
         </div>
@@ -135,7 +135,7 @@ export default function ApplicationDetailPage() {
 
       {/* Status Banner */}
       <Card className={`border-l-4 ${getStatusBorderColor(application.status)}`}>
-        <CardContent className="flex items-center justify-between py-4">
+        <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4">
           <div className="flex items-center gap-3">
             {getStatusIcon(application.status)}
             <div>
@@ -145,7 +145,7 @@ export default function ApplicationDetailPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
             <span>Created {formatRelativeTime(application.createdAt)}</span>
             {application.interviewSent && (
               <span className="flex items-center gap-1 text-green-600">
@@ -194,7 +194,7 @@ export default function ApplicationDetailPage() {
               </Card>
 
               {/* Pros, Cons, Red Flags */}
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2 text-green-600">

@@ -199,6 +199,7 @@ export function ApplicationDrawer({
   const queryClient = useQueryClient();
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [activeTab, setActiveTab] = useState('screening');
+  const [resumeUrl, setResumeUrl] = useState<string | null>(null);
 
   // Find current index
   const currentIndex = application ? applications.findIndex((a) => a.id === application.id) : -1;
@@ -229,6 +230,22 @@ export function ApplicationDrawer({
   // Reset tab when application changes
   useEffect(() => {
     setActiveTab('screening');
+  }, [application?.id]);
+
+  // Fetch resume URL when application changes
+  useEffect(() => {
+    if (application) {
+      setResumeUrl(null); // Reset while loading
+      api.get(`/applications/${application.id}/resume/download`)
+        .then((response) => {
+          setResumeUrl(response.data.url);
+        })
+        .catch(() => {
+          setResumeUrl(null);
+        });
+    } else {
+      setResumeUrl(null);
+    }
   }, [application?.id]);
 
   // Fetch extracted facts
@@ -366,7 +383,7 @@ export function ApplicationDrawer({
   return (
     <>
       <Sheet open={!!application} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent side="right" className="w-full max-w-2xl flex flex-col">
+        <SheetContent side="right" className="w-full md:w-[65vw] max-w-none flex flex-col">
           {application && (
             <>
               <SheetHeader className="flex-shrink-0">
@@ -426,26 +443,29 @@ export function ApplicationDrawer({
                 )}
               </SheetHeader>
 
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-                <TabsList className="w-full justify-start flex-shrink-0">
-                  <TabsTrigger value="screening" className="flex-1">
-                    <FileText className="h-4 w-4 mr-2" />
-                    Screening
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="interview"
-                    className="flex-1"
-                    disabled={!application.hasInterview}
-                  >
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Interview
-                    {!application.hasInterview && (
-                      <span className="ml-1 text-xs text-muted-foreground">(none)</span>
-                    )}
-                  </TabsTrigger>
-                </TabsList>
+              {/* Split View: Analysis Left, Resume Right (desktop only) */}
+              <div className="flex-1 flex gap-4 overflow-hidden">
+                {/* Left Panel - Analysis (full width on mobile, half on desktop) */}
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full md:w-1/2 flex flex-col overflow-hidden">
+                  <TabsList className="w-full justify-start flex-shrink-0">
+                    <TabsTrigger value="screening" className="flex-1">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Screening
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="interview"
+                      className="flex-1"
+                      disabled={!application.hasInterview}
+                    >
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Interview
+                      {!application.hasInterview && (
+                        <span className="ml-1 text-xs text-muted-foreground">(none)</span>
+                      )}
+                    </TabsTrigger>
+                  </TabsList>
 
-                <SheetBody className="flex-1 overflow-auto">
+                  <SheetBody className="flex-1 overflow-auto">
                   <TabsContent value="screening" className="mt-0 h-full">
                     {/* Download Report Button */}
                     {application.hasReport && (
@@ -797,8 +817,40 @@ export function ApplicationDrawer({
                       </div>
                     )}
                   </TabsContent>
-                </SheetBody>
-              </Tabs>
+                  </SheetBody>
+                </Tabs>
+
+                {/* Right Panel - Resume PDF (hidden on mobile) */}
+                <div className="hidden md:flex md:w-1/2 flex-col border rounded-lg overflow-hidden bg-muted/30">
+                  <div className="flex items-center justify-between px-3 py-2 border-b bg-background">
+                    <span className="text-sm font-medium">Resume</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDownloadResume}
+                      title="Open in new tab"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    {resumeUrl ? (
+                      <iframe
+                        src={resumeUrl}
+                        className="w-full h-full border-0"
+                        title="Resume PDF"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        <div className="text-center">
+                          <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">Loading resume...</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
 
               <SheetFooter className="flex-col sm:flex-row gap-2 flex-shrink-0 border-t pt-4">
                 {isOnHold ? (

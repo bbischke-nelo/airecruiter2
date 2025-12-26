@@ -263,8 +263,8 @@ export default function InterviewPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <header className="bg-ccfs-blue text-white px-4 py-3 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto flex items-center justify-between gap-2">
+      <header className="bg-ccfs-blue text-white px-4 py-3 sticky top-0 z-10 safe-area-top">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
           <div className="min-w-0 flex-1">
             <h1 className="font-semibold truncate">{interviewInfo?.positionTitle} Interview</h1>
             <p className="text-sm text-white/80 truncate">Welcome, {interviewInfo?.candidateName}</p>
@@ -355,8 +355,8 @@ export default function InterviewPage() {
       </div>
 
       {/* Input */}
-      <div className="bg-white border-t p-4 sticky bottom-0">
-        <div className="max-w-3xl mx-auto flex gap-2">
+      <div className="bg-white border-t p-4 pb-safe sticky bottom-0">
+        <div className="max-w-3xl mx-auto flex gap-2 sm:gap-3">
           <textarea
             ref={inputRef}
             value={inputValue}
@@ -364,19 +364,19 @@ export default function InterviewPage() {
             onKeyDown={handleKeyDown}
             placeholder="Type your response..."
             rows={1}
-            className="flex-1 resize-none rounded-lg border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 resize-none rounded-lg border border-input bg-background px-3 sm:px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary"
             disabled={connectionStatus !== 'connected'}
           />
           <Button
             onClick={sendMessage}
             disabled={!inputValue.trim() || connectionStatus !== 'connected'}
             size="icon"
-            className="h-12 w-12"
+            className="h-12 w-12 flex-shrink-0"
           >
             <Send className="h-5 w-5" />
           </Button>
         </div>
-        <p className="text-xs text-center text-muted-foreground mt-2">
+        <p className="text-xs text-center text-muted-foreground mt-2 hidden sm:block">
           Press Enter to send, Shift+Enter for new line
         </p>
       </div>

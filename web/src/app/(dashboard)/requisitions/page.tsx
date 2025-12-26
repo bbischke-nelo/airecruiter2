@@ -149,7 +149,7 @@ export default function RequisitionsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold">Requisitions</h1>
           <p className="text-muted-foreground">
@@ -249,7 +249,7 @@ export default function RequisitionsPage() {
         </Card>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {requisitions.map((req) => (
               <Link key={req.id} href={`/requisitions/${req.id}`}>
                 <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">

@@ -14,6 +14,9 @@ import {
   X,
   Star,
   Send,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -143,6 +146,10 @@ export default function ApplicationsPage() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
 
+  // Sort state (server-side sorting)
+  const [sortBy, setSortBy] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
@@ -188,8 +195,35 @@ export default function ApplicationsPage() {
     params.set('per_page', perPage.toString());
     if (debouncedSearch) params.set('search', debouncedSearch);
     if (status) params.set('status', status);
+    if (sortBy) {
+      params.set('sort_by', sortBy);
+      params.set('sort_order', sortOrder);
+    }
     return params.toString();
-  }, [page, perPage, debouncedSearch, status]);
+  }, [page, perPage, debouncedSearch, status, sortBy, sortOrder]);
+
+  // Handle column header click for sorting
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      // Toggle order if same column
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New column, default to desc
+      setSortBy(column);
+      setSortOrder('desc');
+    }
+    setPage(1); // Reset to first page on sort change
+  };
+
+  // Render sort indicator
+  const SortIndicator = ({ column }: { column: string }) => {
+    if (sortBy !== column) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-30" />;
+    }
+    return sortOrder === 'asc'
+      ? <ArrowUp className="h-3 w-3 ml-1" />
+      : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
 
   const { data, isLoading, error, refetch } = useQuery<PaginatedResponse>({
     queryKey: ['applications', queryParams],
@@ -334,7 +368,103 @@ export default function ApplicationsPage() {
         </Card>
       ) : (
         <>
-          <div className="rounded-lg border overflow-hidden">
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-3">
+            {applications.map((app) => (
+              <Card
+                key={app.id}
+                onClick={() => setSelectedApp(app)}
+                className={cn(
+                  'cursor-pointer transition-colors hover:bg-muted/50',
+                  REVIEW_STATUSES.includes(app.status) && 'border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/20'
+                )}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium flex items-center gap-2">
+                        {app.candidateName}
+                        {app.humanRequested && <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />}
+                        {app.status === 'on_hold' && <Clock className="h-4 w-4 text-gray-500 flex-shrink-0" />}
+                      </div>
+                      <div className="text-sm text-muted-foreground truncate">{app.requisitionName}</div>
+                      {app.currentTitle && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {app.currentTitle} @ {app.currentEmployer}
+                        </div>
+                      )}
+                    </div>
+                    <span
+                      className={cn(
+                        'px-2 py-1 text-xs rounded-full whitespace-nowrap flex-shrink-0',
+                        statusColors[app.status] || 'bg-gray-100 text-gray-800'
+                      )}
+                    >
+                      {statusLabels[app.status] || app.status}
+                    </span>
+                  </div>
+
+                  {/* Stats row */}
+                  <div className="flex items-center gap-4 mt-3 text-sm">
+                    {app.jdMatchPercentage !== null && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-muted-foreground">Match:</span>
+                        <span className={cn(
+                          'font-medium',
+                          app.jdMatchPercentage >= 70 ? 'text-green-600' :
+                          app.jdMatchPercentage >= 50 ? 'text-amber-600' : 'text-red-600'
+                        )}>
+                          {app.jdMatchPercentage}%
+                        </span>
+                      </div>
+                    )}
+                    {app.totalExperienceMonths !== null && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-muted-foreground">Exp:</span>
+                        <span className="font-medium">{formatExperience(app.totalExperienceMonths)}</span>
+                      </div>
+                    )}
+                    {app.avgTenureMonths !== null && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-muted-foreground">Tenure:</span>
+                        <span className={cn('font-medium', formatTenure(app.avgTenureMonths).isWarning && 'text-red-600')}>
+                          {formatTenure(app.avgTenureMonths).text}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action buttons for review statuses */}
+                  {REVIEW_STATUSES.includes(app.status) && (
+                    <div className="flex items-center gap-2 mt-3 pt-3 border-t" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                        onClick={() => rejectMutation.mutate(app.id)}
+                        disabled={rejectMutation.isPending}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Reject
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => advanceMutation.mutate(app.id)}
+                        disabled={advanceMutation.isPending}
+                      >
+                        <Send className="h-4 w-4 mr-1" />
+                        Interview
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block rounded-lg border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1000px]">
                 <thead className="bg-muted">
@@ -346,14 +476,50 @@ export default function ApplicationsPage() {
                         onCheckedChange={toggleSelectAll}
                       />
                     </th>
-                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium">Candidate</th>
+                    <th
+                      scope="col"
+                      className="px-4 py-3 text-left text-sm font-medium cursor-pointer hover:bg-muted/80 select-none"
+                      onClick={() => handleSort('candidateName')}
+                    >
+                      <span className="flex items-center">
+                        Candidate
+                        <SortIndicator column="candidateName" />
+                      </span>
+                    </th>
                     <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden xl:table-cell">Current Role</th>
-                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden sm:table-cell">Position</th>
-                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium">Status</th>
+                    <th
+                      scope="col"
+                      className="px-4 py-3 text-left text-sm font-medium hidden sm:table-cell cursor-pointer hover:bg-muted/80 select-none"
+                      onClick={() => handleSort('requisitionName')}
+                    >
+                      <span className="flex items-center">
+                        Position
+                        <SortIndicator column="requisitionName" />
+                      </span>
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-3 text-left text-sm font-medium cursor-pointer hover:bg-muted/80 select-none"
+                      onClick={() => handleSort('status')}
+                    >
+                      <span className="flex items-center">
+                        Status
+                        <SortIndicator column="status" />
+                      </span>
+                    </th>
                     <th scope="col" className="px-4 py-3 text-left text-sm font-medium w-24">Match</th>
                     <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden lg:table-cell w-16">Exp</th>
                     <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden lg:table-cell w-16" title="Avg tenure in last 5 years">Tenure</th>
-                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden md:table-cell">Applied</th>
+                    <th
+                      scope="col"
+                      className="px-4 py-3 text-left text-sm font-medium hidden md:table-cell cursor-pointer hover:bg-muted/80 select-none"
+                      onClick={() => handleSort('createdAt')}
+                    >
+                      <span className="flex items-center">
+                        Applied
+                        <SortIndicator column="createdAt" />
+                      </span>
+                    </th>
                     <th scope="col" className="w-24 px-4 py-3"></th>
                   </tr>
                 </thead>

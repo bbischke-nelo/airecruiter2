@@ -41,7 +41,7 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         {settingsPages.map((page) => (
           <Link key={page.href} href={page.href}>
             <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">

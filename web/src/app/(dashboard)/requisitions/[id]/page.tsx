@@ -99,13 +99,13 @@ export default function RequisitionDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex items-start gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="flex-shrink-0">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold">{requisition.name}</h1>
               <span
                 className={`px-2 py-1 text-xs rounded-full ${
@@ -122,7 +122,7 @@ export default function RequisitionDetailPage() {
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 ml-auto sm:ml-0">
           <Button
             variant="outline"
             onClick={() => syncMutation.mutate()}
@@ -135,8 +135,8 @@ export default function RequisitionDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b">
-        <nav className="flex gap-4">
+      <div className="border-b overflow-x-auto">
+        <nav className="flex gap-4 min-w-max">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -229,12 +229,12 @@ export default function RequisitionDetailPage() {
               {applications.data.map((app) => (
                 <Link key={app.id} href={`/applications/${app.id}`}>
                   <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                    <CardContent className="flex items-center justify-between py-4">
-                      <div>
-                        <p className="font-medium">{app.candidateName}</p>
-                        <p className="text-sm text-muted-foreground">{app.candidateEmail}</p>
+                    <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{app.candidateName}</p>
+                        <p className="text-sm text-muted-foreground truncate">{app.candidateEmail}</p>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3 flex-wrap">
                         <span
                           className={`px-2 py-1 text-xs rounded-full ${getStatusColor(app.status)}`}
                         >
@@ -245,7 +245,7 @@ export default function RequisitionDetailPage() {
                             Risk: {app.riskScore}
                           </span>
                         )}
-                        <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                        <ExternalLink className="h-4 w-4 text-muted-foreground hidden sm:block" />
                       </div>
                     </CardContent>
                   </Card>
