@@ -96,6 +96,22 @@ class FactExtractionResult:
 
 
 @dataclass
+class AnalysisResult:
+    """Result of resume analysis (legacy format for backward compatibility).
+
+    Used by AnalyzeProcessor for risk scoring.
+    """
+
+    risk_score: int = 5  # 1-10 scale, 10 = highest risk/least qualified
+    relevance_summary: str = ""
+    pros: List[str] = field(default_factory=list)
+    cons: List[str] = field(default_factory=list)
+    red_flags: List[str] = field(default_factory=list)
+    suggested_questions: List[str] = field(default_factory=list)
+    raw_response: str = ""
+
+
+@dataclass
 class InterviewSummaryResult:
     """Result of interview summarization.
 
@@ -235,6 +251,64 @@ class ClaudeClient:
         except APIError as e:
             logger.error("Claude API error during fact extraction", error=str(e))
             raise ClaudeError(f"Fact extraction failed: {str(e)}") from e
+
+    async def analyze_resume(
+        self,
+        resume_text: str,
+        job_description: str,
+        prompt_template: str,
+    ) -> AnalysisResult:
+        """Analyze a resume against job requirements.
+
+        Legacy method for backward compatibility with AnalyzeProcessor.
+        Returns risk score and categorized observations.
+
+        Args:
+            resume_text: Extracted text from resume
+            job_description: Full job description/requirements
+            prompt_template: Analysis prompt template
+
+        Returns:
+            AnalysisResult with risk score and observations
+        """
+        logger.info("Analyzing resume with Claude")
+
+        # Build the prompt using safe substitution
+        prompt = safe_template_substitute(
+            prompt_template,
+            resume=resume_text,
+            job_description=job_description,
+        )
+
+        try:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ],
+            )
+
+            raw_response = response.content[0].text
+
+            # Parse the structured response
+            result = self._parse_analysis_response(raw_response)
+
+            logger.info(
+                "Resume analysis complete",
+                risk_score=result.risk_score,
+                pros_count=len(result.pros),
+                cons_count=len(result.cons),
+            )
+
+            return result
+
+        except APIError as e:
+            logger.error("Claude API error during resume analysis", error=str(e))
+            raise ClaudeError(f"Resume analysis failed: {str(e)}") from e
 
     async def summarize_interview(
         self,
@@ -394,6 +468,35 @@ Guidelines:
             logger.warning("Failed to parse interview summary response", error=str(e))
             return InterviewSummaryResult(
                 summary="Unable to parse structured response",
+                raw_response=response,
+            )
+
+    def _parse_analysis_response(self, response: str) -> AnalysisResult:
+        """Parse resume analysis response from Claude."""
+        try:
+            json_str = self._extract_json(response)
+            data = json.loads(json_str)
+
+            # Handle risk_score - ensure it's an int between 1-10
+            risk_score = data.get("risk_score", 5)
+            if isinstance(risk_score, str):
+                risk_score = int(risk_score)
+            risk_score = max(1, min(10, risk_score))
+
+            return AnalysisResult(
+                risk_score=risk_score,
+                relevance_summary=data.get("relevance_summary", ""),
+                pros=data.get("pros", []),
+                cons=data.get("cons", []),
+                red_flags=data.get("red_flags", []),
+                suggested_questions=data.get("suggested_questions", []),
+                raw_response=response,
+            )
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            logger.warning("Failed to parse analysis response", error=str(e))
+            return AnalysisResult(
+                risk_score=5,
+                relevance_summary="Unable to parse structured response",
                 raw_response=response,
             )
 
