@@ -123,9 +123,14 @@ async def list_applications(
         .all()
     )
 
-    # Parse extracted facts for display fields
+    # Parse extracted facts for display fields (grid triage columns)
     jd_match_percentages = {}
     avg_tenure_months = {}
+    current_titles = {}
+    current_employers = {}
+    total_experience_months = {}
+    months_since_last = {}
+
     for app_id, facts_json in analyses:
         if facts_json:
             try:
@@ -136,10 +141,21 @@ async def list_applications(
                 not_found = len(jd_matches.get("not_found", []))
                 if found + not_found > 0:
                     jd_match_percentages[app_id] = round((found / (found + not_found)) * 100)
-                # Get average tenure
+
+                # Get summary stats for grid columns
                 summary = facts.get("summary_stats", {})
-                if summary.get("average_tenure_months"):
+                if summary.get("recent_5yr_average_tenure_months"):
+                    avg_tenure_months[app_id] = summary["recent_5yr_average_tenure_months"]
+                elif summary.get("average_tenure_months"):
                     avg_tenure_months[app_id] = summary["average_tenure_months"]
+                if summary.get("most_recent_title"):
+                    current_titles[app_id] = summary["most_recent_title"]
+                if summary.get("most_recent_employer"):
+                    current_employers[app_id] = summary["most_recent_employer"]
+                if summary.get("total_experience_months"):
+                    total_experience_months[app_id] = summary["total_experience_months"]
+                if summary.get("months_since_last_employment") is not None:
+                    months_since_last[app_id] = summary["months_since_last_employment"]
             except (json.JSONDecodeError, TypeError):
                 pass
 
@@ -158,6 +174,10 @@ async def list_applications(
             has_report=a.id in report_app_ids,
             jd_match_percentage=jd_match_percentages.get(a.id),
             avg_tenure_months=avg_tenure_months.get(a.id),
+            current_title=current_titles.get(a.id),
+            current_employer=current_employers.get(a.id),
+            total_experience_months=total_experience_months.get(a.id),
+            months_since_last_employment=months_since_last.get(a.id),
             human_requested=a.human_requested,
             compliance_review=a.compliance_review,
             rejection_reason_code=a.rejection_reason_code,

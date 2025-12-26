@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo } from 'react';
 import {
   RefreshCw,
@@ -11,6 +11,9 @@ import {
   ChevronsRight,
   AlertCircle,
   Clock,
+  X,
+  Star,
+  Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,8 +45,13 @@ interface Application {
   hasAnalysis: boolean;
   hasInterview: boolean;
   hasReport: boolean;
+  // Grid triage columns
   jdMatchPercentage: number | null;
   avgTenureMonths: number | null;
+  currentTitle: string | null;
+  currentEmployer: string | null;
+  totalExperienceMonths: number | null;
+  monthsSinceLastEmployment: number | null;
   humanRequested: boolean;
   complianceReview: boolean;
   rejectionReasonCode: string | null;
@@ -107,7 +115,28 @@ const REVIEW_STATUSES = ['ready_for_review', 'interview_ready_for_review'];
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
+// Format months to human-readable years/months
+function formatExperience(months: number | null): string {
+  if (months === null || months === undefined) return '-';
+  if (months === 0) return '0';
+  const years = Math.floor(months / 12);
+  const remainingMonths = Math.round(months % 12);
+  if (years === 0) return `${remainingMonths}m`;
+  if (remainingMonths === 0) return `${years}y`;
+  return `${years}y ${remainingMonths}m`;
+}
+
+// Format tenure with warning color for short tenures
+function formatTenure(months: number | null): { text: string; isWarning: boolean } {
+  if (months === null || months === undefined) return { text: '-', isWarning: false };
+  const years = months / 12;
+  const text = years >= 1 ? `${years.toFixed(1)}y` : `${Math.round(months)}m`;
+  return { text, isWarning: months < 18 }; // Flag tenures under 1.5 years
+}
+
 export default function ApplicationsPage() {
+  const queryClient = useQueryClient();
+
   // Filter state
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<string>('');
@@ -120,8 +149,37 @@ export default function ApplicationsPage() {
   // Drawer state
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
 
+  // Hover state for quick actions
+  const [hoveredAppId, setHoveredAppId] = useState<number | null>(null);
+
   // Debounce search
   const debouncedSearch = useDebounce(search, 300);
+
+  // Quick advance mutation (send AI interview)
+  const advanceMutation = useMutation({
+    mutationFn: async (appId: number) => {
+      const response = await api.post(`/applications/${appId}/advance`, {
+        skipInterview: false,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['applications'] });
+    },
+  });
+
+  // Quick reject mutation (uses QUAL_SKILLS as default quick-reject reason)
+  const rejectMutation = useMutation({
+    mutationFn: async (appId: number) => {
+      const response = await api.post(`/applications/${appId}/reject`, {
+        reasonCode: 'QUAL_SKILLS',
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['applications'] });
+    },
+  });
 
   // Build query params
   const queryParams = useMemo(() => {
@@ -278,7 +336,7 @@ export default function ApplicationsPage() {
         <>
           <div className="rounded-lg border overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px]">
+              <table className="w-full min-w-[1000px]">
                 <thead className="bg-muted">
                   <tr>
                     <th scope="col" className="w-12 px-4 py-3">
@@ -289,11 +347,14 @@ export default function ApplicationsPage() {
                       />
                     </th>
                     <th scope="col" className="px-4 py-3 text-left text-sm font-medium">Candidate</th>
+                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden xl:table-cell">Current Role</th>
                     <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden sm:table-cell">Position</th>
                     <th scope="col" className="px-4 py-3 text-left text-sm font-medium">Status</th>
-                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium w-32">JD Match</th>
-                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden lg:table-cell">Tenure</th>
+                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium w-24">Match</th>
+                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden lg:table-cell w-16">Exp</th>
+                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden lg:table-cell w-16" title="Avg tenure in last 5 years">Tenure</th>
                     <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden md:table-cell">Applied</th>
+                    <th scope="col" className="w-24 px-4 py-3"></th>
                   </tr>
                 </thead>
               <tbody className="divide-y">
@@ -301,8 +362,10 @@ export default function ApplicationsPage() {
                   <tr
                     key={app.id}
                     onClick={() => setSelectedApp(app)}
+                    onMouseEnter={() => setHoveredAppId(app.id)}
+                    onMouseLeave={() => setHoveredAppId(null)}
                     className={cn(
-                      'hover:bg-muted/50 cursor-pointer',
+                      'hover:bg-muted/50 cursor-pointer group',
                       REVIEW_STATUSES.includes(app.status) && 'bg-amber-50 dark:bg-amber-950/20',
                       selectedIds.has(app.id) && 'bg-primary/5'
                     )}
@@ -329,6 +392,20 @@ export default function ApplicationsPage() {
                       </div>
                       <div className="text-sm text-muted-foreground">{app.candidateEmail}</div>
                     </td>
+                    <td className="px-4 py-3 text-sm hidden xl:table-cell">
+                      {app.currentTitle ? (
+                        <div>
+                          <div className="font-medium truncate max-w-[180px]" title={app.currentTitle}>
+                            {app.currentTitle}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate max-w-[180px]" title={app.currentEmployer || ''}>
+                            {app.currentEmployer || ''}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm hidden sm:table-cell">{app.requisitionName}</td>
                     <td className="px-4 py-3">
                       <span
@@ -343,22 +420,65 @@ export default function ApplicationsPage() {
                     <td className="px-4 py-3">
                       {app.jdMatchPercentage !== null ? (
                         <div className="flex items-center gap-2">
-                          <Progress value={app.jdMatchPercentage} className="h-2 w-16" />
-                          <span className="text-xs text-muted-foreground">{app.jdMatchPercentage}%</span>
+                          <Progress value={app.jdMatchPercentage} className="h-2 w-12" />
+                          <span className={cn(
+                            'text-xs font-medium',
+                            app.jdMatchPercentage >= 70 ? 'text-green-600' :
+                            app.jdMatchPercentage >= 50 ? 'text-amber-600' : 'text-red-600'
+                          )}>
+                            {app.jdMatchPercentage}%
+                          </span>
                         </div>
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm hidden lg:table-cell">
-                      {app.avgTenureMonths !== null ? (
-                        <span>{Math.round(app.avgTenureMonths)} mo</span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
+                      <span className="font-medium">{formatExperience(app.totalExperienceMonths)}</span>
+                    </td>
+                    <td className="px-4 py-3 text-sm hidden lg:table-cell">
+                      {(() => {
+                        const tenure = formatTenure(app.avgTenureMonths);
+                        return (
+                          <span className={tenure.isWarning ? 'text-red-600 font-medium' : ''}>
+                            {tenure.text}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">
                       {formatRelativeTime(app.createdAt)}
+                    </td>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className={cn(
+                        'flex items-center gap-1 transition-opacity',
+                        hoveredAppId === app.id ? 'opacity-100' : 'opacity-0'
+                      )}>
+                        {REVIEW_STATUSES.includes(app.status) && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              title="Quick Reject"
+                              onClick={() => rejectMutation.mutate(app.id)}
+                              disabled={rejectMutation.isPending}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              title="Send AI Interview"
+                              onClick={() => advanceMutation.mutate(app.id)}
+                              disabled={advanceMutation.isPending}
+                            >
+                              <Send className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -55,9 +55,13 @@ class ApplicationListItem(CamelModel):
     has_analysis: bool = False
     has_interview: bool = False
     has_report: bool = False
-    # Extracted facts summary (replaces risk_score)
+    # Extracted facts summary for grid triage
     jd_match_percentage: Optional[int] = None
-    avg_tenure_months: Optional[int] = None
+    avg_tenure_months: Optional[float] = None
+    current_title: Optional[str] = None
+    current_employer: Optional[str] = None
+    total_experience_months: Optional[int] = None
+    months_since_last_employment: Optional[int] = None
     human_requested: bool = False
     compliance_review: bool = False
     # Decision tracking

@@ -40,8 +40,13 @@ interface Application {
   hasAnalysis: boolean;
   hasInterview: boolean;
   hasReport: boolean;
+  // Grid triage columns
   jdMatchPercentage: number | null;
   avgTenureMonths: number | null;
+  currentTitle: string | null;
+  currentEmployer: string | null;
+  totalExperienceMonths: number | null;
+  monthsSinceLastEmployment: number | null;
   humanRequested: boolean;
   complianceReview: boolean;
   rejectionReasonCode: string | null;
