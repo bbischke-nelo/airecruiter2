@@ -742,7 +742,7 @@ class WorkdaySOAPClient:
         filename: str,
         content: bytes,
         content_type: str = "application/pdf",
-        category: str = "Resume",
+        category: str = "OTHER_DOCUMENTS",
         comment: Optional[str] = None,
     ) -> str:
         """Upload an attachment to a candidate profile.
@@ -755,7 +755,10 @@ class WorkdaySOAPClient:
             filename: Name for the file
             content: File content as bytes
             content_type: MIME type
-            category: Attachment category (Resume, Cover_Letter, etc.)
+            category: Document category - valid values:
+                - OTHER_DOCUMENTS (default, for analysis reports)
+                - CANDIDATE_RESUME_AND_COVER_LETTER
+                - EDUCATION
             comment: Optional comment
 
         Returns:
@@ -765,67 +768,57 @@ class WorkdaySOAPClient:
             "Uploading candidate attachment",
             candidate_id=candidate_id,
             filename=filename,
+            category=category,
             size=len(content),
         )
 
         # Base64 encode the content
         encoded_content = base64.b64encode(content).decode("utf-8")
 
-        # Build SOAP envelope directly - zeep has auth issues
-        comment_xml = f"<ns0:Comment>{comment}</ns0:Comment>" if comment else ""
-
-        soap_envelope = f'''<soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
-  <soap-env:Body>
-    <ns0:Put_Candidate_Attachment_Request xmlns:ns0="urn:com.workday/bsvc">
-      <ns0:Candidate_Attachment_Data>
-        <ns0:Candidate_Attachment_Reference>
-          <ns0:ID ns0:type="{ID_TYPE_CANDIDATE}">{candidate_id}</ns0:ID>
-        </ns0:Candidate_Attachment_Reference>
-        <ns0:Attachment_Data>
-          <ns0:Filename>{filename}</ns0:Filename>
-          <ns0:File_Content>{encoded_content}</ns0:File_Content>
-          {comment_xml}
-        </ns0:Attachment_Data>
-        <ns0:Document_Category_Reference>
-          <ns0:ID ns0:type="Document_Category_ID">{category}</ns0:ID>
-        </ns0:Document_Category_Reference>
-      </ns0:Candidate_Attachment_Data>
-    </ns0:Put_Candidate_Attachment_Request>
-  </soap-env:Body>
-</soap-env:Envelope>'''
-
-        # Get access token
-        access_token = await self.auth.get_token()
-
-        url = self.config.recruiting_service_url
-        headers = {
-            "SOAPAction": '""',
-            "Content-Type": "text/xml; charset=utf-8",
-            "Authorization": f"Bearer {access_token}",
+        # Use zeep client directly with correct structure
+        # Candidate_Reference is at request level, Add_Only=True for new attachments
+        params = {
+            "Add_Only": True,
+            "Candidate_Reference": {
+                "ID": [{"type": ID_TYPE_CANDIDATE, "_value_1": candidate_id}]
+            },
+            "Candidate_Attachment_Data": {
+                "Attachment_Data": {
+                    "Filename": filename,
+                    "File_Content": encoded_content,
+                    "Comment": comment,
+                },
+                "Document_Category_Reference": {
+                    "ID": [{"type": "Document_Category__Workday_Owned__ID", "_value_1": category}]
+                },
+            },
         }
 
-        async with httpx.AsyncClient(timeout=self.config.read_timeout) as client:
-            response = await client.post(url, content=soap_envelope, headers=headers)
+        # Get access token and set on auth plugin
+        access_token = await self.auth.get_token()
+        self._auth_plugin.set_token(access_token)
 
-            if response.status_code != 200:
-                logger.error(
-                    "Put_Candidate_Attachment failed",
-                    status=response.status_code,
-                    response=response.text[:500],
-                )
-                raise WorkdaySOAPError(f"Put_Candidate_Attachment failed: {response.text[:500]}")
+        try:
+            response = await self._client.service.Put_Candidate_Attachment(**params)
+        except Exception as e:
+            logger.error(
+                "Put_Candidate_Attachment failed",
+                error=str(e),
+                candidate_id=candidate_id,
+            )
+            raise WorkdaySOAPError(f"Put_Candidate_Attachment failed: {str(e)}") from e
 
-        # Parse XML response
-        root = ET.fromstring(response.text)
-        ns = {"wd": "urn:com.workday/bsvc"}
-
-        # Extract attachment ID from response
+        # Extract attachment ID from zeep response object
         doc_id = None
-        for id_elem in root.findall(".//wd:Candidate_Attachment_Reference/wd:ID", ns):
-            id_type = id_elem.get(f"{{{ns['wd']}}}type")
-            if id_type == "Candidate_Attachment_ID":
-                doc_id = id_elem.text
-                break
+        if response:
+            # Response should have Candidate_Attachment_Reference
+            att_ref = getattr(response, "Candidate_Attachment_Reference", None)
+            if att_ref:
+                for id_item in getattr(att_ref, "ID", None) or []:
+                    id_type = getattr(id_item, "type", "")
+                    if id_type == "Candidate_Attachment_ID" or id_type == "File_ID":
+                        doc_id = getattr(id_item, "_value_1", "")
+                        break
 
         logger.info("Attachment uploaded", document_id=doc_id)
         return doc_id or ""
