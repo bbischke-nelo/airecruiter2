@@ -452,6 +452,13 @@ async def reject_application(
 
     Note: No free-form comments allowed - they become discovery liabilities.
     """
+    logger.info(
+        "Reject request received",
+        application_id=application_id,
+        reason_code=data.reason_code.value,
+        user_id=user.get("id"),
+    )
+
     # Use row locking to prevent race conditions from double-clicks
     application = db.query(Application).filter(Application.id == application_id).with_for_update().first()
     if not application:
