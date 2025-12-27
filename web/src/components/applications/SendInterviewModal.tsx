@@ -143,9 +143,15 @@ export function SendInterviewModal({
   const isActivating = activateMutation.isPending;
   const isLoading = isPreparing || isActivating;
 
+  // Side-by-side layout when we have email preview
+  const showSideBySide = preparedData && mode === 'email' && preparedData.emailPreview;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px]">
+      <DialogContent className={cn(
+        "sm:max-w-[600px]",
+        showSideBySide && "sm:max-w-[1100px]"
+      )}>
         <DialogHeader>
           <DialogTitle>Send AI Interview</DialogTitle>
           <DialogDescription>
@@ -153,151 +159,164 @@ export function SendInterviewModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Mode Selection */}
-          <div className="space-y-3">
-            <Label>Interview Method</Label>
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => !preparedData && setMode('email')}
-                disabled={!!preparedData}
-                className={cn(
-                  'flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer transition-colors',
-                  mode === 'email'
-                    ? 'border-primary bg-primary/5'
-                    : 'border-muted bg-popover hover:bg-accent hover:text-accent-foreground',
-                  preparedData && 'opacity-50 cursor-not-allowed'
-                )}
-              >
-                <Mail className="mb-3 h-6 w-6" />
-                <span className="text-sm font-medium">Send Email</span>
-                <span className="text-xs text-muted-foreground text-center mt-1">
-                  Candidate receives email with interview link
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => !preparedData && setMode('link_only')}
-                disabled={!!preparedData}
-                className={cn(
-                  'flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer transition-colors',
-                  mode === 'link_only'
-                    ? 'border-primary bg-primary/5'
-                    : 'border-muted bg-popover hover:bg-accent hover:text-accent-foreground',
-                  preparedData && 'opacity-50 cursor-not-allowed'
-                )}
-              >
-                <Link2 className="mb-3 h-6 w-6" />
-                <span className="text-sm font-medium">Link Only</span>
-                <span className="text-xs text-muted-foreground text-center mt-1">
-                  Generate link to share manually
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* Email Override (for email mode) */}
-          {mode === 'email' && !preparedData && (
-            <div className="space-y-2">
-              <Label htmlFor="email-override">Email Address</Label>
-              <Input
-                id="email-override"
-                type="email"
-                placeholder={application?.candidateEmail || 'Enter email address'}
-                value={emailOverride}
-                onChange={(e) => setEmailOverride(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Leave blank to use candidate's email on file
-                {application?.candidateEmail && `: ${application.candidateEmail}`}
-              </p>
-            </div>
-          )}
-
-          {/* Expiry Days (before prepare) */}
-          {!preparedData && (
-            <div className="space-y-2">
-              <Label htmlFor="expiry-days">Link Expires In</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="expiry-days"
-                  type="number"
-                  min={1}
-                  max={30}
-                  value={expiryDays}
-                  onChange={(e) => setExpiryDays(parseInt(e.target.value) || 7)}
-                  className="w-20"
-                />
-                <span className="text-sm text-muted-foreground">days</span>
+        <div className={cn(
+          "py-4",
+          showSideBySide && "flex gap-6"
+        )}>
+          {/* Left Panel - Configuration */}
+          <div className={cn(
+            "space-y-6",
+            showSideBySide && "w-[340px] flex-shrink-0"
+          )}>
+            {/* Mode Selection */}
+            <div className="space-y-3">
+              <Label>Interview Method</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => !preparedData && setMode('email')}
+                  disabled={!!preparedData}
+                  className={cn(
+                    'flex flex-col items-center justify-center rounded-md border-2 p-3 cursor-pointer transition-colors',
+                    mode === 'email'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-muted bg-popover hover:bg-accent hover:text-accent-foreground',
+                    preparedData && 'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  <Mail className="mb-2 h-5 w-5" />
+                  <span className="text-sm font-medium">Send Email</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => !preparedData && setMode('link_only')}
+                  disabled={!!preparedData}
+                  className={cn(
+                    'flex flex-col items-center justify-center rounded-md border-2 p-3 cursor-pointer transition-colors',
+                    mode === 'link_only'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-muted bg-popover hover:bg-accent hover:text-accent-foreground',
+                    preparedData && 'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  <Link2 className="mb-2 h-5 w-5" />
+                  <span className="text-sm font-medium">Link Only</span>
+                </button>
               </div>
             </div>
-          )}
 
-          {/* Prepared Data Preview */}
-          {preparedData && (
-            <div className="space-y-4">
-              {/* Interview Link */}
+            {/* Email Override (for email mode) */}
+            {mode === 'email' && !preparedData && (
               <div className="space-y-2">
-                <Label>Interview Link</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={preparedData.interviewUrl}
-                    readOnly
-                    className="font-mono text-sm"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleCopyLink}
-                    title="Copy link"
-                  >
-                    {copied ? (
-                      <Check className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
+                <Label htmlFor="email-override">Email Address</Label>
+                <Input
+                  id="email-override"
+                  type="email"
+                  placeholder={application?.candidateEmail || 'Enter email address'}
+                  value={emailOverride}
+                  onChange={(e) => setEmailOverride(e.target.value)}
+                />
                 <p className="text-xs text-muted-foreground">
-                  Expires: {new Date(preparedData.expiresAt).toLocaleDateString()}
+                  Leave blank to use candidate's email on file
+                  {application?.candidateEmail && `: ${application.candidateEmail}`}
                 </p>
               </div>
+            )}
 
-              {/* Email Preview (for email mode) */}
-              {mode === 'email' && preparedData.emailPreview && (
+            {/* Expiry Days (before prepare) */}
+            {!preparedData && (
+              <div className="space-y-2">
+                <Label htmlFor="expiry-days">Link Expires In</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="expiry-days"
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={expiryDays}
+                    onChange={(e) => setExpiryDays(parseInt(e.target.value) || 7)}
+                    className="w-20"
+                  />
+                  <span className="text-sm text-muted-foreground">days</span>
+                </div>
+              </div>
+            )}
+
+            {/* Interview Link (after prepare) */}
+            {preparedData && (
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Email Preview</Label>
-                  <div className="rounded-md border p-4 bg-white text-gray-900">
-                    <div className="text-sm space-y-2">
-                      <p>
-                        <span className="text-gray-500">To:</span>{' '}
-                        {preparedData.emailPreview.toEmail}
-                      </p>
-                      <p>
-                        <span className="text-gray-500">Subject:</span>{' '}
-                        {preparedData.emailPreview.subject}
-                      </p>
-                      <div className="mt-4 pt-4 border-t border-gray-200 max-h-[450px] overflow-y-auto">
-                        <div
-                          className="prose prose-sm max-w-none"
-                          dangerouslySetInnerHTML={{
-                            __html: preparedData.emailPreview.bodyHtml,
-                          }}
-                        />
-                      </div>
+                  <Label>Interview Link</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={preparedData.interviewUrl}
+                      readOnly
+                      className="font-mono text-xs"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={handleCopyLink}
+                      title="Copy link"
+                    >
+                      {copied ? (
+                        <Check className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Expires: {new Date(preparedData.expiresAt).toLocaleDateString()}
+                  </p>
+                </div>
+
+                {/* Email To (for email mode in side-by-side) */}
+                {mode === 'email' && preparedData.emailPreview && (
+                  <div className="space-y-2 pt-2 border-t">
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">To:</span>{' '}
+                      <span className="font-medium">{preparedData.emailPreview.toEmail}</span>
+                    </div>
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">Subject:</span>{' '}
+                      <span className="font-medium">{preparedData.emailPreview.subject}</span>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+            )}
+
+            {/* Error Display */}
+            {error && (
+              <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 text-destructive">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <span className="text-sm">{error}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Right Panel - Email Preview (side-by-side mode only) */}
+          {showSideBySide && preparedData.emailPreview && (
+            <div className="flex-1 min-w-0">
+              <Label className="mb-2 block">Email Preview</Label>
+              <div className="rounded-md border bg-white h-[500px] overflow-y-auto">
+                <div
+                  className="prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{
+                    __html: preparedData.emailPreview.bodyHtml,
+                  }}
+                />
+              </div>
             </div>
           )}
 
-          {/* Error Display */}
-          {error && (
-            <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 text-destructive">
-              <AlertCircle className="h-4 w-4" />
-              <span className="text-sm">{error}</span>
+          {/* Link-only mode preview (not side-by-side) */}
+          {preparedData && mode === 'link_only' && (
+            <div className="mt-4 p-4 rounded-md bg-muted/50 text-center">
+              <p className="text-sm text-muted-foreground">
+                Link generated. Copy and share it with the candidate.
+              </p>
             </div>
           )}
         </div>

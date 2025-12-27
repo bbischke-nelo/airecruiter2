@@ -166,9 +166,9 @@ class SESService:
         subject = f"Interview Invitation: {position} at {company_name}"
         first_name = candidate_name.split()[0] if candidate_name else "there"
 
-        # Default logo URL from frontend
+        # Default logo URL - use CCFS recruiter app
         if not logo_url:
-            logo_url = f"{settings.FRONTEND_URL}/logo-white.png"
+            logo_url = "https://admin.ccfs.com/recruiter2/logo-white.png"
 
         # Template variables
         template_vars = {

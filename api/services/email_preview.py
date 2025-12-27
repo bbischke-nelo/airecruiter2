@@ -55,9 +55,9 @@ def generate_interview_email_preview(
     # Get first name for more personal greeting
     first_name = candidate_name.split()[0] if candidate_name else "there"
 
-    # Default to CCFS logo from their website
+    # Default to CCFS logo from recruiter app (white version for red header)
     if not logo_url:
-        logo_url = "https://www.ccfs.com/images/CCFS-LTL.svg"
+        logo_url = "https://admin.ccfs.com/recruiter2/logo-white.png"
 
     html_body = f"""
 <!DOCTYPE html>
