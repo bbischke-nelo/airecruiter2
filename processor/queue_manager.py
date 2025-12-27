@@ -431,13 +431,15 @@ class QueueManager:
 
         # Recovery configs: (status, job_type, description)
         # These are statuses where a job should exist but might be missing
+        # Recovery configs match actual pipeline flow:
+        # download_resume → extract_facts → generate_report
+        # (analyze.py is NOT used - fact_extraction.md handles pros/cons/questions)
         recovery_configs = [
             ("new", "download_resume", "new apps needing resume download"),
             ("downloading", "download_resume", "downloading apps with no active job"),
             ("downloaded", "extract_facts", "downloaded apps needing extraction"),
             ("extracting", "extract_facts", "extracting apps with no active job"),
-            ("extracted", "analyze", "extracted apps needing analysis"),
-            ("generating_summary", "analyze", "generating_summary apps with no active job"),
+            ("extracted", "generate_report", "extracted apps needing report generation"),
             ("interview_complete", "generate_report", "interview_complete apps needing report"),
         ]
 

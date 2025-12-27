@@ -79,12 +79,6 @@ class ProcessorService:
         except ImportError:
             logger.warning("SyncProcessor not available")
 
-        try:
-            from processor.processors.analyze import AnalyzeProcessor
-            self.worker.register_processor(AnalyzeProcessor)
-        except ImportError:
-            logger.warning("AnalyzeProcessor not available")
-
         # Human-in-the-Loop pipeline processors
         try:
             from processor.processors.download_resume import DownloadResumeProcessor

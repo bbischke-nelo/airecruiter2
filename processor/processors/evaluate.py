@@ -95,8 +95,21 @@ class EvaluateProcessor(BaseProcessor):
             self.logger.warning("No messages in interview", interview_id=interview_id)
             return
 
+        # Validate messages have content
+        valid_messages = [m for m in messages if m.content and m.content.strip()]
+        if len(valid_messages) < 2:  # Need at least one Q&A exchange
+            self.logger.warning(
+                "Insufficient interview content",
+                interview_id=interview_id,
+                total_messages=len(messages),
+                valid_messages=len(valid_messages),
+            )
+            # Create minimal evaluation noting insufficient content
+            await self._store_minimal_evaluation(interview_id, "Insufficient interview content for evaluation")
+            return
+
         # Format transcript
-        transcript = self._format_transcript(messages, interview.candidate_name)
+        transcript = self._format_transcript(valid_messages, interview.candidate_name)
 
         # Get evaluation prompt
         prompt_template = await self._get_prompt("evaluation", interview.requisition_id)
@@ -165,6 +178,28 @@ class EvaluateProcessor(BaseProcessor):
             timestamp = msg.created_at.strftime("%H:%M:%S") if msg.created_at else ""
             lines.append(f"[{timestamp}] {speaker}: {msg.content}")
         return "\n\n".join(lines)
+
+    async def _store_minimal_evaluation(self, interview_id: int, reason: str) -> None:
+        """Store a minimal evaluation when content is insufficient."""
+        query = text("""
+            INSERT INTO evaluations (interview_id, reliability_score, accountability_score,
+                                    professionalism_score, communication_score,
+                                    technical_score, growth_potential_score, overall_score,
+                                    summary, strengths, weaknesses, red_flags,
+                                    recommendation, created_at)
+            VALUES (:int_id, 3, 3, 3, 3, 3, 3, 50,
+                    :summary, '[]', '[]', '[]',
+                    'review', GETUTCDATE())
+        """)
+        self.db.execute(
+            query,
+            {
+                "int_id": interview_id,
+                "summary": f"**Evaluation Limited:** {reason}. Unable to provide full assessment due to insufficient interview content. Recommend manual review of available materials.",
+            },
+        )
+        self.db.commit()
+        self.logger.info("Stored minimal evaluation", interview_id=interview_id, reason=reason)
 
     async def _get_prompt(self, prompt_type: str, requisition_id: int) -> str:
         """Get the active prompt template for a type.

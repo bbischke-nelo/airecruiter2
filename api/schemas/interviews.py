@@ -79,6 +79,7 @@ class EvaluationResponse(CamelModel):
     strengths: list[str] = []
     weaknesses: list[str] = []
     red_flags: list[str] = []
+    interview_highlights: list[str] = []  # Key factual observations from interview
 
     # v1 evaluation fields
     character_passed: Optional[bool] = None  # Character gate pass/fail

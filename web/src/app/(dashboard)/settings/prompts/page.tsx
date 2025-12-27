@@ -55,7 +55,7 @@ interface PromptListItem {
 }
 
 const promptTypes = [
-  { value: 'resume_analysis', label: 'Resume Analysis' },
+  { value: 'fact_extraction', label: 'Fact Extraction' },
   { value: 'interview', label: 'Interview' },
   { value: 'self_service_interview', label: 'Self-Service Interview' },
   { value: 'evaluation', label: 'Evaluation' },
@@ -71,7 +71,7 @@ export default function PromptsSettingsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [newPrompt, setNewPrompt] = useState<Partial<Prompt>>({
     name: '',
-    promptType: 'resume_analysis',
+    promptType: 'fact_extraction',
     templateContent: '',
     schemaContent: '',
     description: '',
@@ -105,7 +105,7 @@ export default function PromptsSettingsPage() {
       setIsCreating(false);
       setNewPrompt({
         name: '',
-        promptType: 'resume_analysis',
+        promptType: 'fact_extraction',
         templateContent: '',
         schemaContent: '',
         description: '',
@@ -243,7 +243,7 @@ export default function PromptsSettingsPage() {
                   <div>
                     <label className="text-sm font-medium">Type</label>
                     <select
-                      value={newPrompt.promptType || 'resume_analysis'}
+                      value={newPrompt.promptType || 'fact_extraction'}
                       onChange={(e) =>
                         setNewPrompt({ ...newPrompt, promptType: e.target.value })
                       }

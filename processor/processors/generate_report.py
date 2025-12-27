@@ -78,7 +78,7 @@ class GenerateReportProcessor(BaseProcessor):
         """)
         analysis = self.db.execute(analysis_query, {"app_id": application_id}).fetchone()
 
-        # Get interview data if exists
+        # Get ALL completed interviews for this application
         interview_query = text("""
             SELECT i.id as interview_id, i.interview_type, i.started_at, i.completed_at,
                    e.summary, e.interview_highlights, e.next_interview_focus
@@ -88,19 +88,36 @@ class GenerateReportProcessor(BaseProcessor):
               AND i.status = 'completed'
             ORDER BY i.completed_at DESC
         """)
-        interview = self.db.execute(interview_query, {"app_id": application_id}).fetchone()
+        interview_rows = self.db.execute(interview_query, {"app_id": application_id}).fetchall()
 
-        # Get interview messages if interview exists
-        messages = []
-        if interview:
+        # Build list of all interviews with their messages
+        interviews = []
+        for interview_row in interview_rows:
+            # Get messages for this interview
             messages_query = text("""
                 SELECT role, content
                 FROM messages
                 WHERE interview_id = :int_id
                 ORDER BY created_at
             """)
-            messages_result = self.db.execute(messages_query, {"int_id": interview.interview_id})
-            messages = [{"role": m.role, "content": m.content} for m in messages_result.fetchall()]
+            messages_result = self.db.execute(messages_query, {"int_id": interview_row.interview_id})
+            interview_messages = [{"role": m.role, "content": m.content} for m in messages_result.fetchall()]
+
+            interviews.append({
+                "interview_id": interview_row.interview_id,
+                "interview_type": interview_row.interview_type,
+                "started_at": interview_row.started_at,
+                "completed_at": interview_row.completed_at,
+                "summary": interview_row.summary,
+                "interview_highlights": interview_row.interview_highlights,
+                "next_interview_focus": interview_row.next_interview_focus,
+                "messages": interview_messages,
+                "message_count": len(interview_messages),
+            })
+
+        # For backwards compatibility, also set single interview variable (most recent)
+        interview = interview_rows[0] if interview_rows else None
+        messages = interviews[0]["messages"] if interviews else []
 
         # Parse extracted facts
         extracted_facts = {}
@@ -181,7 +198,7 @@ class GenerateReportProcessor(BaseProcessor):
             "compliance_flags": compliance_flags,
             "extraction_notes": analysis.extraction_notes if analysis else None,
 
-            # Interview data (if exists)
+            # Interview data (if exists) - backwards compatible single interview fields
             "has_interview": interview is not None,
             "interview_type": interview.interview_type if interview else None,
             "interview_date": interview.completed_at if interview else None,
@@ -190,6 +207,10 @@ class GenerateReportProcessor(BaseProcessor):
             "next_interview_focus": next_interview_focus,
             "message_count": len(messages),
             "messages": messages,
+
+            # ALL interviews (for multi-interview support)
+            "interviews": interviews,
+            "interview_count": len(interviews),
 
             # Company
             "company_name": "CCFS",
@@ -365,9 +386,10 @@ class GenerateReportProcessor(BaseProcessor):
         risk_flags = self._detect_risk_flags(data)
         match_score = self._calculate_match_score(data)
 
-        # Current role
-        current_role = data.get('most_recent_title') or 'Unknown'
-        current_employer = data.get('most_recent_employer') or 'Unknown'
+        # Current role - show warning if data missing
+        current_role = data.get('most_recent_title') or 'Not Available'
+        current_employer = data.get('most_recent_employer') or 'Not Available'
+        has_extracted_facts = bool(data.get('employment_history') or data.get('skills') or data.get('education'))
 
         # Find tenure at current role from employment history
         current_tenure = ""
@@ -470,6 +492,14 @@ class GenerateReportProcessor(BaseProcessor):
         /* Footer */
         .footer {{ margin-top: 15px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 9px; color: #718096; text-align: center; }}
 
+        /* Transcript */
+        .transcript {{ margin-top: 10px; }}
+        .message {{ margin-bottom: 10px; padding: 8px 12px; border-radius: 4px; }}
+        .message-assistant {{ background: #f7fafc; border-left: 3px solid #4a5568; }}
+        .message-user {{ background: #ebf8ff; border-left: 3px solid #3182ce; }}
+        .message-role {{ font-size: 9px; font-weight: 600; color: #718096; text-transform: uppercase; margin-bottom: 4px; }}
+        .message-content {{ font-size: 10px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }}
+
         /* Print optimization */
         @media print {{
             body {{ padding: 0; }}
@@ -517,6 +547,18 @@ class GenerateReportProcessor(BaseProcessor):
             html += '        </div>\n'
 
         html += '    </div>\n\n'
+
+        # Warning banner if no extracted facts (resume not processed)
+        if not has_extracted_facts:
+            html += '''
+    <div style="background: #FEF3C7; border: 2px solid #F59E0B; border-radius: 4px; padding: 12px; margin-bottom: 15px;">
+        <strong style="color: #92400E;">⚠ Resume Data Not Available</strong>
+        <p style="color: #78350F; margin: 8px 0 0 0; font-size: 11px;">
+            This candidate's resume could not be processed. Employment history, skills, and education information are unavailable.
+            The interview analysis below is based solely on the candidate's responses during the AI interview.
+        </p>
+    </div>
+'''
 
         # TWO COLUMN LAYOUT
         html += '    <div class="two-col">\n'
@@ -636,15 +678,48 @@ class GenerateReportProcessor(BaseProcessor):
         html += '        </div>\n'  # End right column
         html += '    </div>\n'  # End two-col
 
-        # Interview Summary (if exists)
-        if data.get('has_interview'):
-            html += f'''
+        # All Interviews (supports multiple interviews per candidate)
+        interviews = data.get('interviews', [])
+        if interviews:
+            from processor.utils.report_generator import markdown_to_html
+
+            for idx, interview_data in enumerate(interviews):
+                interview_num = idx + 1
+                interview_label = f"AI Interview {interview_num}" if len(interviews) > 1 else "AI Interview Summary"
+                interview_summary_html = markdown_to_html(interview_data.get('summary') or 'No summary available.')
+                interview_date = interview_data.get('completed_at')
+                interview_date_str = interview_date.strftime('%B %d, %Y') if interview_date else 'N/A'
+
+                html += f'''
     <div class="section clear">
-        <div class="section-title">AI Interview Summary</div>
-        <p><strong>Type:</strong> {data.get('interview_type', 'self_service')} |
-           <strong>Date:</strong> {data['interview_date'].strftime('%B %d, %Y') if data.get('interview_date') else 'N/A'} |
-           <strong>Messages:</strong> {data.get('message_count', 0)}</p>
-        <p>{data.get('interview_summary', 'No summary available.')}</p>
+        <div class="section-title">{interview_label}</div>
+        <p><strong>Type:</strong> {interview_data.get('interview_type', 'self_service')} |
+           <strong>Date:</strong> {interview_date_str} |
+           <strong>Messages:</strong> {interview_data.get('message_count', 0)}</p>
+        <div>{interview_summary_html}</div>
+    </div>
+'''
+                # Interview Transcript
+                messages = interview_data.get('messages', [])
+                if messages:
+                    transcript_title = f"Interview {interview_num} Transcript" if len(interviews) > 1 else "Interview Transcript"
+                    html += f'''
+    <div class="section clear" style="page-break-before: always;">
+        <div class="section-title">{transcript_title}</div>
+        <div class="transcript">
+'''
+                    for msg in messages:
+                        role = msg.get('role', 'unknown')
+                        content = msg.get('content', '')
+                        # Apply markdown conversion to message content
+                        content_html = markdown_to_html(content)
+                        role_label = 'Interviewer' if role == 'assistant' else 'Candidate'
+                        html += f'''            <div class="message message-{role}">
+                <div class="message-role">{role_label}</div>
+                <div class="message-content">{content_html}</div>
+            </div>
+'''
+                    html += '''        </div>
     </div>
 '''
 

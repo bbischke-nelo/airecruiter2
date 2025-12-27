@@ -186,6 +186,7 @@ async def get_interview_evaluation(
         strengths=json.loads(evaluation.strengths) if evaluation.strengths else [],
         weaknesses=json.loads(evaluation.weaknesses) if evaluation.weaknesses else [],
         red_flags=json.loads(evaluation.red_flags) if evaluation.red_flags else [],
+        interview_highlights=json.loads(evaluation.interview_highlights) if evaluation.interview_highlights else [],
         recommendation=evaluation.recommendation,
         next_interview_focus=json.loads(evaluation.next_interview_focus) if evaluation.next_interview_focus else [],
         model_version=evaluation.model_version,

@@ -8,6 +8,21 @@ Evaluate the candidate based on their interview performance. This evaluation use
 
 ---
 
+## CRITICAL: NO HALLUCINATION / FABRICATION
+
+**You must ONLY reference information that is explicitly stated in the transcript below.**
+
+- Do NOT invent company names, dates, scenarios, or details
+- Do NOT extrapolate or assume details that aren't stated
+- If the transcript lacks information on a topic, say "Not discussed" or "Insufficient information"
+- Every specific claim (company names, percentages, job titles, etc.) must appear in the transcript
+- If you cannot make an assessment due to limited transcript content, state this clearly
+- Quote or paraphrase the transcript when making specific claims
+
+**If the transcript is minimal or lacks substantive content, your evaluation should reflect this limitation rather than fabricating details to fill gaps.**
+
+---
+
 ## PHASE 1: CHARACTER GATE (Pass/Fail)
 
 Before scoring dimensions, determine if the candidate PASSES the character gate. This is binary—no partial credit.

@@ -142,6 +142,7 @@ interface InterviewData {
   applicationId: number;
   interviewType: string;
   status: string;
+  createdAt: string;
   startedAt: string | null;
   completedAt: string | null;
   messageCount: number;
@@ -153,6 +154,13 @@ interface EvaluationData {
   summary: string | null;
   interviewHighlights: string[];
   nextInterviewFocus: string[];
+}
+
+interface TranscriptMessage {
+  id: number;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
 }
 
 interface DecisionResponse {
@@ -240,6 +248,8 @@ export function ApplicationDrawer({
     partial: boolean;
     unmet: boolean;
   }>({ met: false, partial: false, unmet: false });
+  const [selectedInterviewIndex, setSelectedInterviewIndex] = useState(0);
+  const [showTranscript, setShowTranscript] = useState(false);
 
   // Find current index
   const currentIndex = application ? applications.findIndex((a) => a.id === application.id) : -1;
@@ -271,6 +281,8 @@ export function ApplicationDrawer({
   useEffect(() => {
     setActiveTab('screening');
     setExpandedRequirements({ met: false, partial: false, unmet: false });
+    setSelectedInterviewIndex(0);
+    setShowTranscript(false);
   }, [application?.id]);
 
   // Fetch resume URL when application changes
@@ -299,29 +311,46 @@ export function ApplicationDrawer({
     enabled: !!application,
   });
 
-  // Fetch interview data if application has interview
-  const { data: interviewData } = useQuery<{ interview: InterviewData; evaluation: EvaluationData | null } | null>({
-    queryKey: ['application-interview', application?.id],
+  // Fetch ALL interview data for this application (supports multiple interviews)
+  const { data: interviewsData } = useQuery<Array<{ interview: InterviewData; evaluation: EvaluationData | null }>>({
+    queryKey: ['application-interviews', application?.id],
     queryFn: async () => {
-      // Get interviews for this application
+      // Get all interviews for this application
       const response = await api.get(`/interviews?application_id=${application?.id}`);
       const interviews = response.data.data;
-      if (interviews.length === 0) return null;
+      if (interviews.length === 0) return [];
 
-      const interview = interviews[0];
+      // Fetch evaluation for each interview
+      const result = await Promise.all(
+        interviews.map(async (interview: InterviewData) => {
+          let evaluation = null;
+          try {
+            const evalResponse = await api.get(`/interviews/${interview.id}/evaluation`);
+            evaluation = evalResponse.data;
+          } catch {
+            // No evaluation yet for this interview
+          }
+          return { interview, evaluation };
+        })
+      );
 
-      // Try to get evaluation
-      let evaluation = null;
-      try {
-        const evalResponse = await api.get(`/interviews/${interview.id}/evaluation`);
-        evaluation = evalResponse.data;
-      } catch {
-        // No evaluation yet
-      }
-
-      return { interview, evaluation };
+      return result;
     },
     enabled: !!application && ['interview_ready_for_review', 'advanced'].includes(application.status),
+  });
+
+  // For backwards compatibility - get the most recent interview data
+  const interviewData = interviewsData && interviewsData.length > 0 ? interviewsData[0] : null;
+
+  // Fetch transcript messages for the selected interview when requested
+  const selectedInterview = interviewsData?.[selectedInterviewIndex];
+  const { data: transcriptMessages, isLoading: transcriptLoading } = useQuery<TranscriptMessage[]>({
+    queryKey: ['interview-transcript', selectedInterview?.interview.id],
+    queryFn: async () => {
+      const response = await api.get(`/interviews/${selectedInterview?.interview.id}/messages`);
+      return response.data;
+    },
+    enabled: !!selectedInterview && showTranscript,
   });
 
   // Mutations
@@ -542,6 +571,21 @@ export function ApplicationDrawer({
                       </div>
                     ) : facts?.extractedFacts ? (
                       <div className="space-y-6">
+                        {/* Warning if no employment history extracted */}
+                        {!facts.extractedFacts.employment_history?.length && !facts.extractedFacts.skills && !facts.extractedFacts.education?.length && (
+                          <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                              <div>
+                                <div className="font-medium text-amber-800 dark:text-amber-200">Resume Data Not Available</div>
+                                <div className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                                  This candidate&apos;s resume could not be processed. Employment history, skills, and education information are unavailable.
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {/* JD Requirements Match */}
                         {matchPercentage !== null && (
                           <div className="p-4 rounded-lg border">
@@ -833,7 +877,7 @@ export function ApplicationDrawer({
                   </TabsContent>
 
                   <TabsContent value="interview" className="mt-0 h-full">
-                    {application.hasInterview && interviewData ? (
+                    {application.hasInterview && interviewsData && interviewsData.length > 0 ? (
                       <div className="space-y-6">
                         {/* Download Interview Report */}
                         {application.hasReport && (
@@ -845,72 +889,188 @@ export function ApplicationDrawer({
                           </div>
                         )}
 
-                        {/* Interview Meta */}
-                        <div className="p-4 rounded-lg border">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-medium">AI Interview</div>
-                              <div className="text-sm text-muted-foreground">
-                                {interviewData.interview.interviewType} &bull; {interviewData.interview.messageCount} messages
-                              </div>
-                            </div>
-                            <div className="text-right text-sm text-muted-foreground">
-                              {interviewData.interview.completedAt
-                                ? `Completed ${formatRelativeTime(interviewData.interview.completedAt)}`
-                                : interviewData.interview.status}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Evaluation Summary */}
-                        {interviewData.evaluation && (
-                          <>
-                            {interviewData.evaluation.summary && (
-                              <div>
-                                <h3 className="font-medium mb-2">Summary</h3>
-                                <Markdown className="text-sm text-muted-foreground">
-                                  {interviewData.evaluation.summary}
-                                </Markdown>
-                              </div>
-                            )}
-
-                            {interviewData.evaluation.interviewHighlights?.length > 0 && (
-                              <div>
-                                <h3 className="font-medium flex items-center gap-2 mb-3">
-                                  <ThumbsUp className="h-4 w-4" /> Key Highlights
-                                </h3>
-                                <ul className="space-y-2">
-                                  {interviewData.evaluation.interviewHighlights.map((h, i) => (
-                                    <li key={i} className="text-sm p-2 rounded bg-green-50 dark:bg-green-900/20">
-                                      {h}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {interviewData.evaluation.nextInterviewFocus?.length > 0 && (
-                              <div>
-                                <h3 className="font-medium flex items-center gap-2 mb-3">
-                                  <HelpCircle className="h-4 w-4" /> Areas for Live Interview
-                                </h3>
-                                <ul className="space-y-2">
-                                  {interviewData.evaluation.nextInterviewFocus.map((f, i) => (
-                                    <li key={i} className="text-sm p-2 rounded bg-blue-50 dark:bg-blue-900/20">
-                                      {f}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                          </>
-                        )}
-
-                        {!interviewData.evaluation && (
-                          <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
-                            <p>Interview evaluation pending</p>
+                        {/* Interview Selector for multiple interviews */}
+                        {interviewsData.length > 1 && (
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            {interviewsData.map((ivData, idx) => (
+                              <Button
+                                key={ivData.interview.id}
+                                variant={selectedInterviewIndex === idx ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setSelectedInterviewIndex(idx)}
+                              >
+                                Interview {idx + 1}
+                                {ivData.interview.completedAt && (
+                                  <span className="ml-1 text-xs opacity-70">
+                                    ({new Date(ivData.interview.completedAt).toLocaleDateString()})
+                                  </span>
+                                )}
+                              </Button>
+                            ))}
                           </div>
                         )}
+
+                        {/* Selected Interview Content */}
+                        {(() => {
+                          const ivData = interviewsData[selectedInterviewIndex];
+                          if (!ivData) return null;
+                          return (
+                            <div className="space-y-4">
+                              {/* Interview Meta with more details */}
+                              <div className="p-4 rounded-lg border">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="font-medium text-lg">
+                                    {interviewsData.length > 1 ? `Interview ${selectedInterviewIndex + 1}` : 'AI Interview'}
+                                  </div>
+                                  <span className={cn(
+                                    'px-2 py-1 text-xs rounded-full',
+                                    ivData.interview.status === 'completed'
+                                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                      : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                                  )}>
+                                    {ivData.interview.status === 'completed' ? 'Completed' : ivData.interview.status}
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                  <div>
+                                    <span className="text-muted-foreground">Type:</span>{' '}
+                                    <span className="font-medium capitalize">{ivData.interview.interviewType.replace('_', ' ')}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Messages:</span>{' '}
+                                    <span className="font-medium">{ivData.interview.messageCount}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Sent:</span>{' '}
+                                    <span className="font-medium">
+                                      {ivData.interview.createdAt
+                                        ? new Date(ivData.interview.createdAt).toLocaleString()
+                                        : 'N/A'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Started:</span>{' '}
+                                    <span className="font-medium">
+                                      {ivData.interview.startedAt
+                                        ? new Date(ivData.interview.startedAt).toLocaleString()
+                                        : 'Not started'}
+                                    </span>
+                                  </div>
+                                  <div className="col-span-2">
+                                    <span className="text-muted-foreground">Completed:</span>{' '}
+                                    <span className="font-medium">
+                                      {ivData.interview.completedAt
+                                        ? new Date(ivData.interview.completedAt).toLocaleString()
+                                        : 'Not completed'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Evaluation Summary */}
+                              {ivData.evaluation && (
+                                <>
+                                  {ivData.evaluation.summary && (
+                                    <div>
+                                      <h3 className="font-medium mb-2">Summary</h3>
+                                      <Markdown className="text-sm text-muted-foreground">
+                                        {ivData.evaluation.summary}
+                                      </Markdown>
+                                    </div>
+                                  )}
+
+                                  {ivData.evaluation.interviewHighlights?.length > 0 && (
+                                    <div>
+                                      <h3 className="font-medium flex items-center gap-2 mb-3">
+                                        <ThumbsUp className="h-4 w-4" /> Key Highlights
+                                      </h3>
+                                      <ul className="space-y-2">
+                                        {ivData.evaluation.interviewHighlights.map((h, i) => (
+                                          <li key={i} className="text-sm p-2 rounded bg-green-50 dark:bg-green-900/20">
+                                            {h}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+
+                                  {ivData.evaluation.nextInterviewFocus?.length > 0 && (
+                                    <div>
+                                      <h3 className="font-medium flex items-center gap-2 mb-3">
+                                        <HelpCircle className="h-4 w-4" /> Areas for Live Interview
+                                      </h3>
+                                      <ul className="space-y-2">
+                                        {ivData.evaluation.nextInterviewFocus.map((f, i) => (
+                                          <li key={i} className="text-sm p-2 rounded bg-blue-50 dark:bg-blue-900/20">
+                                            {f}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+
+                              {!ivData.evaluation && (
+                                <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+                                  <p>Interview evaluation pending</p>
+                                </div>
+                              )}
+
+                              {/* Transcript Toggle */}
+                              <div className="pt-4 border-t">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setShowTranscript(!showTranscript)}
+                                  className="w-full"
+                                >
+                                  <MessageSquare className="h-4 w-4 mr-2" />
+                                  {showTranscript ? 'Hide Transcript' : 'View Full Transcript'}
+                                </Button>
+
+                                {showTranscript && (
+                                  <div className="mt-4 space-y-3">
+                                    {transcriptLoading ? (
+                                      <div className="flex items-center justify-center py-8">
+                                        <div className="animate-spin h-6 w-6 border-4 border-primary border-t-transparent rounded-full" />
+                                      </div>
+                                    ) : transcriptMessages && transcriptMessages.length > 0 ? (
+                                      <>
+                                        <div className="text-xs text-muted-foreground mb-2">
+                                          {transcriptMessages.length} messages in transcript
+                                        </div>
+                                        {transcriptMessages.map((msg) => (
+                                          <div
+                                            key={msg.id}
+                                            className={cn(
+                                              'p-3 rounded-lg text-sm',
+                                              msg.role === 'assistant'
+                                                ? 'bg-muted border-l-2 border-gray-400'
+                                                : 'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-500'
+                                            )}
+                                          >
+                                            <div className="text-xs font-medium text-muted-foreground mb-1">
+                                              {msg.role === 'assistant' ? 'Interviewer' : 'Candidate'}
+                                              <span className="ml-2 opacity-60">
+                                                {new Date(msg.createdAt).toLocaleTimeString()}
+                                              </span>
+                                            </div>
+                                            <div className="whitespace-pre-wrap">{msg.content}</div>
+                                          </div>
+                                        ))}
+                                      </>
+                                    ) : (
+                                      <div className="text-center py-4 text-muted-foreground">
+                                        No transcript available
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     ) : (
                       <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">

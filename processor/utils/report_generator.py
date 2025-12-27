@@ -26,15 +26,116 @@ except ImportError:
 
 
 def markdown_to_html(text: str) -> str:
-    """Convert basic markdown to HTML. Supports **bold** and *italic*."""
+    """Convert markdown to HTML for PDF reports.
+
+    Supports:
+    - **bold** and *italic*
+    - Bullet lists (- item or * item)
+    - Numbered lists (1. item)
+    - Headers (# ## ###)
+    - Paragraphs with proper spacing
+    """
     if not text:
         return ''
+
+    lines = text.split('\n')
+    html_lines = []
+    in_ul = False
+    in_ol = False
+
+    for line in lines:
+        stripped = line.strip()
+
+        # Headers
+        if stripped.startswith('### '):
+            if in_ul:
+                html_lines.append('</ul>')
+                in_ul = False
+            if in_ol:
+                html_lines.append('</ol>')
+                in_ol = False
+            content = _inline_markdown(stripped[4:])
+            html_lines.append(f'<h4>{content}</h4>')
+            continue
+        elif stripped.startswith('## '):
+            if in_ul:
+                html_lines.append('</ul>')
+                in_ul = False
+            if in_ol:
+                html_lines.append('</ol>')
+                in_ol = False
+            content = _inline_markdown(stripped[3:])
+            html_lines.append(f'<h3>{content}</h3>')
+            continue
+        elif stripped.startswith('# '):
+            if in_ul:
+                html_lines.append('</ul>')
+                in_ul = False
+            if in_ol:
+                html_lines.append('</ol>')
+                in_ol = False
+            content = _inline_markdown(stripped[2:])
+            html_lines.append(f'<h2>{content}</h2>')
+            continue
+
+        # Bullet lists (- or * at start)
+        bullet_match = re.match(r'^[-*]\s+(.+)$', stripped)
+        if bullet_match:
+            if in_ol:
+                html_lines.append('</ol>')
+                in_ol = False
+            if not in_ul:
+                html_lines.append('<ul>')
+                in_ul = True
+            content = _inline_markdown(bullet_match.group(1))
+            html_lines.append(f'<li>{content}</li>')
+            continue
+
+        # Numbered lists
+        num_match = re.match(r'^\d+\.\s+(.+)$', stripped)
+        if num_match:
+            if in_ul:
+                html_lines.append('</ul>')
+                in_ul = False
+            if not in_ol:
+                html_lines.append('<ol>')
+                in_ol = True
+            content = _inline_markdown(num_match.group(1))
+            html_lines.append(f'<li>{content}</li>')
+            continue
+
+        # Close any open lists on empty line or non-list content
+        if in_ul:
+            html_lines.append('</ul>')
+            in_ul = False
+        if in_ol:
+            html_lines.append('</ol>')
+            in_ol = False
+
+        # Empty line = paragraph break
+        if not stripped:
+            html_lines.append('<br />')
+            continue
+
+        # Regular text with inline formatting
+        content = _inline_markdown(stripped)
+        html_lines.append(f'{content}<br />')
+
+    # Close any unclosed lists
+    if in_ul:
+        html_lines.append('</ul>')
+    if in_ol:
+        html_lines.append('</ol>')
+
+    return '\n'.join(html_lines)
+
+
+def _inline_markdown(text: str) -> str:
+    """Convert inline markdown (bold, italic) to HTML."""
     # Convert **bold** to <strong>
     text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
-    # Convert *italic* to <em>
-    text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text)
-    # Preserve newlines
-    text = text.replace('\n', '<br />')
+    # Convert *italic* to <em> (but not if it's a bullet)
+    text = re.sub(r'(?<!\*)\*([^*]+?)\*(?!\*)', r'<em>\1</em>', text)
     return text
 
 

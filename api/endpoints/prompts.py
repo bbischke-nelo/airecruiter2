@@ -174,11 +174,10 @@ async def delete_prompt(
 # Default prompts to seed from config files
 DEFAULT_PROMPTS = [
     {
-        "name": "Resume Analysis",
-        "prompt_type": "resume_analysis",
-        "description": "Analyzes resumes for retention, safety, and role fit",
-        "file": "resume_analysis.md",
-        "schema_file": "resume_analysis_example.json",
+        "name": "Fact Extraction",
+        "prompt_type": "fact_extraction",
+        "description": "Extracts structured facts from resumes (employment, skills, education)",
+        "file": "fact_extraction.md",
     },
     {
         "name": "Interview",
