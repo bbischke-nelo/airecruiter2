@@ -592,3 +592,43 @@ If the candidate mentioned any of the following during the interview, you MUST N
 - Base ALL scores solely on job-related evidence: demonstrated skills, relevant experience, behavioral examples, communication ability, and professional conduct
 - If the candidate volunteered prohibited information, note "[FLAGGED FOR HUMAN REVIEW]" in your summary but do NOT let it influence scores
 - Assess what candidates DID and ACCOMPLISHED professionally, not personal circumstances
+
+---
+
+## INTERVIEW TRANSCRIPT TO EVALUATE
+
+Below is the full interview transcript. Each message is marked with a timestamp and speaker (either "Interviewer" or the candidate's name).
+
+**IMPORTANT:** Evaluate ONLY based on what is actually in this transcript. The transcript shows individual messages from an interview conversation - analyze the candidate's responses within their conversational context.
+
+```
+{transcript}
+```
+
+---
+
+## REQUIRED JSON OUTPUT
+
+Respond with ONLY a valid JSON object containing your evaluation:
+
+```json
+{{
+    "reliability_score": <1-5>,
+    "accountability_score": <1-5>,
+    "professionalism_score": <1-5>,
+    "communication_score": <1-5>,
+    "technical_score": <1-5>,
+    "growth_potential_score": <1-5>,
+    "summary": "<2-3 paragraph summary following the guidelines above>",
+    "strengths": ["strength1", "strength2", ...],
+    "weaknesses": ["weakness1", "weakness2", ...],
+    "red_flags": ["flag1", ...] or [],
+    "interview_highlights": ["key factual observation 1", "key factual observation 2", ...],
+    "character_passed": true/false,
+    "retention_risk": "LOW" | "MEDIUM" | "HIGH",
+    "authenticity_assessment": "PASS" | "REVIEW" | "FAIL",
+    "readiness": "READY" | "NEEDS SUPPORT" | "NEEDS DEVELOPMENT",
+    "next_interview_focus": ["focus area 1", "focus area 2", ...],
+    "recommendation": "interview" | "review" | "decline"
+}}
+```
