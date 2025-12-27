@@ -359,3 +359,58 @@ class QueueManager:
         if count > 0:
             logger.warning("Recovered stuck jobs", count=count, threshold_minutes=stuck_threshold_minutes)
         return count
+
+    def recover_expired_interviews(self) -> int:
+        """Find expired interviews with content and create evaluation jobs.
+
+        Catches interviews that:
+        - Were started (have messages) but token expired before completion
+        - Are still in 'in_progress' or 'scheduled' status with expired tokens
+
+        Returns:
+            Number of evaluate jobs created
+        """
+        # First, mark expired interviews as 'expired' status
+        mark_expired_query = text("""
+            UPDATE interviews
+            SET status = 'expired',
+                completed_at = GETUTCDATE()
+            WHERE status IN ('in_progress', 'scheduled')
+              AND token_expires_at IS NOT NULL
+              AND token_expires_at < GETUTCDATE()
+              AND started_at IS NOT NULL
+        """)
+        self.db.execute(mark_expired_query)
+        self.db.commit()
+
+        # Now create evaluate jobs for expired interviews with messages
+        query = text("""
+            INSERT INTO jobs (job_type, application_id, priority, status,
+                            attempts, max_attempts, scheduled_for, created_at)
+            SELECT 'evaluate', i.application_id, 5, 'pending',
+                   0, :max_attempts, GETUTCDATE(), GETUTCDATE()
+            FROM interviews i
+            WHERE i.status = 'expired'
+              AND i.started_at IS NOT NULL
+              -- Must have at least one user message to evaluate
+              AND EXISTS (
+                  SELECT 1 FROM messages m
+                  WHERE m.interview_id = i.id
+                    AND m.role = 'user'
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM jobs j
+                  WHERE j.application_id = i.application_id
+                    AND j.job_type = 'evaluate'
+              )
+              -- Only process interviews expired more than 5 minutes ago
+              AND i.token_expires_at < DATEADD(MINUTE, -5, GETUTCDATE())
+        """)
+
+        result = self.db.execute(query, {"max_attempts": self.max_attempts})
+        self.db.commit()
+
+        count = result.rowcount
+        if count > 0:
+            logger.warning("Recovered expired interviews for evaluation", count=count)
+        return count

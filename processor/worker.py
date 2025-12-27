@@ -182,13 +182,17 @@ class Worker:
             # Recover orphaned interviews (completed but no evaluate job)
             orphaned = queue.recover_orphaned_interviews()
 
+            # Recover expired interviews (started but token expired, have content)
+            expired = queue.recover_expired_interviews()
+
             # Recover stuck jobs (running for too long)
             stuck = queue.recover_stuck_jobs(stuck_threshold_minutes=30)
 
-            if orphaned > 0 or stuck > 0:
+            if orphaned > 0 or expired > 0 or stuck > 0:
                 logger.info(
                     "Maintenance completed",
                     orphaned_interviews=orphaned,
+                    expired_interviews=expired,
                     stuck_jobs=stuck,
                 )
         except Exception as e:
