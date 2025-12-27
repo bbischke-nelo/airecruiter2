@@ -12,7 +12,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from api.config.database import SessionLocal
-from api.models import Interview, Application, Requisition, Message, Persona, Prompt, Analysis
+from api.models import Interview, Application, Requisition, Message, Persona, Prompt, Analysis, Job, Activity
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -436,9 +436,27 @@ async def interview_websocket(websocket: WebSocket, token: str):
                 if complete_reason:
                     interview.status = "completed"
                     interview.completed_at = datetime.now(timezone.utc)
+
+                    # Queue evaluation job
+                    eval_job = Job(
+                        application_id=interview.application_id,
+                        job_type="evaluate",
+                        priority=5,
+                    )
+                    db.add(eval_job)
+
+                    # Log activity
+                    activity = Activity(
+                        application_id=interview.application_id,
+                        requisition_id=interview.application.requisition_id,
+                        action="interview_completed",
+                        details=json.dumps({"interview_id": interview.id, "reason": complete_reason}),
+                    )
+                    db.add(activity)
+
                     db.commit()
 
-                    logger.info("Interview completed", interview_id=interview.id, reason=complete_reason)
+                    logger.info("Interview completed", interview_id=interview.id, reason=complete_reason, eval_job_id=eval_job.id)
                     await websocket.send_json({"type": "completed"})
                     break
 
@@ -484,6 +502,24 @@ async def interview_websocket(websocket: WebSocket, token: str):
 
                 interview.status = "completed"
                 interview.completed_at = datetime.now(timezone.utc)
+
+                # Queue evaluation job
+                eval_job = Job(
+                    application_id=interview.application_id,
+                    job_type="evaluate",
+                    priority=5,
+                )
+                db.add(eval_job)
+
+                # Log activity
+                activity = Activity(
+                    application_id=interview.application_id,
+                    requisition_id=interview.application.requisition_id,
+                    action="interview_completed",
+                    details=json.dumps({"interview_id": interview.id, "reason": "user_ended"}),
+                )
+                db.add(activity)
+
                 db.commit()
                 db.refresh(closing_msg)
 
@@ -495,7 +531,7 @@ async def interview_websocket(websocket: WebSocket, token: str):
                     "createdAt": closing_msg.created_at.isoformat(),
                 })
                 await websocket.send_json({"type": "completed"})
-                logger.info("Interview ended by user with graceful closing", interview_id=interview.id)
+                logger.info("Interview ended by user", interview_id=interview.id, eval_job_id=eval_job.id)
                 break
 
             elif msg_type == "ping":
