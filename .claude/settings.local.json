@@ -28,7 +28,8 @@
       "Bash(PYTHONPATH=. ./venv/bin/python:*)",
       "Bash(open:*)",
       "Bash(curl:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "WebFetch(domain:www.ccfs.com)"
     ]
   }
 }

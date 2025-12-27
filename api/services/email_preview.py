@@ -8,10 +8,10 @@ from typing import Optional
 
 from api.schemas.interviews import EmailPreview
 
-# CCFS brand colors
-CCFS_BLUE = "#0F5A9C"
-CCFS_BLUE_DARK = "#0A4377"
-CCFS_GOLD = "#D4A843"
+# CCFS brand colors (from ccfs.com)
+CCFS_RED = "#C6232B"
+CCFS_RED_DARK = "#A01D24"
+CCFS_BLUE = "#27AAE1"  # Accent color
 
 
 def generate_interview_email_preview(
@@ -22,6 +22,7 @@ def generate_interview_email_preview(
     recruiter_name: Optional[str] = None,
     expiry_days: int = 7,
     company_name: str = "CrossCountry Freight Solutions",
+    logo_url: Optional[str] = None,
 ) -> EmailPreview:
     """Generate email preview for interview invitation.
 
@@ -54,6 +55,10 @@ def generate_interview_email_preview(
     # Get first name for more personal greeting
     first_name = candidate_name.split()[0] if candidate_name else "there"
 
+    # Default to CCFS logo from their website
+    if not logo_url:
+        logo_url = "https://www.ccfs.com/images/CCFS-LTL.svg"
+
     html_body = f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -72,11 +77,9 @@ def generate_interview_email_preview(
 
                     <!-- Header with logo/branding -->
                     <tr>
-                        <td style="background: linear-gradient(135deg, {CCFS_BLUE} 0%, {CCFS_BLUE_DARK} 100%); padding: 30px 40px; text-align: center; border-radius: 12px 12px 0 0;">
-                            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">
-                                {company_name}
-                            </h1>
-                            <p style="color: {CCFS_GOLD}; margin: 8px 0 0 0; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">
+                        <td style="background: linear-gradient(135deg, {CCFS_RED} 0%, {CCFS_RED_DARK} 100%); padding: 30px 40px; text-align: center; border-radius: 12px 12px 0 0;">
+                            <img src="{logo_url}" alt="{company_name}" style="max-width: 280px; height: auto; margin-bottom: 12px;" />
+                            <p style="color: #ffffff; margin: 8px 0 0 0; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">
                                 Talent Acquisition
                             </p>
                         </td>
@@ -104,7 +107,7 @@ def generate_interview_email_preview(
                             </p>
 
                             <p style="font-size: 16px; color: #444444; margin: 0 0 20px 0;">
-                                We've reviewed your application for <strong style="color: {CCFS_BLUE};">{position_title}</strong> and are excited to move forward with you! Your background caught our attention, and we'd love to learn more about you.
+                                We've reviewed your application for <strong style="color: {CCFS_RED};">{position_title}</strong> and are excited to move forward with you! Your background caught our attention, and we'd love to learn more about you.
                             </p>
 
                             <p style="font-size: 15px; color: #444444; margin: 0 0 20px 0;">
@@ -113,7 +116,7 @@ def generate_interview_email_preview(
 
                             <!-- Progress indicator -->
                             <p style="font-size: 13px; color: #666666; margin: 0 0 20px 0; text-align: center;">
-                                <span style="background-color: #e3f2fd; padding: 6px 14px; border-radius: 20px; color: {CCFS_BLUE}; font-weight: 500;">
+                                <span style="background-color: #fce4e5; padding: 6px 14px; border-radius: 20px; color: {CCFS_RED}; font-weight: 500;">
                                     Step 2 of 4: Digital Interview
                                 </span>
                             </p>
@@ -121,26 +124,26 @@ def generate_interview_email_preview(
                             <!-- Value proposition box -->
                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 25px 0;">
                                 <tr>
-                                    <td style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; border-left: 4px solid {CCFS_BLUE};">
+                                    <td style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; border-left: 4px solid {CCFS_RED};">
                                         <p style="font-size: 15px; color: #333333; margin: 0 0 12px 0; font-weight: 600;">
                                             What to expect:
                                         </p>
                                         <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                                             <tr>
                                                 <td style="padding: 4px 0; font-size: 14px; color: #555555;">
-                                                    <span style="color: {CCFS_GOLD}; margin-right: 8px;">&#9679;</span>
+                                                    <span style="color: {CCFS_RED}; margin-right: 8px;">&#9679;</span>
                                                     <strong>Complete on your schedule</strong> &mdash; anytime, from any device
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td style="padding: 4px 0; font-size: 14px; color: #555555;">
-                                                    <span style="color: {CCFS_GOLD}; margin-right: 8px;">&#9679;</span>
+                                                    <span style="color: {CCFS_RED}; margin-right: 8px;">&#9679;</span>
                                                     <strong>Only 10-15 minutes</strong> &mdash; a few straightforward questions
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td style="padding: 4px 0; font-size: 14px; color: #555555;">
-                                                    <span style="color: {CCFS_GOLD}; margin-right: 8px;">&#9679;</span>
+                                                    <span style="color: {CCFS_RED}; margin-right: 8px;">&#9679;</span>
                                                     <strong>Review before submitting</strong> &mdash; no pressure, take your time
                                                 </td>
                                             </tr>
@@ -154,7 +157,7 @@ def generate_interview_email_preview(
                                 <tr>
                                     <td align="center" style="padding: 10px 0 30px 0;">
                                         <a href="{interview_url}"
-                                           style="display: inline-block; background: linear-gradient(135deg, {CCFS_BLUE} 0%, {CCFS_BLUE_DARK} 100%); color: #ffffff; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 12px rgba(15, 90, 156, 0.3); transition: all 0.2s;">
+                                           style="display: inline-block; background: linear-gradient(135deg, {CCFS_RED} 0%, {CCFS_RED_DARK} 100%); color: #ffffff; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 12px rgba(198, 35, 43, 0.3); transition: all 0.2s;">
                                             Start Your Interview &rarr;
                                         </a>
                                     </td>
