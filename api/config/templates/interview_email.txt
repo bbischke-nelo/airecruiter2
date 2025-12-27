@@ -2,18 +2,21 @@ Hi {{first_name}},
 
 Great news! Your application for {{position}} has been selected for the next step.
 
-We've reviewed your application and are excited to move forward with you. We'd love to learn more about you through a brief digital interview.
+We've reviewed your application and are excited to move forward with you! Your background caught our attention, and we'd love to learn more about you.
+
+You'll answer a few questions through our digital interview platform - no video call or scheduling required. Just click the link below when you're ready.
 
 What to expect:
-- Quick & Convenient - Only 10-15 minutes, complete anytime
-- Go Beyond Your Resume - Show us who you really are
-- Fair & Consistent - Every candidate gets the same experience
-- No Scheduling - Skip the calendar back-and-forth
+- Complete on your schedule - anytime, from any device
+- Only 10-15 minutes - a few straightforward questions
+- Review before submitting - no pressure, take your time
 
 To start your interview, visit:
 {{interview_url}}
 
 This link is valid for {{expires_in_days}} days.
+
+What happens next? After you complete the interview, our team will review your responses and reach out about next steps within a few business days.
 
 Need an accommodation? If you require a reasonable accommodation to complete this interview due to a disability, please contact us and we'll be happy to assist.
 
