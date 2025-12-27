@@ -14,6 +14,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { api } from '@/lib/api';
 import { formatDateTime } from '@/lib/utils';
 
@@ -36,6 +46,9 @@ export default function RecruitersSettingsPage() {
   const queryClient = useQueryClient();
   const [editingRecruiter, setEditingRecruiter] = useState<Recruiter | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [recruiterToDelete, setRecruiterToDelete] = useState<Recruiter | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCannotDeleteAlert, setShowCannotDeleteAlert] = useState(false);
   const [newRecruiter, setNewRecruiter] = useState<Partial<Recruiter>>({
     name: '',
     email: '',
@@ -371,12 +384,11 @@ export default function RecruitersSettingsPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => {
+                            setRecruiterToDelete(recruiter);
                             if (recruiter.requisitionCount > 0) {
-                              alert('Cannot delete recruiter with assigned requisitions');
-                              return;
-                            }
-                            if (confirm('Delete this recruiter?')) {
-                              deleteRecruiterMutation.mutate(recruiter.id);
+                              setShowCannotDeleteAlert(true);
+                            } else {
+                              setShowDeleteConfirm(true);
                             }
                           }}
                         >
@@ -400,6 +412,49 @@ export default function RecruitersSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Cannot Delete Alert */}
+      <AlertDialog open={showCannotDeleteAlert} onOpenChange={setShowCannotDeleteAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cannot Delete Recruiter</AlertDialogTitle>
+            <AlertDialogDescription>
+              {recruiterToDelete?.name} has {recruiterToDelete?.requisitionCount} assigned requisitions.
+              Please reassign or close these requisitions before deleting this recruiter.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowCannotDeleteAlert(false)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Recruiter?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {recruiterToDelete?.name}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (recruiterToDelete) {
+                  deleteRecruiterMutation.mutate(recruiterToDelete.id);
+                }
+                setShowDeleteConfirm(false);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

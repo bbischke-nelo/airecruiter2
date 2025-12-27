@@ -6,6 +6,16 @@ import { Send, Loader2, User, AlertCircle, CheckCircle } from 'lucide-react';
 import { Markdown } from '@/components/ui/markdown';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Message {
   id: number;
@@ -32,6 +42,7 @@ export default function InterviewPage() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
   const [interviewInfo, setInterviewInfo] = useState<InterviewInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -196,10 +207,15 @@ export default function InterviewPage() {
 
   const endInterview = () => {
     if (wsRef.current && connectionStatus === 'connected') {
-      if (confirm('Are you sure you want to end the interview?')) {
-        wsRef.current.send(JSON.stringify({ type: 'end' }));
-      }
+      setShowEndConfirm(true);
     }
+  };
+
+  const confirmEndInterview = () => {
+    if (wsRef.current && connectionStatus === 'connected') {
+      wsRef.current.send(JSON.stringify({ type: 'end' }));
+    }
+    setShowEndConfirm(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -414,6 +430,24 @@ export default function InterviewPage() {
           </p>
         </div>
       </div>
+
+      {/* End Interview Confirmation */}
+      <AlertDialog open={showEndConfirm} onOpenChange={setShowEndConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>End Interview?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to end the interview? Your responses so far will be saved and reviewed by our team.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continue Interview</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmEndInterview}>
+              End Interview
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -317,7 +317,7 @@ export function ApplicationDrawer({
 
       return { interview, evaluation };
     },
-    enabled: !!application?.hasInterview,
+    enabled: !!application && ['interview_ready_for_review', 'advanced'].includes(application.status),
   });
 
   // Mutations
@@ -512,17 +512,12 @@ export function ApplicationDrawer({
                       <FileText className="h-4 w-4 mr-2" />
                       Screening
                     </TabsTrigger>
-                    <TabsTrigger
-                      value="interview"
-                      className="flex-1"
-                      disabled={!application.hasInterview}
-                    >
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Interview
-                      {!application.hasInterview && (
-                        <span className="ml-1 text-xs text-muted-foreground">(none)</span>
-                      )}
-                    </TabsTrigger>
+                    {['interview_ready_for_review', 'advanced'].includes(application.status) && (
+                      <TabsTrigger value="interview" className="flex-1">
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Interview
+                      </TabsTrigger>
+                    )}
                   </TabsList>
 
                   <SheetBody className="flex-1 overflow-auto">
