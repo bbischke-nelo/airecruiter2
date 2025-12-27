@@ -414,3 +414,62 @@ class QueueManager:
         if count > 0:
             logger.warning("Recovered expired interviews for evaluation", count=count)
         return count
+
+    def recover_stuck_applications(self, stuck_threshold_minutes: int = 15) -> int:
+        """Recover applications stuck in transient statuses.
+
+        Transient statuses should quickly transition to the next status.
+        If they're stuck, it means a job failed or wasn't created.
+
+        Args:
+            stuck_threshold_minutes: Minutes after which an app is considered stuck
+
+        Returns:
+            Number of jobs created to recover stuck applications
+        """
+        total_recovered = 0
+
+        # Recovery configs: (status, job_type, description)
+        # These are statuses where a job should exist but might be missing
+        recovery_configs = [
+            ("new", "download_resume", "new apps needing resume download"),
+            ("downloading", "download_resume", "downloading apps with no active job"),
+            ("downloaded", "extract_facts", "downloaded apps needing extraction"),
+            ("extracting", "extract_facts", "extracting apps with no active job"),
+            ("extracted", "analyze", "extracted apps needing analysis"),
+            ("generating_summary", "analyze", "generating_summary apps with no active job"),
+            ("interview_complete", "generate_report", "interview_complete apps needing report"),
+        ]
+
+        for status, job_type, description in recovery_configs:
+            query = text("""
+                INSERT INTO jobs (job_type, application_id, priority, status,
+                                attempts, max_attempts, scheduled_for, created_at)
+                SELECT :job_type, a.id, 5, 'pending',
+                       0, :max_attempts, GETUTCDATE(), GETUTCDATE()
+                FROM applications a
+                WHERE a.status = :status
+                  AND a.updated_at < DATEADD(MINUTE, -:threshold, GETUTCDATE())
+                  AND NOT EXISTS (
+                      SELECT 1 FROM jobs j
+                      WHERE j.application_id = a.id
+                        AND j.job_type = :job_type
+                        AND j.status IN ('pending', 'running')
+                  )
+            """)
+            result = self.db.execute(
+                query,
+                {
+                    "job_type": job_type,
+                    "status": status,
+                    "max_attempts": self.max_attempts,
+                    "threshold": stuck_threshold_minutes,
+                }
+            )
+            self.db.commit()
+            count = result.rowcount
+            if count > 0:
+                logger.warning(f"Recovered stuck {description}", count=count)
+            total_recovered += count
+
+        return total_recovered

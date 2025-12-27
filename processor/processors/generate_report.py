@@ -220,13 +220,16 @@ class GenerateReportProcessor(BaseProcessor):
         report_id = result.scalar()
         self.db.commit()
 
-        # Update application status to ready_for_review (HITL - wait for human)
+        # Update application status based on whether interview was completed
+        # - interview_ready_for_review: had an interview, ready for human review
+        # - ready_for_review: resume-only, ready for human review
+        new_status = 'interview_ready_for_review' if interview else 'ready_for_review'
         update_query = text("""
             UPDATE applications
-            SET status = 'ready_for_review', updated_at = GETUTCDATE()
+            SET status = :new_status, updated_at = GETUTCDATE()
             WHERE id = :app_id
         """)
-        self.db.execute(update_query, {"app_id": application_id})
+        self.db.execute(update_query, {"app_id": application_id, "new_status": new_status})
         self.db.commit()
 
         # Log activity

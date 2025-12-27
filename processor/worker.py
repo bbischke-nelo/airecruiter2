@@ -186,14 +186,18 @@ class Worker:
             expired = queue.recover_expired_interviews()
 
             # Recover stuck jobs (running for too long)
-            stuck = queue.recover_stuck_jobs(stuck_threshold_minutes=30)
+            stuck_jobs = queue.recover_stuck_jobs(stuck_threshold_minutes=30)
 
-            if orphaned > 0 or expired > 0 or stuck > 0:
+            # Recover applications stuck in transient statuses
+            stuck_apps = queue.recover_stuck_applications(stuck_threshold_minutes=15)
+
+            if orphaned > 0 or expired > 0 or stuck_jobs > 0 or stuck_apps > 0:
                 logger.info(
                     "Maintenance completed",
                     orphaned_interviews=orphaned,
                     expired_interviews=expired,
-                    stuck_jobs=stuck,
+                    stuck_jobs=stuck_jobs,
+                    stuck_applications=stuck_apps,
                 )
         except Exception as e:
             logger.error("Maintenance task failed", error=str(e))
