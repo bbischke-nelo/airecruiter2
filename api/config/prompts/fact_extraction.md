@@ -26,6 +26,18 @@ Return this exact structure:
   "extraction_version": "2.0",
   "extracted_at": "<ISO timestamp>",
 
+  "contact_info": {
+    "primary_email": "<email address if found in resume header/contact section, or null>",
+    "secondary_email": "<additional email if found, or null>",
+    "phone_number": "<phone number if found, formatted as digits only e.g. '5551234567', or null>",
+    "city": "<city from address if found, or null>",
+    "state": "<state/province abbreviation if found e.g. 'TX', 'CA', or null>",
+    "postal_code": "<zip/postal code if found, or null>",
+    "country": "<country if found and not USA, or null>",
+    "linkedin_url": "<LinkedIn profile URL if found, or null>",
+    "address_line": "<street address if found, or null>"
+  },
+
   "employment_history": [
     {
       "employer": "<company name>",

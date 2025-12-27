@@ -26,7 +26,8 @@
       "Bash(grep:*)",
       "Bash(npx tsc:*)",
       "Bash(PYTHONPATH=. ./venv/bin/python:*)",
-      "Bash(open:*)"
+      "Bash(open:*)",
+      "Bash(curl:*)"
     ]
   }
 }

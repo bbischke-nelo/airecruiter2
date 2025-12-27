@@ -312,6 +312,7 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
             # Convert facts object to JSON
             extracted_facts_json = json.dumps({
                 "extraction_version": getattr(facts, "extraction_version", "1.0"),
+                "contact_info": facts.contact_info if hasattr(facts, "contact_info") else {},
                 "employment_history": facts.employment_history if hasattr(facts, "employment_history") else [],
                 "skills": facts.skills if hasattr(facts, "skills") else {},
                 "certifications": facts.certifications if hasattr(facts, "certifications") else [],
@@ -409,9 +410,22 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
     async def _update_candidate_profile(self, profile_id: int, facts) -> None:
         """Update candidate profile with extracted facts (async-safe).
 
-        Populates work_history, education, and skills from resume extraction.
+        Pattern: Resume data OVERWRITES Workday data where available.
+        Workday provides baseline, resume provides richer/more current data.
+
+        Populates: phone_number, secondary_email, city, state,
+                   work_history, education, skills from resume extraction.
         """
         def _update():
+            # Extract contact info from facts
+            contact_info = getattr(facts, "contact_info", {}) or {}
+
+            # Contact fields - use resume data to overwrite Workday data
+            phone_number = contact_info.get("phone_number")
+            secondary_email = contact_info.get("secondary_email")
+            city = contact_info.get("city")
+            state = contact_info.get("state")
+
             # Build work history JSON
             work_history = None
             if hasattr(facts, "employment_history") and facts.employment_history:
@@ -435,11 +449,22 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
                 elif isinstance(facts.skills, list):
                     skills = json.dumps(facts.skills)
 
-            # Only update if we have data
-            if work_history or education or skills:
+            # Check if we have any data to update
+            has_data = any([
+                phone_number, secondary_email, city, state,
+                work_history, education, skills
+            ])
+
+            if has_data:
+                # Resume data OVERWRITES Workday data (not COALESCE - we want resume to win)
+                # Use COALESCE only to preserve existing data if resume doesn't have it
                 query = text("""
                     UPDATE candidate_profiles
-                    SET work_history = COALESCE(:work_history, work_history),
+                    SET phone_number = COALESCE(:phone_number, phone_number),
+                        secondary_email = COALESCE(:secondary_email, secondary_email),
+                        city = COALESCE(:city, city),
+                        state = COALESCE(:state, state),
+                        work_history = COALESCE(:work_history, work_history),
                         education = COALESCE(:education, education),
                         skills = COALESCE(:skills, skills),
                         last_synced_at = GETUTCDATE()
@@ -447,6 +472,10 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
                 """)
                 self.db.execute(query, {
                     "profile_id": profile_id,
+                    "phone_number": phone_number,
+                    "secondary_email": secondary_email,
+                    "city": city,
+                    "state": state,
                     "work_history": work_history,
                     "education": education,
                     "skills": skills,
@@ -455,6 +484,8 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
                 self.logger.info(
                     "Updated candidate profile with extracted data",
                     profile_id=profile_id,
+                    has_phone=phone_number is not None,
+                    has_city=city is not None,
                     has_work_history=work_history is not None,
                     has_education=education is not None,
                     has_skills=skills is not None,

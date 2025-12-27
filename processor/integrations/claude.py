@@ -54,6 +54,11 @@ class FactExtractionResult:
 
     extraction_version: str = "1.0"
 
+    # Contact information (extracted from resume header/contact section)
+    contact_info: Dict[str, Any] = field(default_factory=dict)
+    # {"primary_email": "...", "secondary_email": "...", "phone_number": "...",
+    #  "city": "...", "state": "...", "postal_code": "...", "linkedin_url": "...", "address_line": "..."}
+
     # Employment history
     employment_history: List[Dict[str, Any]] = field(default_factory=list)
     # [{"employer": "...", "title": "...", "start_date": "...", "end_date": "...", "duration_months": 0, "responsibilities": [...]}]
@@ -65,6 +70,10 @@ class FactExtractionResult:
     # Certifications
     certifications: List[Dict[str, Any]] = field(default_factory=list)
     # [{"name": "...", "issuer": "...", "date_obtained": "...", "expiry": "..."}]
+
+    # Licenses (CDL, forklift, etc.)
+    licenses: List[Dict[str, Any]] = field(default_factory=list)
+    # [{"type": "CDL-A", "class": "A", "endorsements": [...], "state": "TX", "expiration": "..."}]
 
     # Education
     education: List[Dict[str, Any]] = field(default_factory=list)
@@ -434,9 +443,11 @@ Guidelines:
 
             return FactExtractionResult(
                 extraction_version=data.get("extraction_version", "1.0"),
+                contact_info=data.get("contact_info", {}),
                 employment_history=data.get("employment_history", []),
                 skills=data.get("skills", {}),
                 certifications=data.get("certifications", []),
+                licenses=data.get("licenses", []),
                 education=data.get("education", []),
                 logistics=data.get("logistics", {}),
                 timeline=data.get("timeline", []),
