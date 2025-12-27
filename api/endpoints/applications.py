@@ -158,12 +158,12 @@ async def list_applications(
         if facts_json:
             try:
                 facts = json.loads(facts_json)
-                # Calculate JD match percentage
-                jd_matches = facts.get("jd_keyword_matches", {})
-                found = len(jd_matches.get("found", []))
-                not_found = len(jd_matches.get("not_found", []))
-                if found + not_found > 0:
-                    jd_match_percentages[app_id] = round((found / (found + not_found)) * 100)
+                # Get JD match percentage from jd_requirements_match.summary
+                jd_match = facts.get("jd_requirements_match", {})
+                if jd_match:
+                    summary = jd_match.get("summary", {})
+                    if summary.get("match_percentage") is not None:
+                        jd_match_percentages[app_id] = round(summary["match_percentage"])
 
                 # Get summary stats for grid columns
                 summary = facts.get("summary_stats", {})
