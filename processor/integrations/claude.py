@@ -152,6 +152,38 @@ class InterviewSummaryResult:
     raw_response: str = ""
 
 
+@dataclass
+class EvaluationResult:
+    """Result of interview evaluation."""
+
+    # Scores (1-5 scale)
+    reliability_score: int = 3
+    accountability_score: int = 3
+    professionalism_score: int = 3
+    communication_score: int = 3
+    technical_score: int = 3
+    growth_potential_score: int = 3
+
+    # Summary and details
+    summary: str = ""
+    strengths: List[str] = field(default_factory=list)
+    weaknesses: List[str] = field(default_factory=list)
+    red_flags: List[str] = field(default_factory=list)
+
+    # Additional assessments
+    character_passed: bool = True
+    retention_risk: str = "medium"
+    authenticity_assessment: str = ""
+    readiness: str = "ready"
+    next_interview_focus: List[str] = field(default_factory=list)
+
+    # Recommendation
+    recommendation: str = "review"
+
+    # Raw AI response for debugging
+    raw_response: str = ""
+
+
 class ClaudeClient:
     """Client for Claude AI API.
 
@@ -378,6 +410,84 @@ class ClaudeClient:
             logger.error("Claude API error during interview summary", error=str(e))
             raise ClaudeError(f"Interview summary failed: {str(e)}") from e
 
+    async def evaluate_interview(
+        self,
+        transcript: str,
+        prompt_template: str,
+    ) -> EvaluationResult:
+        """Evaluate a completed interview.
+
+        Args:
+            transcript: Full interview transcript
+            prompt_template: Evaluation prompt template
+
+        Returns:
+            EvaluationResult with scores and assessment
+        """
+        logger.info("Evaluating interview with Claude")
+
+        # Build the evaluation request
+        prompt = safe_template_substitute(
+            prompt_template,
+            transcript=transcript,
+        )
+
+        # Add JSON output instructions if not in template
+        if "JSON" not in prompt and "json" not in prompt:
+            prompt += """
+
+### Required Output Format
+Respond with a JSON object containing:
+{
+    "reliability_score": <1-5>,
+    "accountability_score": <1-5>,
+    "professionalism_score": <1-5>,
+    "communication_score": <1-5>,
+    "technical_score": <1-5>,
+    "growth_potential_score": <1-5>,
+    "summary": "<2-3 paragraph summary>",
+    "strengths": ["strength1", "strength2", ...],
+    "weaknesses": ["weakness1", "weakness2", ...],
+    "red_flags": ["flag1", ...] or [],
+    "character_passed": true/false,
+    "retention_risk": "low" | "medium" | "high",
+    "authenticity_assessment": "<assessment of response authenticity>",
+    "readiness": "ready" | "needs_development" | "not_ready",
+    "next_interview_focus": ["focus area 1", "focus area 2", ...],
+    "recommendation": "strong_hire" | "hire" | "review" | "no_hire"
+}
+"""
+
+        try:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                system="You are an expert HR analyst evaluating interview performance. Respond only with valid JSON.",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ],
+            )
+
+            raw_response = response.content[0].text
+
+            # Parse the structured response
+            result = self._parse_evaluation_response(raw_response)
+
+            logger.info(
+                "Interview evaluation complete",
+                recommendation=result.recommendation,
+                reliability=result.reliability_score,
+            )
+
+            return result
+
+        except APIError as e:
+            logger.error("Claude API error during interview evaluation", error=str(e))
+            raise ClaudeError(f"Interview evaluation failed: {str(e)}") from e
+
     async def generate_interview_response(
         self,
         messages: List[dict],
@@ -481,6 +591,46 @@ Guidelines:
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             logger.warning("Failed to parse interview summary response", error=str(e))
             return InterviewSummaryResult(
+                summary="Unable to parse structured response",
+                raw_response=response,
+            )
+
+    def _parse_evaluation_response(self, response: str) -> EvaluationResult:
+        """Parse interview evaluation response from Claude."""
+        try:
+            json_str = self._extract_json(response)
+            data = json.loads(json_str)
+
+            # Helper to clamp scores to 1-5
+            def clamp_score(val, default=3):
+                if val is None:
+                    return default
+                if isinstance(val, str):
+                    val = int(val)
+                return max(1, min(5, val))
+
+            return EvaluationResult(
+                reliability_score=clamp_score(data.get("reliability_score")),
+                accountability_score=clamp_score(data.get("accountability_score")),
+                professionalism_score=clamp_score(data.get("professionalism_score")),
+                communication_score=clamp_score(data.get("communication_score")),
+                technical_score=clamp_score(data.get("technical_score")),
+                growth_potential_score=clamp_score(data.get("growth_potential_score")),
+                summary=data.get("summary", ""),
+                strengths=data.get("strengths", []),
+                weaknesses=data.get("weaknesses", []),
+                red_flags=data.get("red_flags", []),
+                character_passed=data.get("character_passed", True),
+                retention_risk=data.get("retention_risk", "medium"),
+                authenticity_assessment=data.get("authenticity_assessment", ""),
+                readiness=data.get("readiness", "ready"),
+                next_interview_focus=data.get("next_interview_focus", []),
+                recommendation=data.get("recommendation", "review"),
+                raw_response=response,
+            )
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            logger.warning("Failed to parse evaluation response", error=str(e))
+            return EvaluationResult(
                 summary="Unable to parse structured response",
                 raw_response=response,
             )
