@@ -27,7 +27,8 @@
       "Bash(npx tsc:*)",
       "Bash(PYTHONPATH=. ./venv/bin/python:*)",
       "Bash(open:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(pip install:*)"
     ]
   }
 }
