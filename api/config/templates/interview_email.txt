@@ -5,6 +5,7 @@ Thank you for your interest in the {{position}} position. We'd like to learn mor
 You'll answer a few questions through our digital interview platform - no video call or scheduling required. Just click the link below when you're ready.
 
 What to expect:
+- Move forward faster - no waiting for callbacks or scheduling
 - Complete on your schedule - anytime, from any device
 - Only 10-15 minutes - a few straightforward questions
 - Review before submitting - no pressure, take your time
@@ -17,6 +18,8 @@ This link is valid for {{expires_in_days}} days.
 What happens next? After you complete the interview, our team will review your responses and reach out about next steps within a few business days.
 
 Need an accommodation? If you require a reasonable accommodation to complete this interview due to a disability, please contact us at jobs@ccfs.com or call (800) 521-0287 and we'll be happy to assist.
+
+Prefer to speak with someone directly? We're happy to accommodate alternative interview formats. Just reply to this email or contact our recruiting team and we'll work with you.
 
 Looking forward to connecting with you,
 {{recruiter_name}}
