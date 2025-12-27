@@ -63,8 +63,13 @@ def validate_interview(interview: Interview) -> Tuple[bool, str]:
     if not interview:
         return False, "Interview not found"
 
-    if interview.token_expires_at and interview.token_expires_at < datetime.now(timezone.utc):
-        return False, "Interview link has expired"
+    if interview.token_expires_at:
+        # Ensure timezone-aware comparison (database may return naive datetime)
+        expires_at = interview.token_expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            return False, "Interview link has expired"
 
     if interview.status in ["completed", "abandoned"]:
         return False, "Interview is no longer active"
