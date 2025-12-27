@@ -413,8 +413,9 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
         Pattern: Resume data OVERWRITES Workday data where available.
         Workday provides baseline, resume provides richer/more current data.
 
-        Populates: phone_number, secondary_email, city, state,
-                   work_history, education, skills from resume extraction.
+        Populates: phone_number, secondary_email, city, state, linkedin_url,
+                   work_history, education, skills, certifications, licenses,
+                   total_experience_months from resume extraction.
         """
         def _update():
             # Extract contact info from facts
@@ -425,6 +426,7 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
             secondary_email = contact_info.get("secondary_email")
             city = contact_info.get("city")
             state = contact_info.get("state")
+            linkedin_url = contact_info.get("linkedin_url")
 
             # Build work history JSON
             work_history = None
@@ -449,10 +451,31 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
                 elif isinstance(facts.skills, list):
                     skills = json.dumps(facts.skills)
 
+            # Build certifications JSON
+            certifications = None
+            if hasattr(facts, "certifications") and facts.certifications:
+                certifications = json.dumps(facts.certifications)
+
+            # Build licenses JSON
+            licenses = None
+            if hasattr(facts, "licenses") and facts.licenses:
+                licenses = json.dumps(facts.licenses)
+
+            # Get total experience months from summary stats
+            total_experience_months = None
+            if hasattr(facts, "summary_stats") and facts.summary_stats:
+                total_experience_months = facts.summary_stats.get("total_experience_months")
+                if total_experience_months is not None:
+                    try:
+                        total_experience_months = int(total_experience_months)
+                    except (ValueError, TypeError):
+                        total_experience_months = None
+
             # Check if we have any data to update
             has_data = any([
-                phone_number, secondary_email, city, state,
-                work_history, education, skills
+                phone_number, secondary_email, city, state, linkedin_url,
+                work_history, education, skills, certifications, licenses,
+                total_experience_months is not None
             ])
 
             if has_data:
@@ -464,9 +487,13 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
                         secondary_email = COALESCE(:secondary_email, secondary_email),
                         city = COALESCE(:city, city),
                         state = COALESCE(:state, state),
+                        linkedin_url = COALESCE(:linkedin_url, linkedin_url),
                         work_history = COALESCE(:work_history, work_history),
                         education = COALESCE(:education, education),
                         skills = COALESCE(:skills, skills),
+                        certifications = COALESCE(:certifications, certifications),
+                        licenses = COALESCE(:licenses, licenses),
+                        total_experience_months = COALESCE(:total_exp, total_experience_months),
                         last_synced_at = GETUTCDATE()
                     WHERE id = :profile_id
                 """)
@@ -476,19 +503,24 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
                     "secondary_email": secondary_email,
                     "city": city,
                     "state": state,
+                    "linkedin_url": linkedin_url,
                     "work_history": work_history,
                     "education": education,
                     "skills": skills,
+                    "certifications": certifications,
+                    "licenses": licenses,
+                    "total_exp": total_experience_months,
                 })
                 self.db.commit()
                 self.logger.info(
                     "Updated candidate profile with extracted data",
                     profile_id=profile_id,
                     has_phone=phone_number is not None,
-                    has_city=city is not None,
+                    has_linkedin=linkedin_url is not None,
                     has_work_history=work_history is not None,
-                    has_education=education is not None,
-                    has_skills=skills is not None,
+                    has_certifications=certifications is not None,
+                    has_licenses=licenses is not None,
+                    total_exp_months=total_experience_months,
                 )
 
         await asyncio.to_thread(_update)
