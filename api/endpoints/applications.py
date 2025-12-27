@@ -852,16 +852,11 @@ async def prepare_interview(
     if not application:
         raise NotFoundError("Application", application_id)
 
-    # Check if there's already an active interview
-    existing = db.query(Interview).filter(
+    # Cancel any existing draft interviews (user is starting fresh)
+    db.query(Interview).filter(
         Interview.application_id == application_id,
-        Interview.status.in_(["draft", "scheduled", "in_progress"]),
-    ).first()
-    if existing:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Application already has an active interview (id={existing.id}, status={existing.status})",
-        )
+        Interview.status == "draft",
+    ).update({"status": "cancelled"})
 
     # Determine email address (required for email mode, optional for link_only)
     candidate_email = data.email_override or application.candidate_email
