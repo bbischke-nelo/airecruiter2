@@ -3,6 +3,7 @@ pydantic-settings>=2.0.0
 sqlalchemy>=2.0.0
 pyodbc>=5.0.0
 structlog>=24.0.0
+aiohttp>=3.9.0
 
 # Workday SOAP integration (Phase 5)
 zeep[async]>=4.2.0
