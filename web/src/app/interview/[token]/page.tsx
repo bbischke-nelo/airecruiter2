@@ -49,11 +49,21 @@ export default function InterviewPage() {
   const connectWebSocket = useCallback(() => {
     if (!token) return;
 
-    // Determine WebSocket URL based on API URL
+    // Determine WebSocket URL
+    // For relative API URLs (like /recruiter2/api), use the current host
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    const wsProtocol = apiUrl.startsWith('https') ? 'wss:' : 'ws:';
-    const apiHost = apiUrl.replace(/^https?:\/\//, '');
-    const wsUrl = `${wsProtocol}//${apiHost}/api/v1/ws/interviews/${token}`;
+    let wsUrl: string;
+
+    if (apiUrl.startsWith('/')) {
+      // Relative URL - use current page's host
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsUrl = `${wsProtocol}//${window.location.host}${apiUrl}/v1/ws/interviews/${token}`;
+    } else {
+      // Absolute URL
+      const wsProtocol = apiUrl.startsWith('https') ? 'wss:' : 'ws:';
+      const apiHost = apiUrl.replace(/^https?:\/\//, '');
+      wsUrl = `${wsProtocol}//${apiHost}/api/v1/ws/interviews/${token}`;
+    }
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -212,11 +222,11 @@ export default function InterviewPage() {
 
   if (connectionStatus === 'connecting') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <Card className="w-full max-w-md bg-white border shadow-lg">
           <CardContent className="p-8 text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-lg">Connecting to interview...</p>
+            <Loader2 className="h-12 w-12 animate-spin text-ccfs-red mx-auto mb-4" />
+            <p className="text-lg text-gray-800">Connecting to interview...</p>
           </CardContent>
         </Card>
       </div>
@@ -225,14 +235,14 @@ export default function InterviewPage() {
 
   if (connectionStatus === 'error' || connectionStatus === 'disconnected') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-white border shadow-lg">
           <CardContent className="p-8 text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">
+            <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2 text-gray-900">
               {connectionStatus === 'error' ? 'Unable to Connect' : 'Connection Lost'}
             </h2>
-            <p className="text-muted-foreground">{error || 'An error occurred.'}</p>
+            <p className="text-gray-600">{error || 'An error occurred.'}</p>
             <Button onClick={() => window.location.reload()} className="mt-4">
               Try Again
             </Button>
@@ -244,12 +254,12 @@ export default function InterviewPage() {
 
   if (connectionStatus === 'completed') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-white border shadow-lg">
           <CardContent className="p-8 text-center">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Interview Complete</h2>
-            <p className="text-muted-foreground">
+            <h2 className="text-xl font-semibold mb-2 text-gray-900">Interview Complete</h2>
+            <p className="text-gray-600">
               Thank you for taking the time to interview with us,{' '}
               {interviewInfo?.candidateName}! We will review your responses and be in
               touch soon.
@@ -261,9 +271,9 @@ export default function InterviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
-      <header className="bg-ccfs-blue text-white px-4 py-3 sticky top-0 z-10 safe-area-top">
+      <header className="bg-ccfs-red text-white px-4 py-3 sticky top-0 z-10 safe-area-top">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
           <div className="min-w-0 flex-1">
             <h1 className="font-semibold truncate">{interviewInfo?.positionTitle} Interview</h1>
@@ -305,22 +315,22 @@ export default function InterviewPage() {
               }`}
             >
               {message.role === 'assistant' && (
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-5 w-5 text-primary" />
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <Bot className="h-5 w-5 text-ccfs-red" />
                 </div>
               )}
               <div
                 className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                   message.role === 'user'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-white border shadow-sm'
+                    ? 'bg-ccfs-red text-white'
+                    : 'bg-white border border-gray-200 shadow-sm text-gray-800'
                 }`}
               >
                 <p className="whitespace-pre-wrap">{message.content}</p>
               </div>
               {message.role === 'user' && (
-                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                  <User className="h-5 w-5 text-primary-foreground" />
+                <div className="w-8 h-8 rounded-full bg-ccfs-red flex items-center justify-center flex-shrink-0">
+                  <User className="h-5 w-5 text-white" />
                 </div>
               )}
             </div>
@@ -328,10 +338,10 @@ export default function InterviewPage() {
 
           {isTyping && (
             <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Bot className="h-5 w-5 text-primary" />
+              <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <Bot className="h-5 w-5 text-ccfs-red" />
               </div>
-              <div className="bg-white border shadow-sm rounded-2xl px-4 py-3">
+              <div className="bg-white border border-gray-200 shadow-sm rounded-2xl px-4 py-3">
                 <div className="flex gap-1">
                   <span
                     className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
@@ -355,7 +365,7 @@ export default function InterviewPage() {
       </div>
 
       {/* Input */}
-      <div className="bg-white border-t p-4 pb-safe sticky bottom-0">
+      <div className="bg-white border-t border-gray-200 p-4 pb-safe sticky bottom-0">
         <div className="max-w-3xl mx-auto flex gap-2 sm:gap-3">
           <textarea
             ref={inputRef}
@@ -364,24 +374,24 @@ export default function InterviewPage() {
             onKeyDown={handleKeyDown}
             placeholder="Type your response..."
             rows={1}
-            className="flex-1 resize-none rounded-lg border border-input bg-background px-3 sm:px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 resize-none rounded-lg border border-gray-300 bg-white text-gray-800 px-3 sm:px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-ccfs-red"
             disabled={connectionStatus !== 'connected'}
           />
           <Button
             onClick={sendMessage}
             disabled={!inputValue.trim() || connectionStatus !== 'connected'}
             size="icon"
-            className="h-12 w-12 flex-shrink-0"
+            className="h-12 w-12 flex-shrink-0 bg-ccfs-red hover:bg-ccfs-red-dark text-white"
           >
             <Send className="h-5 w-5" />
           </Button>
         </div>
-        <p className="text-xs text-center text-muted-foreground mt-2 hidden sm:block">
+        <p className="text-xs text-center text-gray-500 mt-2 hidden sm:block">
           Press Enter to send, Shift+Enter for new line
         </p>
         {/* Compliance disclosures */}
         <div className="max-w-3xl mx-auto mt-3 pt-3 border-t border-gray-100">
-          <p className="text-[10px] text-muted-foreground text-center leading-relaxed">
+          <p className="text-[10px] text-gray-500 text-center leading-relaxed">
             This interview uses artificial intelligence (AI) technology. Your responses are recorded and reviewed as part of our hiring process.
           </p>
         </div>
