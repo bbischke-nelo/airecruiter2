@@ -104,7 +104,7 @@ def generate_interview_email_preview(
                             </p>
 
                             <p style="font-size: 16px; color: #444444; margin: 0 0 20px 0;">
-                                We've reviewed your application for <strong style="color: {CCFS_RED};">{position_title}</strong> and are excited to move forward with you! Your background caught our attention, and we'd love to learn more about you.
+                                Thank you for your interest in the <strong style="color: {CCFS_RED};">{position_title}</strong> position. We'd like to learn more about you as part of our hiring process.
                             </p>
 
                             <p style="font-size: 15px; color: #444444; margin: 0 0 20px 0;">

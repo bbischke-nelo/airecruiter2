@@ -2,7 +2,7 @@ Hi {{first_name}},
 
 Great news! Your application for {{position}} has been selected for the next step.
 
-We've reviewed your application and are excited to move forward with you! Your background caught our attention, and we'd love to learn more about you.
+Thank you for your interest in the {{position}} position. We'd like to learn more about you as part of our hiring process.
 
 You'll answer a few questions through our digital interview platform - no video call or scheduling required. Just click the link below when you're ready.
 
