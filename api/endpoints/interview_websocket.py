@@ -285,15 +285,28 @@ async def interview_websocket(websocket: WebSocket, token: str):
             .count()
         )
 
+        logger.info(
+            "Checking greeting generation",
+            interview_id=interview.id,
+            status=interview.status,
+            existing_messages=existing_count,
+        )
+
         if existing_count == 0 and interview.status == "in_progress":
+            logger.info("Generating greeting", interview_id=interview.id)
             # Generate opening from Claude using the system prompt
             await websocket.send_json({"type": "typing", "status": True})
 
-            initial_response = await generate_claude_response(
-                messages=[],  # Empty - just get the opening
-                system_prompt=system_prompt,
-                interview=interview,
-            )
+            try:
+                initial_response = await generate_claude_response(
+                    messages=[],  # Empty - just get the opening
+                    system_prompt=system_prompt,
+                    interview=interview,
+                )
+                logger.info("Claude response received", interview_id=interview.id, response_length=len(initial_response))
+            except Exception as e:
+                logger.error("Failed to generate greeting", interview_id=interview.id, error=str(e))
+                initial_response = "Hello! Thanks for joining us today. I'm here to learn more about your background and experience. Ready to get started?"
 
             # Check for tags (unlikely in opening but be safe)
             _, _, cleaned_response = check_and_strip_tags(initial_response)
@@ -309,6 +322,8 @@ async def interview_websocket(websocket: WebSocket, token: str):
             db.commit()
             db.refresh(greeting_msg)
 
+            logger.info("Greeting saved and sending", interview_id=interview.id, message_id=greeting_msg.id)
+
             await websocket.send_json({
                 "type": "message",
                 "role": "assistant",
@@ -323,6 +338,12 @@ async def interview_websocket(websocket: WebSocket, token: str):
             .filter(Message.interview_id == interview.id)
             .order_by(Message.created_at)
             .all()
+        )
+
+        logger.info(
+            "Sending message history",
+            interview_id=interview.id,
+            message_count=len(existing_messages),
         )
 
         if existing_messages:
