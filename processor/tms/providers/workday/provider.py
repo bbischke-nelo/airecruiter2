@@ -1,10 +1,11 @@
 """Workday TMS provider implementation."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 import structlog
 
+from processor.config import settings
 from processor.tms.base import (
     TMSProvider,
     TMSRequisition,
@@ -138,6 +139,17 @@ class WorkdayProvider(TMSProvider):
             wid: Optional Workday ID (WID) - preferred for Get_Candidates query
             enrich_profiles: If True, fetch additional profile data using Get_Applicants
         """
+        # Apply global minimum date filter
+        effective_since = since
+        if settings.APPLICATION_MIN_DATE:
+            try:
+                min_date = datetime.fromisoformat(settings.APPLICATION_MIN_DATE).replace(tzinfo=timezone.utc)
+                if effective_since is None or min_date > effective_since:
+                    effective_since = min_date
+                    logger.debug("Applied APPLICATION_MIN_DATE filter", min_date=settings.APPLICATION_MIN_DATE)
+            except ValueError:
+                logger.warning("Invalid APPLICATION_MIN_DATE format", value=settings.APPLICATION_MIN_DATE)
+
         page = 1
         count = 100
         all_applications = []
@@ -148,7 +160,7 @@ class WorkdayProvider(TMSProvider):
                 wid=wid,
                 page=page,
                 count=count,
-                since=since,  # Pass to API for server-side filtering
+                since=effective_since,  # Pass to API for server-side filtering
             )
 
             if not raw_apps:
@@ -163,8 +175,8 @@ class WorkdayProvider(TMSProvider):
                     except ValueError:
                         applied_at = None
 
-                # Filter by since date if provided
-                if since and applied_at and applied_at < since:
+                # Filter by since date if provided (uses effective_since which includes min date)
+                if effective_since and applied_at and applied_at < effective_since:
                     continue
 
                 # Try to enrich with profile data from Get_Applicants if enabled and missing data

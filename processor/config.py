@@ -23,6 +23,9 @@ class ProcessorSettings(BaseSettings):
     SCHEDULER_ENABLED: bool = True
     REQUISITION_SYNC_INTERVAL: int = 60  # Minutes between full requisition syncs
 
+    # Sync filtering
+    APPLICATION_MIN_DATE: Optional[str] = "2025-12-25"  # Don't sync applications before this date (YYYY-MM-DD)
+
     # Queue/Worker
     QUEUE_MAX_CONCURRENCY: int = 10  # Parallel job limit
     QUEUE_MAX_ATTEMPTS: int = 3  # Default retry limit

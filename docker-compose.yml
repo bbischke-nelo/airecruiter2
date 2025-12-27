@@ -118,6 +118,7 @@ services:
       # Processor settings
       - SCHEDULER_INTERVAL=${SCHEDULER_INTERVAL:-60}
       - REQUISITION_SYNC_INTERVAL=${REQUISITION_SYNC_INTERVAL:-60}
+      - APPLICATION_MIN_DATE=${APPLICATION_MIN_DATE:-2025-12-25}
     volumes:
       - ./logs:/app/logs
     networks:
