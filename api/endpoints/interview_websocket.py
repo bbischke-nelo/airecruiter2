@@ -272,8 +272,8 @@ async def interview_websocket(websocket: WebSocket, token: str):
         prompt_template = load_interview_prompt(db, interview_type)
         system_prompt = substitute_prompt_variables(prompt_template, interview, db)
 
-        # Start interview if not already started
-        if interview.status == "scheduled":
+        # Start interview if not already started (draft or scheduled -> in_progress)
+        if interview.status in ("draft", "scheduled"):
             interview.status = "in_progress"
             interview.started_at = datetime.now(timezone.utc)
             db.commit()
