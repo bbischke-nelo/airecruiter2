@@ -17,6 +17,9 @@ Applicant ID: {candidate_id}
 ### Resume/Application Data
 {resume}
 
+### Workday Profile Data (supplementary - use if resume is empty or missing details)
+{workday_profile}
+
 ### Required Output (JSON)
 
 Return this exact structure:
@@ -187,9 +190,10 @@ Return this exact structure:
 - Gaps in information that need clarification (not judgment)
 
 ### Rules:
-1. Calculate duration_months from dates when possible
-2. List timeline entries in reverse chronological order
-3. **JD Requirements Matching (IMPORTANT):**
+1. **Data Source Priority:** Resume data takes precedence. Use Workday profile data ONLY to fill gaps when resume is empty/missing or lacks certain details. If both sources have conflicting data, trust the resume.
+2. Calculate duration_months from dates when possible
+3. List timeline entries in reverse chronological order
+4. **JD Requirements Matching (IMPORTANT):**
    - Extract SPECIFIC requirements from the JD (not just keywords)
    - For each requirement, evaluate whether the candidate's ACTUAL EXPERIENCE meets it
    - "met=yes" means they have demonstrable experience doing exactly what's required
@@ -198,8 +202,8 @@ Return this exact structure:
    - Example: JD says "B2B sales experience" - a Salesforce Developer who built sales tools does NOT meet this (they built tools FOR salespeople, not did sales themselves)
    - Example: JD says "cold calling" - look for evidence they actually made cold calls, not just used a phone system
    - Focus on what the candidate ACTUALLY DID, not just job titles or keyword matches
-4. If resume is unparseable (image, corrupted), return minimal structure with extraction_notes explaining the issue
-5. Do not include personal information beyond what's job-relevant (no age, race, gender inference)
-6. Pros/cons must tie directly to a JD requirement - not general observations
-7. Suggested questions should clarify facts, not probe character or personality
-8. For recent_5yr_ stats: Count only employers where end_date is within 5 years of application_date, or is_current is true. Ignore employment from before the 5-year window.
+5. If resume is unparseable (image, corrupted), return minimal structure with extraction_notes explaining the issue
+6. Do not include personal information beyond what's job-relevant (no age, race, gender inference)
+7. Pros/cons must tie directly to a JD requirement - not general observations
+8. Suggested questions should clarify facts, not probe character or personality
+9. For recent_5yr_ stats: Count only employers where end_date is within 5 years of application_date, or is_current is true. Ignore employment from before the 5-year window.
