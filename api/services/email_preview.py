@@ -82,14 +82,13 @@ def generate_interview_email_preview(
                         </td>
                     </tr>
 
-                    <!-- Success indicator banner -->
+                    <!-- Next step banner -->
                     <tr>
-                        <td style="background-color: #e8f5e9; padding: 16px 40px; border-bottom: 1px solid #c8e6c9;">
+                        <td style="background-color: #f0f7ff; padding: 16px 40px; border-bottom: 1px solid #d0e3f7;">
                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                                 <tr>
-                                    <td style="font-size: 15px; color: #2e7d32;">
-                                        <span style="font-size: 18px; margin-right: 8px;">&#10003;</span>
-                                        <strong>Great news!</strong> Your application has been selected for the next step.
+                                    <td style="font-size: 15px; color: #1a5490;">
+                                        <strong>Next step:</strong> Complete a brief digital interview
                                     </td>
                                 </tr>
                             </table>
