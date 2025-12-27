@@ -330,11 +330,13 @@ export default function InterviewPage() {
               <div
                 className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                   message.role === 'user'
-                    ? 'bg-ccfs-red text-white'
+                    ? 'bg-ccfs-red'
                     : 'bg-white border border-gray-200 shadow-sm text-gray-800'
                 }`}
               >
-                <Markdown>{message.content}</Markdown>
+                <Markdown variant={message.role === 'user' ? 'dark' : 'default'}>
+                  {message.content}
+                </Markdown>
               </div>
               {message.role === 'user' && (
                 <div className="w-8 h-8 rounded-full bg-ccfs-red flex items-center justify-center flex-shrink-0">

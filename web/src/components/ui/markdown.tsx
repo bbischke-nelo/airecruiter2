@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 interface MarkdownProps {
   children: string;
   className?: string;
+  /** Use 'dark' for light text on dark backgrounds (e.g., user chat bubbles) */
+  variant?: 'default' | 'dark';
 }
 
 /**
@@ -18,7 +20,7 @@ interface MarkdownProps {
  * - Paragraph spacing via prose-p:my-3
  * - Line height via prose-p:leading-relaxed
  */
-export function Markdown({ children, className }: MarkdownProps) {
+export function Markdown({ children, className, variant = 'default' }: MarkdownProps) {
   return (
     <div className={cn(
       // Base prose styling for markdown elements
@@ -27,7 +29,15 @@ export function Markdown({ children, className }: MarkdownProps) {
       'prose-p:my-3 prose-p:leading-relaxed',
       // Strong/bold styling
       'prose-strong:font-semibold',
-      // Additional classes (typically text color)
+      // Variant-specific colors
+      variant === 'dark' && [
+        'text-white',
+        'prose-p:text-white',
+        'prose-strong:text-white',
+        'prose-headings:text-white',
+        'prose-a:text-white prose-a:underline',
+      ],
+      // Additional classes
       className
     )}>
       <ReactMarkdown remarkPlugins={[remarkBreaks]}>{children}</ReactMarkdown>
