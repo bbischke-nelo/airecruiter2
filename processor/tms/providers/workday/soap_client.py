@@ -1173,34 +1173,35 @@ class WorkdaySOAPClient:
 
         # Build the Move_Candidate SOAP request manually
         # The structure is based on Workday Recruiting v42+ API
-        ns0 = "ns0"
+        # Note: Job_Application_Reference goes INSIDE Move_Candidate_Data
+        wd = "wd"
 
         if stage_id:
             # Moving to a new stage (advancing)
-            move_data = f"""
-              <{ns0}:Recruiting_Stage_Reference>
-                <{ns0}:ID {ns0}:type="Recruiting_Stage_ID">{stage_id}</{ns0}:ID>
-              </{ns0}:Recruiting_Stage_Reference>
+            stage_disposition = f"""
+              <{wd}:Recruiting_Stage_Reference>
+                <{wd}:ID {wd}:type="Recruiting_Stage_ID">{stage_id}</{wd}:ID>
+              </{wd}:Recruiting_Stage_Reference>
             """
         else:
             # Moving to disposition (rejecting)
-            move_data = f"""
-              <{ns0}:Disposition_Reference>
-                <{ns0}:ID {ns0}:type="Disposition_ID">{disposition_id}</{ns0}:ID>
-              </{ns0}:Disposition_Reference>
+            stage_disposition = f"""
+              <{wd}:Disposition_Reference>
+                <{wd}:ID {wd}:type="Disposition_ID">{disposition_id}</{wd}:ID>
+              </{wd}:Disposition_Reference>
             """
 
         xml = f'''<?xml version="1.0" encoding="utf-8"?>
 <soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
   <soap-env:Body>
-    <{ns0}:Move_Candidate_Request xmlns:{ns0}="urn:com.workday/bsvc" {ns0}:version="{self.config.api_version}">
-      <{ns0}:Job_Application_Reference>
-        <{ns0}:ID {ns0}:type="Job_Application_ID">{application_id}</{ns0}:ID>
-      </{ns0}:Job_Application_Reference>
-      <{ns0}:Move_Candidate_Data>
-        {move_data}
-      </{ns0}:Move_Candidate_Data>
-    </{ns0}:Move_Candidate_Request>
+    <{wd}:Move_Candidate_Request xmlns:{wd}="urn:com.workday/bsvc" {wd}:version="{self.config.api_version}">
+      <{wd}:Move_Candidate_Data>
+        <{wd}:Job_Application_Reference>
+          <{wd}:ID {wd}:type="Job_Application_ID">{application_id}</{wd}:ID>
+        </{wd}:Job_Application_Reference>
+        {stage_disposition}
+      </{wd}:Move_Candidate_Data>
+    </{wd}:Move_Candidate_Request>
   </soap-env:Body>
 </soap-env:Envelope>'''
 
