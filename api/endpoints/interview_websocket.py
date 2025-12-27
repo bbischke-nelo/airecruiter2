@@ -195,7 +195,7 @@ async def generate_claude_response(
     interview: Interview,
 ) -> str:
     """Generate AI response using Claude with full system prompt."""
-    from processor.integrations.claude import ClaudeClient, ClaudeError
+    from api.integrations.claude import ClaudeClient, ClaudeError
 
     try:
         client = ClaudeClient()
