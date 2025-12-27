@@ -24,7 +24,6 @@ import {
   RotateCcw,
   Phone,
   Loader2,
-  Link2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetBody, SheetFooter } from '@/components/ui/sheet';
@@ -397,59 +396,6 @@ export function ApplicationDrawer({
     onError: (error) => {
       toast({
         title: 'Failed to start proxy interview',
-        description: error.message || 'Please try again',
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Quick link mutation - creates and activates interview in one step
-  const quickLinkMutation = useMutation<{ interviewUrl: string }, Error>({
-    mutationFn: async () => {
-      if (!application?.id) {
-        throw new Error('Application ID missing');
-      }
-      // Step 1: Prepare (creates draft) - may fail if draft already exists
-      try {
-        await api.post(`/applications/${application.id}/prepare-interview`, {
-          mode: 'link_only',
-          expiryDays: 7,
-        });
-      } catch (err: unknown) {
-        // If prepare fails because draft exists, continue to activate
-        // Otherwise re-throw
-        const error = err as { response?: { status?: number } };
-        if (error.response?.status !== 400) {
-          throw err;
-        }
-        // 400 likely means draft already exists, try to activate anyway
-      }
-      // Step 2: Activate
-      const activateRes = await api.post(`/applications/${application.id}/activate-interview`, {
-        method: 'link_only',
-      });
-      return { interviewUrl: activateRes.data.interviewUrl };
-    },
-    onSuccess: async (data) => {
-      queryClient.invalidateQueries({ queryKey: ['applications'] });
-      // Try to copy to clipboard, but don't fail if blocked
-      try {
-        await navigator.clipboard.writeText(data.interviewUrl);
-        toast({
-          title: 'Interview link copied!',
-          description: data.interviewUrl,
-        });
-      } catch {
-        // Clipboard blocked (async context), show link in toast instead
-        toast({
-          title: 'Interview link ready',
-          description: data.interviewUrl,
-        });
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: 'Failed to generate link',
         description: error.message || 'Please try again',
         variant: 'destructive',
       });
@@ -1058,17 +1004,10 @@ export function ApplicationDrawer({
                     {canAdvance && application.status === 'ready_for_review' && (
                       <>
                         <Button
-                          variant="outline"
-                          onClick={() => quickLinkMutation.mutate()}
-                          disabled={quickLinkMutation.isPending}
-                          title="Generate interview link and copy to clipboard"
+                          onClick={() => setShowInterviewModal(true)}
                         >
-                          {quickLinkMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Link2 className="h-4 w-4 mr-2" />
-                          )}
-                          Get Link
+                          <Send className="h-4 w-4 mr-2" />
+                          Self Interview
                         </Button>
                         <Button
                           variant="outline"
@@ -1080,13 +1019,7 @@ export function ApplicationDrawer({
                           ) : (
                             <Phone className="h-4 w-4 mr-2" />
                           )}
-                          Proxy
-                        </Button>
-                        <Button
-                          onClick={() => setShowInterviewModal(true)}
-                        >
-                          <Send className="h-4 w-4 mr-2" />
-                          Email Interview
+                          Proxy Interview
                         </Button>
                         <Button
                           variant="outline"
