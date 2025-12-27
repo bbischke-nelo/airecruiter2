@@ -347,12 +347,12 @@ export default function InterviewPage() {
               }`}
             >
               {message.role === 'assistant' && (
-                <div className="w-8 h-8 rounded-full bg-ccfs-red flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <div className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="/recruiter2/logo-white.png"
-                    alt=""
-                    className="w-6 h-6 object-contain"
+                    src="/recruiter2/tank.png"
+                    alt="Tank"
+                    className="w-7 h-7 object-contain"
                   />
                 </div>
               )}
@@ -375,12 +375,12 @@ export default function InterviewPage() {
 
           {isTyping && (
             <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-ccfs-red flex items-center justify-center flex-shrink-0 overflow-hidden">
+              <div className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/recruiter2/logo-white.png"
-                  alt=""
-                  className="w-6 h-6 object-contain"
+                  src="/recruiter2/tank.png"
+                  alt="Tank"
+                  className="w-7 h-7 object-contain"
                 />
               </div>
               <div className="bg-white border border-gray-200 shadow-sm rounded-2xl px-4 py-3">
