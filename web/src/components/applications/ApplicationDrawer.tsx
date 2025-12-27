@@ -12,7 +12,6 @@ import {
   FileText,
   CheckCircle,
   XCircle,
-  Clock,
   AlertTriangle,
   ThumbsUp,
   ThumbsDown,
@@ -189,7 +188,6 @@ const statusColors: Record<string, string> = {
   advanced: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
   live_interview_pending: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
   rejected: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  on_hold: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
   error: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
 };
 
@@ -210,14 +208,12 @@ const statusLabels: Record<string, string> = {
   advanced: 'Advanced',
   live_interview_pending: 'Live Interview Pending',
   rejected: 'Rejected',
-  on_hold: 'On Hold',
   error: 'Error',
 };
 
 // Statuses that allow human decisions
-const ADVANCE_VALID_STATUSES = ['ready_for_review', 'interview_ready_for_review', 'on_hold'];
-const REJECT_VALID_STATUSES = ['ready_for_review', 'interview_ready_for_review', 'on_hold', 'new', 'extracted'];
-const HOLD_VALID_STATUSES = ['ready_for_review', 'interview_ready_for_review'];
+const ADVANCE_VALID_STATUSES = ['ready_for_review', 'interview_ready_for_review'];
+const REJECT_VALID_STATUSES = ['ready_for_review', 'interview_ready_for_review', 'new', 'extracted'];
 
 export function ApplicationDrawer({
   application,
@@ -231,6 +227,7 @@ export function ApplicationDrawer({
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [showReconsiderDialog, setShowReconsiderDialog] = useState(false);
+  const [showManagerInterviewDialog, setShowManagerInterviewDialog] = useState(false);
   const [reconsiderComment, setReconsiderComment] = useState('');
   const [activeTab, setActiveTab] = useState('screening');
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
@@ -359,16 +356,6 @@ export function ApplicationDrawer({
     },
   });
 
-  const holdMutation = useMutation<DecisionResponse, Error, void>({
-    mutationFn: async () => {
-      const response = await api.post(`/applications/${application?.id}/hold`, {});
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['applications'] });
-    },
-  });
-
   const unrejectMutation = useMutation<DecisionResponse, Error, { comment: string }>({
     mutationFn: async ({ comment }) => {
       const response = await api.post(`/applications/${application?.id}/unreject`, {
@@ -410,10 +397,6 @@ export function ApplicationDrawer({
     rejectMutation.mutate({ reasonCode });
   };
 
-  const handleHold = () => {
-    holdMutation.mutate();
-  };
-
   const handleReconsider = () => {
     if (reconsiderComment.trim()) {
       unrejectMutation.mutate({ comment: reconsiderComment.trim() });
@@ -441,9 +424,7 @@ export function ApplicationDrawer({
 
   const canAdvance = application && ADVANCE_VALID_STATUSES.includes(application.status);
   const canReject = application && REJECT_VALID_STATUSES.includes(application.status);
-  const canHold = application && HOLD_VALID_STATUSES.includes(application.status);
   const canReconsider = application?.status === 'rejected';
-  const isOnHold = application?.status === 'on_hold';
 
   // Get JD requirements match from facts
   const jdMatch = facts?.extractedFacts?.jd_requirements_match;
@@ -975,81 +956,62 @@ export function ApplicationDrawer({
               </div>
 
               <SheetFooter className="flex-col sm:flex-row gap-2 flex-shrink-0 border-t pt-4">
-                {isOnHold ? (
-                  <Button onClick={() => handleAdvance()} disabled={advanceMutation.isPending}>
-                    <Clock className="h-4 w-4 mr-2" />
-                    {advanceMutation.isPending ? 'Removing from Hold...' : 'Remove from Hold'}
+                {canReject && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => setShowRejectDialog(true)}
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Reject
                   </Button>
-                ) : (
+                )}
+                {canAdvance && application.status === 'ready_for_review' && (
                   <>
-                    {canHold && (
-                      <Button
-                        variant="outline"
-                        onClick={handleHold}
-                        disabled={holdMutation.isPending}
-                      >
-                        <Clock className="h-4 w-4 mr-2" />
-                        {holdMutation.isPending ? 'Holding...' : 'Hold'}
-                      </Button>
-                    )}
-                    {canReject && (
-                      <Button
-                        variant="destructive"
-                        onClick={() => setShowRejectDialog(true)}
-                      >
-                        <XCircle className="h-4 w-4 mr-2" />
-                        Reject
-                      </Button>
-                    )}
-                    {canAdvance && application.status === 'ready_for_review' && (
-                      <>
-                        <Button
-                          onClick={() => setShowInterviewModal(true)}
-                        >
-                          <Send className="h-4 w-4 mr-2" />
-                          Self Interview
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => startProxyMutation.mutate()}
-                          disabled={startProxyMutation.isPending}
-                        >
-                          {startProxyMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Phone className="h-4 w-4 mr-2" />
-                          )}
-                          Proxy Interview
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleAdvance(true)}
-                          disabled={advanceMutation.isPending}
-                        >
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Skip AI
-                        </Button>
-                      </>
-                    )}
-                    {canAdvance && application.status === 'interview_ready_for_review' && (
-                      <Button
-                        onClick={() => handleAdvance(false)}
-                        disabled={advanceMutation.isPending}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        {advanceMutation.isPending ? 'Advancing...' : 'Advance'}
-                      </Button>
-                    )}
-                    {canReconsider && (
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowReconsiderDialog(true)}
-                      >
-                        <RotateCcw className="h-4 w-4 mr-2" />
-                        Reconsider
-                      </Button>
-                    )}
+                    <Button
+                      onClick={() => setShowInterviewModal(true)}
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      Self Interview
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => startProxyMutation.mutate()}
+                      disabled={startProxyMutation.isPending}
+                    >
+                      {startProxyMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Phone className="h-4 w-4 mr-2" />
+                      )}
+                      Proxy Interview
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowManagerInterviewDialog(true)}
+                      disabled={advanceMutation.isPending}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Manager Interview
+                    </Button>
                   </>
+                )}
+                {canAdvance && application.status === 'interview_ready_for_review' && (
+                  <Button
+                    onClick={() => handleAdvance(false)}
+                    disabled={advanceMutation.isPending}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    {advanceMutation.isPending ? 'Advancing...' : 'Advance'}
+                  </Button>
+                )}
+                {canReconsider && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowReconsiderDialog(true)}
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Reconsider
+                  </Button>
                 )}
               </SheetFooter>
             </>
@@ -1127,6 +1089,36 @@ export function ApplicationDrawer({
               disabled={!reconsiderComment.trim() || unrejectMutation.isPending}
             >
               {unrejectMutation.isPending ? 'Processing...' : 'Reconsider'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manager Interview Confirmation Dialog */}
+      <Dialog open={showManagerInterviewDialog} onOpenChange={setShowManagerInterviewDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Skip AI Interview?</DialogTitle>
+            <DialogDescription>
+              This will advance <strong>{application?.candidateName}</strong> directly to the hiring manager
+              without an AI screening interview.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowManagerInterviewDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowManagerInterviewDialog(false);
+                handleAdvance(true);
+              }}
+              disabled={advanceMutation.isPending}
+            >
+              {advanceMutation.isPending ? 'Advancing...' : 'Yes, Skip to Manager'}
             </Button>
           </DialogFooter>
         </DialogContent>

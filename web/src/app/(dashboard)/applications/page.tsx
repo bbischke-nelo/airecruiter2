@@ -9,8 +9,6 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  AlertCircle,
-  Clock,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
@@ -89,7 +87,6 @@ const statusColors: Record<string, string> = {
   advanced: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
   live_interview_pending: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
   rejected: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  on_hold: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
   error: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
 };
 
@@ -110,7 +107,6 @@ const statusLabels: Record<string, string> = {
   advanced: 'Advanced',
   live_interview_pending: 'Live Interview',
   rejected: 'Rejected',
-  on_hold: 'On Hold',
   error: 'Error',
 };
 
@@ -344,7 +340,6 @@ export default function ApplicationsPage() {
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="ready_for_review">Ready for Review</SelectItem>
             <SelectItem value="interview_ready_for_review">Interview Ready</SelectItem>
-            <SelectItem value="on_hold">On Hold</SelectItem>
             <SelectItem value="new">New</SelectItem>
             <SelectItem value="extracting">Processing</SelectItem>
             <SelectItem value="interview_sent">Interview Sent</SelectItem>
@@ -441,8 +436,6 @@ export default function ApplicationsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="font-medium flex items-center gap-2">
                         {app.candidateName}
-                        {app.humanRequested && <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />}
-                        {app.status === 'on_hold' && <Clock className="h-4 w-4 text-gray-500 flex-shrink-0" />}
                       </div>
                       <div className="text-sm text-muted-foreground truncate">{app.requisitionName}</div>
                       {app.currentTitle && (
@@ -609,18 +602,8 @@ export default function ApplicationsPage() {
                       />
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-medium flex items-center gap-2">
+                      <div className="font-medium">
                         {app.candidateName}
-                        {app.humanRequested && (
-                          <span title="Human review requested">
-                            <AlertCircle className="h-4 w-4 text-amber-500" />
-                          </span>
-                        )}
-                        {app.status === 'on_hold' && (
-                          <span title="On hold">
-                            <Clock className="h-4 w-4 text-gray-500" />
-                          </span>
-                        )}
                       </div>
                       <div className="text-sm text-muted-foreground">{app.candidateEmail}</div>
                     </td>
