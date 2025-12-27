@@ -93,10 +93,12 @@ class SyncProcessor(BaseProcessor):
             self.logger.error("Requisition not found", requisition_id=requisition_id)
             return
 
-        # Calculate since date for incremental sync
-        since = None
-        if req.last_synced_at:
-            since = req.last_synced_at
+        # NOTE: We intentionally do NOT use last_synced_at as a filter here.
+        # The Workday API's Applied_From filter only catches NEW applications,
+        # not applications whose STATUS has changed. To detect status changes
+        # (e.g., moved from Screen to Interview in Workday), we must fetch ALL
+        # applications each sync and compare. The APPLICATION_MIN_DATE setting
+        # in provider.py limits how far back we look.
 
         # Extract WID from external_data if available
         wid = None
@@ -104,8 +106,8 @@ class SyncProcessor(BaseProcessor):
             external_data = json.loads(req.external_data) if isinstance(req.external_data, str) else req.external_data
             wid = external_data.get("wid")
 
-        # Fetch applications from Workday - use WID if available
-        applications = await provider.get_applications(req.external_id, since=since, wid=wid)
+        # Fetch ALL applications from Workday to detect status changes
+        applications = await provider.get_applications(req.external_id, since=None, wid=wid)
 
         new_count = 0
         updated_count = 0
