@@ -243,6 +243,8 @@ export function ApplicationDrawer({
   const [reconsiderComment, setReconsiderComment] = useState('');
   const [activeTab, setActiveTab] = useState('screening');
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
+  const [resumeLoading, setResumeLoading] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
   const [expandedRequirements, setExpandedRequirements] = useState<{
     met: boolean;
     partial: boolean;
@@ -288,16 +290,29 @@ export function ApplicationDrawer({
   // Fetch resume URL when application changes
   useEffect(() => {
     if (application) {
-      setResumeUrl(null); // Reset while loading
+      setResumeUrl(null);
+      setResumeError(null);
+      setResumeLoading(true);
       api.get(`/applications/${application.id}/resume/download`)
         .then((response) => {
-          setResumeUrl(response.data.url);
+          if (response.data.url) {
+            setResumeUrl(response.data.url);
+          } else {
+            setResumeError('Resume not available');
+          }
         })
-        .catch(() => {
+        .catch((error) => {
+          const message = error.response?.data?.error?.message || 'Resume not available';
+          setResumeError(message);
           setResumeUrl(null);
+        })
+        .finally(() => {
+          setResumeLoading(false);
         });
     } else {
       setResumeUrl(null);
+      setResumeError(null);
+      setResumeLoading(false);
     }
   }, [application?.id]);
 
@@ -1091,12 +1106,20 @@ export function ApplicationDrawer({
                       size="sm"
                       onClick={handleDownloadResume}
                       title="Open in new tab"
+                      disabled={!resumeUrl || resumeLoading}
                     >
                       <ExternalLink className="h-4 w-4" />
                     </Button>
                   </div>
                   <div className="flex-1 overflow-hidden">
-                    {resumeUrl ? (
+                    {resumeLoading ? (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        <div className="text-center">
+                          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-2" />
+                          <p className="text-sm">Loading resume...</p>
+                        </div>
+                      </div>
+                    ) : resumeUrl ? (
                       <iframe
                         src={resumeUrl}
                         className="w-full h-full border-0"
@@ -1106,7 +1129,10 @@ export function ApplicationDrawer({
                       <div className="flex items-center justify-center h-full text-muted-foreground">
                         <div className="text-center">
                           <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm">Loading resume...</p>
+                          <p className="text-sm font-medium">Resume Not Available</p>
+                          <p className="text-xs mt-1 max-w-[200px]">
+                            {resumeError || 'The resume could not be loaded from Workday.'}
+                          </p>
                         </div>
                       </div>
                     )}
