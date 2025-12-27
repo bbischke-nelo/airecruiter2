@@ -607,16 +607,21 @@ export function ApplicationDrawer({
                       </div>
                     ) : facts?.extractedFacts ? (
                       <div className="space-y-6">
-                        {/* Warning if no employment history extracted */}
+                        {/* Warning if no employment history extracted - Interview-Only Mode */}
                         {!facts.extractedFacts.employment_history?.length && !facts.extractedFacts.skills && !facts.extractedFacts.education?.length && (
-                          <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20">
-                            <div className="flex items-start gap-2">
-                              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                          <div className="p-4 rounded-lg border-2 border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/20">
+                            <div className="flex items-start gap-3">
+                              <MessageSquare className="h-6 w-6 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                               <div>
-                                <div className="font-medium text-amber-800 dark:text-amber-200">Resume Data Not Available</div>
-                                <div className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                                  This candidate&apos;s resume could not be processed. Employment history, skills, and education information are unavailable.
+                                <div className="font-semibold text-blue-800 dark:text-blue-200 text-base">Interview-Only Assessment</div>
+                                <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                                  Resume data could not be processed. This assessment is based solely on the candidate&apos;s interview responses.
                                 </div>
+                                {['interview_ready_for_review', 'advanced'].includes(application.status) && (
+                                  <div className="mt-2 text-sm text-blue-600 dark:text-blue-400 font-medium">
+                                    → Switch to the <span className="underline cursor-pointer" onClick={() => setActiveTab('interview')}>Interview tab</span> to review the evaluation
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>

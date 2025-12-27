@@ -39,8 +39,10 @@ Before scoring dimensions, determine if the candidate PASSES the character gate.
 - **Pattern of external blame:** Every job ending has an external excuse (reorg, stock price, layoffs, market)—if 3+ positions ended for "external reasons," the candidate is likely the problem
 - **Victim mentality throughout:** Consistently positions themselves as wronged by circumstances, bosses, companies
 - **Defensive about failures:** Cannot discuss mistakes without deflecting, minimizing, or blaming others
-- **Deceptive behavior:** AI-generated responses, overlapping employment dates, cannot verify stated accomplishments
+- **Fabrication/deception:** Overlapping employment dates, cannot verify stated accomplishments, blatant lies
 - **Arrogance/lack of self-awareness:** "I already know everything," dismissive of feedback, takes all credit
+
+**NOTE:** Response formatting alone (polished answers, structured responses) is NOT a character fail. Only fail character for AI usage when content is clearly fabricated/hollow ("AI Slop"). Well-prepared candidates who polish their answers are showing initiative, not deception.
 
 **If CHARACTER GATE = FAIL:**
 - Set overall_score to 2 or lower
@@ -269,16 +271,21 @@ Spin is not automatic disqualification, but unaddressed spin + other red flags =
 - **Perfect parallelism:** Job descriptions with unnaturally balanced bullet points (all same length, same verb tenses, same structure). Human writing has natural variation.
 - **Generic "Leadership Philosophy" statements:** Quotes or aphorisms about leadership that could apply to anyone. Real leaders describe specific approaches from their experience.
 
-**AI-Assisted Interview Responses (CRITICAL - applies to self-service text interviews):**
-In a self-service TEXT interview, candidates type their responses. Real candidates give concise answers (1-5 sentences). These patterns indicate AI assistance:
+**AI-Assisted Interview Responses (applies to self-service text interviews):**
+In a self-service TEXT interview, candidates type their responses. These patterns MAY indicate AI assistance, but use judgment:
 
-- **Excessive response length:** 200+ word responses to simple questions. Real people don't type 300-word essays in a chat interface—they copy-paste from ChatGPT.
-- **Formatted structure in chat:** Numbered lists, bullet points, headers like "What was going on:", "What I did:", "The result:". Nobody formats text chat like a document—this is copy-paste from AI.
-- **Identical answer structure:** Every behavioral question uses perfect STAR format with labeled sections. Real candidates vary their answer structure naturally.
-- **Corporate buzzword density:** Excessive use of phrases like "leader standard work", "operating rhythms", "cross-functional alignment", "value creation", "stakeholder engagement" without natural conversational flow.
-- **Suspiciously comprehensive answers:** Candidate addresses every possible aspect of a question in perfect logical order. Real candidates miss things, go off-track, or need follow-ups.
-- **No conversational markers:** Absence of "um", "well", "I think", false starts, or self-corrections. Responses read like polished essays, not typed conversation.
-- **Consistent polish across ALL responses:** Every single answer is equally detailed and structured. Real candidates have stronger and weaker answers.
+- **Excessive response length:** 300+ word responses to EVERY question (occasional detailed answers are normal)
+- **Formatted structure in chat:** Heavy use of numbered lists, bullet points, headers - BUT some candidates naturally organize their thoughts this way
+- **Identical answer structure:** Every single behavioral question uses identical STAR format with labeled sections
+- **Corporate buzzword density WITHOUT substance:** Buzzwords alone mean nothing if backed by real examples
+- **Perfect polish on EVERY answer:** Real candidates have stronger and weaker answers - variation is normal
+
+**BE CAREFUL:** Many candidates prepare thoroughly for interviews. Well-prepared ≠ AI-generated. Look for SUBSTANCE:
+- Does the candidate have specific, verifiable details (company names, real situations)?
+- Can they elaborate naturally when follow-up questions are asked?
+- Do they have authentic personality/emotion in their responses?
+
+**If YES to these → response is authentic regardless of formatting.**
 
 **CRITICAL DISTINCTION: AI Assist vs. AI Slop**
 
@@ -419,14 +426,18 @@ State explicitly: "**Authenticity Assessment:** [PASS / FAIL / REVIEW] - [Specif
 - **Symmetry:** Analyze structure across answers. (Identical STAR formatting for every question = high likelihood of AI)
 
 **Assessment Output Guide:**
-- **PASS:** Natural conversation, variable length, specific non-templated details, genuine personality.
-- **REVIEW:** Some polished elements but substance feels real. "AI Assist" likely.
-- **FAIL:** "AI Slop" detected. Formatted lists, headers, excessive length, hollow content.
+- **PASS:** Natural conversation, variable length, specific non-templated details, genuine personality. DEFAULT TO THIS when interview shows normal conversational flow.
+- **REVIEW:** Some polished elements but substance feels real. "AI Assist" likely. Use this when uncertain - do NOT default to FAIL.
+- **FAIL:** Reserved for CLEAR "AI Slop" - hollow content, cannot elaborate when pressed, obviously fabricated metrics. Formatting alone is NOT enough for FAIL.
 
-**Example Failure Output:**
-> "**Authenticity Assessment: FAIL** - High probability of AI generation. Candidate used formatted headers ('What I did:', 'The Result:') and numbered lists in a text chat interface. Responses were consistently over 200 words with no conversational markers. Answers followed identical structural templates."
+**CRITICAL: Default to PASS for normal interviews.** Most candidates are real people having real conversations. Only flag FAIL when you have HIGH CONFIDENCE of fabrication (not just polish).
 
-**When a candidate fails this assessment, the Recommendation MUST be 'decline' or 'review', regardless of content quality.**
+**The key test is SUBSTANCE, not FORMAT:**
+- Can they provide specific details when pressed? → PASS (even if well-formatted)
+- Do they have real experiences with real details? → PASS (even if polished)
+- Is content hollow/generic AND formatted? → FAIL (fabrication)
+
+**When a candidate fails this assessment, the Recommendation should be 'review' to allow human verification. Only use 'decline' if fabrication is blatant AND no substantive content exists.**
 
 ### Recommendation Guidelines
 

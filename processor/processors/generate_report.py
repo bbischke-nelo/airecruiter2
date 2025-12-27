@@ -78,10 +78,15 @@ class GenerateReportProcessor(BaseProcessor):
         """)
         analysis = self.db.execute(analysis_query, {"app_id": application_id}).fetchone()
 
-        # Get ALL completed interviews for this application
+        # Get ALL completed interviews for this application with full evaluation data
         interview_query = text("""
             SELECT i.id as interview_id, i.interview_type, i.started_at, i.completed_at,
-                   e.summary, e.interview_highlights, e.next_interview_focus
+                   e.summary, e.interview_highlights, e.next_interview_focus,
+                   e.overall_score, e.recommendation, e.character_passed,
+                   e.retention_risk, e.authenticity_assessment, e.readiness,
+                   e.strengths, e.weaknesses, e.red_flags,
+                   e.reliability_score, e.accountability_score, e.professionalism_score,
+                   e.communication_score, e.technical_score, e.growth_potential_score
             FROM interviews i
             LEFT JOIN evaluations e ON e.interview_id = i.id
             WHERE i.application_id = :app_id
@@ -103,16 +108,41 @@ class GenerateReportProcessor(BaseProcessor):
             messages_result = self.db.execute(messages_query, {"int_id": interview_row.interview_id})
             interview_messages = [{"role": m.role, "content": m.content} for m in messages_result.fetchall()]
 
+            # Parse JSON fields from evaluation
+            def parse_json_field(field):
+                if not field:
+                    return []
+                try:
+                    return json.loads(field) if isinstance(field, str) else field
+                except json.JSONDecodeError:
+                    return []
+
             interviews.append({
                 "interview_id": interview_row.interview_id,
                 "interview_type": interview_row.interview_type,
                 "started_at": interview_row.started_at,
                 "completed_at": interview_row.completed_at,
                 "summary": interview_row.summary,
-                "interview_highlights": interview_row.interview_highlights,
-                "next_interview_focus": interview_row.next_interview_focus,
+                "interview_highlights": parse_json_field(interview_row.interview_highlights),
+                "next_interview_focus": parse_json_field(interview_row.next_interview_focus),
                 "messages": interview_messages,
                 "message_count": len(interview_messages),
+                # Evaluation data for visual hierarchy
+                "overall_score": interview_row.overall_score,
+                "recommendation": interview_row.recommendation,
+                "character_passed": interview_row.character_passed,
+                "retention_risk": interview_row.retention_risk,
+                "authenticity_assessment": interview_row.authenticity_assessment,
+                "readiness": interview_row.readiness,
+                "strengths": parse_json_field(interview_row.strengths),
+                "weaknesses": parse_json_field(interview_row.weaknesses),
+                "red_flags": parse_json_field(interview_row.red_flags),
+                "reliability_score": interview_row.reliability_score,
+                "accountability_score": interview_row.accountability_score,
+                "professionalism_score": interview_row.professionalism_score,
+                "communication_score": interview_row.communication_score,
+                "technical_score": interview_row.technical_score,
+                "growth_potential_score": interview_row.growth_potential_score,
             })
 
         # For backwards compatibility, also set single interview variable (most recent)
@@ -690,13 +720,112 @@ class GenerateReportProcessor(BaseProcessor):
                 interview_date = interview_data.get('completed_at')
                 interview_date_str = interview_date.strftime('%B %d, %Y') if interview_date else 'N/A'
 
+                # Get evaluation indicators
+                recommendation = interview_data.get('recommendation', '').upper() or 'PENDING'
+                rec_color = '#38a169' if recommendation == 'INTERVIEW' else '#d69e2e' if recommendation == 'REVIEW' else '#c53030'
+                rec_bg = '#f0fff4' if recommendation == 'INTERVIEW' else '#fffff0' if recommendation == 'REVIEW' else '#fff5f5'
+
+                overall_score = interview_data.get('overall_score')
+                score_display = f"{overall_score}/100" if overall_score is not None else 'N/A'
+
+                character_passed = interview_data.get('character_passed')
+                char_text = 'PASS' if character_passed is True else 'FAIL' if character_passed is False else 'N/A'
+                char_color = '#38a169' if character_passed else '#c53030'
+
+                authenticity = interview_data.get('authenticity_assessment', '').upper() or 'N/A'
+                auth_color = '#38a169' if authenticity == 'PASS' else '#d69e2e' if authenticity == 'REVIEW' else '#c53030'
+
+                retention = interview_data.get('retention_risk', '').upper() or 'N/A'
+                ret_color = '#38a169' if retention == 'LOW' else '#d69e2e' if retention == 'MEDIUM' else '#c53030'
+
+                readiness = interview_data.get('readiness', '').upper() or 'N/A'
+
                 html += f'''
     <div class="section clear">
         <div class="section-title">{interview_label}</div>
-        <p><strong>Type:</strong> {interview_data.get('interview_type', 'self_service')} |
-           <strong>Date:</strong> {interview_date_str} |
-           <strong>Messages:</strong> {interview_data.get('message_count', 0)}</p>
-        <div>{interview_summary_html}</div>
+
+        <!-- At-a-glance evaluation indicators -->
+        <div style="display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap;">
+            <div style="background: {rec_bg}; border: 2px solid {rec_color}; border-radius: 6px; padding: 10px 15px; text-align: center; min-width: 100px;">
+                <div style="font-size: 18px; font-weight: 700; color: {rec_color};">{recommendation}</div>
+                <div style="font-size: 9px; color: #718096; text-transform: uppercase;">Recommendation</div>
+            </div>
+            <div style="background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 15px; text-align: center; min-width: 80px;">
+                <div style="font-size: 18px; font-weight: 700; color: #2d3748;">{score_display}</div>
+                <div style="font-size: 9px; color: #718096; text-transform: uppercase;">Score</div>
+            </div>
+            <div style="background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 15px; text-align: center; min-width: 80px;">
+                <div style="font-size: 14px; font-weight: 600; color: {char_color};">{char_text}</div>
+                <div style="font-size: 9px; color: #718096; text-transform: uppercase;">Character Gate</div>
+            </div>
+            <div style="background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 15px; text-align: center; min-width: 80px;">
+                <div style="font-size: 14px; font-weight: 600; color: {auth_color};">{authenticity}</div>
+                <div style="font-size: 9px; color: #718096; text-transform: uppercase;">Authenticity</div>
+            </div>
+            <div style="background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 15px; text-align: center; min-width: 80px;">
+                <div style="font-size: 14px; font-weight: 600; color: {ret_color};">{retention}</div>
+                <div style="font-size: 9px; color: #718096; text-transform: uppercase;">Retention Risk</div>
+            </div>
+        </div>
+
+        <p style="font-size: 10px; color: #718096; margin-bottom: 10px;">
+            <strong>Type:</strong> {interview_data.get('interview_type', 'self_service')} |
+            <strong>Date:</strong> {interview_date_str} |
+            <strong>Messages:</strong> {interview_data.get('message_count', 0)} |
+            <strong>Readiness:</strong> {readiness}
+        </p>
+'''
+                # Individual scores if available
+                scores = [
+                    ('Reliability', interview_data.get('reliability_score')),
+                    ('Accountability', interview_data.get('accountability_score')),
+                    ('Professionalism', interview_data.get('professionalism_score')),
+                    ('Communication', interview_data.get('communication_score')),
+                    ('Technical', interview_data.get('technical_score')),
+                    ('Growth', interview_data.get('growth_potential_score')),
+                ]
+                valid_scores = [(name, score) for name, score in scores if score is not None]
+                if valid_scores:
+                    html += '        <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">\n'
+                    for name, score in valid_scores:
+                        score_color = '#38a169' if score >= 4 else '#d69e2e' if score >= 3 else '#c53030'
+                        html += f'            <div style="background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 10px; text-align: center;"><span style="font-weight: 600; color: {score_color};">{score}/5</span> <span style="font-size: 9px; color: #718096;">{name}</span></div>\n'
+                    html += '        </div>\n'
+
+                # Strengths and weaknesses side by side
+                strengths = interview_data.get('strengths', [])
+                weaknesses = interview_data.get('weaknesses', [])
+                if strengths or weaknesses:
+                    html += '        <div style="display: flex; gap: 15px; margin-bottom: 12px;">\n'
+                    if strengths:
+                        html += '            <div style="flex: 1;">\n'
+                        html += '                <div style="font-size: 10px; font-weight: 600; color: #276749; margin-bottom: 5px;">✓ STRENGTHS</div>\n'
+                        for s in strengths[:4]:
+                            html += f'                <div style="background: #f0fff4; padding: 5px 8px; margin-bottom: 3px; border-radius: 3px; font-size: 10px; color: #276749;">{s}</div>\n'
+                        html += '            </div>\n'
+                    if weaknesses:
+                        html += '            <div style="flex: 1;">\n'
+                        html += '                <div style="font-size: 10px; font-weight: 600; color: #c05621; margin-bottom: 5px;">⚠ AREAS OF CONCERN</div>\n'
+                        for w in weaknesses[:4]:
+                            html += f'                <div style="background: #fffaf0; padding: 5px 8px; margin-bottom: 3px; border-radius: 3px; font-size: 10px; color: #c05621;">{w}</div>\n'
+                        html += '            </div>\n'
+                    html += '        </div>\n'
+
+                # Red flags
+                red_flags = interview_data.get('red_flags', [])
+                if red_flags:
+                    html += '        <div style="margin-bottom: 12px;">\n'
+                    html += '            <div style="font-size: 10px; font-weight: 600; color: #c53030; margin-bottom: 5px;">🚩 RED FLAGS</div>\n'
+                    for rf in red_flags[:3]:
+                        html += f'            <div style="background: #fff5f5; border-left: 3px solid #c53030; padding: 5px 8px; margin-bottom: 3px; font-size: 10px; color: #9b2c2c;">{rf}</div>\n'
+                    html += '        </div>\n'
+
+                # Summary
+                html += f'''
+        <div style="margin-top: 10px;">
+            <div style="font-size: 10px; font-weight: 600; color: #4a5568; margin-bottom: 5px;">SUMMARY</div>
+            <div style="font-size: 10px; line-height: 1.5; color: #4a5568;">{interview_summary_html}</div>
+        </div>
     </div>
 '''
                 # Interview Transcript
