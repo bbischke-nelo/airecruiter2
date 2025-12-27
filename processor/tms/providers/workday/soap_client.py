@@ -1173,25 +1173,13 @@ class WorkdaySOAPClient:
 
         # Build the Move_Candidate SOAP request manually
         # The structure is based on Workday Recruiting v42+ API
-        # Note: Job_Application_Reference goes INSIDE Move_Candidate_Data
+        # Dispositions use Dynamic_Business_Process_Parameters, not direct Disposition_Reference
         wd = "wd"
 
         if stage_id:
             # Moving to a new stage (advancing)
-            stage_disposition = f"""
-              <{wd}:Recruiting_Stage_Reference>
-                <{wd}:ID {wd}:type="Recruiting_Stage_ID">{stage_id}</{wd}:ID>
-              </{wd}:Recruiting_Stage_Reference>
-            """
-        else:
-            # Moving to disposition (rejecting)
-            stage_disposition = f"""
-              <{wd}:Disposition_Reference>
-                <{wd}:ID {wd}:type="Disposition_ID">{disposition_id}</{wd}:ID>
-              </{wd}:Disposition_Reference>
-            """
-
-        xml = f'''<?xml version="1.0" encoding="utf-8"?>
+            # Stage reference goes directly in Move_Candidate_Data
+            xml = f'''<?xml version="1.0" encoding="utf-8"?>
 <soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
   <soap-env:Body>
     <{wd}:Move_Candidate_Request xmlns:{wd}="urn:com.workday/bsvc" {wd}:version="{self.config.api_version}">
@@ -1199,7 +1187,29 @@ class WorkdaySOAPClient:
         <{wd}:Job_Application_Reference>
           <{wd}:ID {wd}:type="Job_Application_ID">{application_id}</{wd}:ID>
         </{wd}:Job_Application_Reference>
-        {stage_disposition}
+        <{wd}:Recruiting_Stage_Reference>
+          <{wd}:ID {wd}:type="Recruiting_Stage_ID">{stage_id}</{wd}:ID>
+        </{wd}:Recruiting_Stage_Reference>
+      </{wd}:Move_Candidate_Data>
+    </{wd}:Move_Candidate_Request>
+  </soap-env:Body>
+</soap-env:Envelope>'''
+        else:
+            # Moving to disposition (rejecting)
+            # Disposition uses Dynamic_Business_Process_Parameters with Disposition_Step_Reference
+            xml = f'''<?xml version="1.0" encoding="utf-8"?>
+<soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap-env:Body>
+    <{wd}:Move_Candidate_Request xmlns:{wd}="urn:com.workday/bsvc" {wd}:version="{self.config.api_version}">
+      <{wd}:Move_Candidate_Data>
+        <{wd}:Job_Application_Reference>
+          <{wd}:ID {wd}:type="Job_Application_ID">{application_id}</{wd}:ID>
+        </{wd}:Job_Application_Reference>
+        <{wd}:Dynamic_Business_Process_Parameters>
+          <{wd}:Disposition_Step_Reference>
+            <{wd}:ID {wd}:type="Disposition_ID">{disposition_id}</{wd}:ID>
+          </{wd}:Disposition_Step_Reference>
+        </{wd}:Dynamic_Business_Process_Parameters>
       </{wd}:Move_Candidate_Data>
     </{wd}:Move_Candidate_Request>
   </soap-env:Body>

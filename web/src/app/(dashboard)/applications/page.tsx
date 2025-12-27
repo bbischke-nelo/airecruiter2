@@ -117,6 +117,9 @@ const statusLabels: Record<string, string> = {
 // Statuses that need human attention
 const REVIEW_STATUSES = ['ready_for_review', 'interview_ready_for_review'];
 
+// Terminal statuses (not "active")
+const TERMINAL_STATUSES = ['rejected', 'advanced', 'live_interview_pending'];
+
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 // Format months to human-readable years/months
@@ -142,9 +145,9 @@ export default function ApplicationsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Filter state
+  // Filter state - default to 'active' which excludes terminal statuses
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<string>('');
+  const [status, setStatus] = useState<string>('active');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
 
@@ -171,7 +174,12 @@ export default function ApplicationsPage() {
     params.set('page', page.toString());
     params.set('per_page', perPage.toString());
     if (debouncedSearch) params.set('search', debouncedSearch);
-    if (status) params.set('status', status);
+    // Handle "active" as a special filter that excludes terminal statuses
+    if (status === 'active') {
+      params.set('exclude_statuses', TERMINAL_STATUSES.join(','));
+    } else if (status && status !== 'all') {
+      params.set('status', status);
+    }
     if (sortBy) {
       params.set('sort_by', sortBy);
       params.set('sort_order', sortOrder);
@@ -217,7 +225,7 @@ export default function ApplicationsPage() {
   };
 
   const handleStatusChange = (value: string) => {
-    setStatus(value === 'all' ? '' : value);
+    setStatus(value);
     setPage(1);
   };
 
@@ -336,11 +344,12 @@ export default function ApplicationsPage() {
             className="pl-10"
           />
         </div>
-        <Select value={status || 'all'} onValueChange={handleStatusChange}>
+        <Select value={status} onValueChange={handleStatusChange}>
           <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="All Statuses" />
+            <SelectValue placeholder="Active" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="active">Active (excludes rejected)</SelectItem>
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="ready_for_review">Ready for Review</SelectItem>
             <SelectItem value="interview_ready_for_review">Interview Ready</SelectItem>

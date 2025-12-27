@@ -80,6 +80,7 @@ async def list_applications(
     per_page: int = Query(20, ge=1, le=100),
     requisition_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
+    exclude_statuses: Optional[str] = Query(None, description="Comma-separated statuses to exclude"),
     search: Optional[str] = Query(None),
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
@@ -95,6 +96,10 @@ async def list_applications(
         query = query.filter(Application.requisition_id == requisition_id)
     if status:
         query = query.filter(Application.status == status)
+    if exclude_statuses:
+        excluded = [s.strip() for s in exclude_statuses.split(",") if s.strip()]
+        if excluded:
+            query = query.filter(~Application.status.in_(excluded))
     if search:
         # Escape SQL wildcards to prevent unexpected search behavior
         escaped_search = search.replace("%", r"\%").replace("_", r"\_")
