@@ -55,9 +55,9 @@ def generate_interview_email_preview(
     # Get first name for more personal greeting
     first_name = candidate_name.split()[0] if candidate_name else "there"
 
-    # Default to CCFS logo from recruiter app (white version for red header)
+    # Default to CCFS logo from recruiter app
     if not logo_url:
-        logo_url = "https://admin.ccfs.com/recruiter2/logo-white.png"
+        logo_url = "https://admin.ccfs.com/recruiter2/logo-primary.png"
 
     html_body = f"""
 <!DOCTYPE html>
@@ -77,11 +77,8 @@ def generate_interview_email_preview(
 
                     <!-- Header with logo/branding -->
                     <tr>
-                        <td style="background: linear-gradient(135deg, {CCFS_RED} 0%, {CCFS_RED_DARK} 100%); padding: 30px 40px; text-align: center; border-radius: 12px 12px 0 0;">
-                            <img src="{logo_url}" alt="{company_name}" style="max-width: 280px; height: auto; margin-bottom: 12px;" />
-                            <p style="color: #ffffff; margin: 8px 0 0 0; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">
-                                Talent Acquisition
-                            </p>
+                        <td style="border-top: 4px solid {CCFS_RED}; background-color: #ffffff; padding: 30px 40px; text-align: center; border-radius: 12px 12px 0 0;">
+                            <img src="{logo_url}" alt="{company_name}" style="max-width: 260px; height: auto;" />
                         </td>
                     </tr>
 
@@ -181,7 +178,7 @@ def generate_interview_email_preview(
                                 Questions? We're here to help make this process as smooth as possible.
                             </p>
                             <p style="font-size: 13px; color: #666666; margin: 0 0 20px 0; padding: 10px; background-color: #fafafa; border-radius: 4px;">
-                                <strong>Need an accommodation?</strong> If you require a reasonable accommodation to complete this interview due to a disability, please contact us and we'll be happy to assist.
+                                <strong>Need an accommodation?</strong> If you require a reasonable accommodation to complete this interview due to a disability, please contact us at <a href="mailto:jobs@ccfs.com" style="color: {CCFS_BLUE};">jobs@ccfs.com</a> or call <strong>(800) 521-0287</strong> and we'll be happy to assist.
                             </p>
 
                             <!-- Signature -->
@@ -190,7 +187,8 @@ def generate_interview_email_preview(
                             </p>
                             <p style="font-size: 15px; color: #333333; margin: 5px 0 0 0;">
                                 <strong>{recruiter_name or "The Talent Team"}</strong><br>
-                                <span style="color: #666666; font-size: 14px;">{company_name}</span>
+                                <span style="color: #666666; font-size: 14px;">{company_name}</span><br>
+                                <span style="color: #666666; font-size: 13px;"><a href="mailto:jobs@ccfs.com" style="color: {CCFS_BLUE};">jobs@ccfs.com</a> &bull; (800) 521-0287</span>
                             </p>
                         </td>
                     </tr>

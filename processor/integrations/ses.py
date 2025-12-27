@@ -168,7 +168,7 @@ class SESService:
 
         # Default logo URL - use CCFS recruiter app
         if not logo_url:
-            logo_url = "https://admin.ccfs.com/recruiter2/logo-white.png"
+            logo_url = "https://admin.ccfs.com/recruiter2/logo-primary.png"
 
         # Template variables
         template_vars = {

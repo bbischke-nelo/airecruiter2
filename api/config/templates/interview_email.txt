@@ -18,8 +18,9 @@ This link is valid for {{expires_in_days}} days.
 
 What happens next? After you complete the interview, our team will review your responses and reach out about next steps within a few business days.
 
-Need an accommodation? If you require a reasonable accommodation to complete this interview due to a disability, please contact us and we'll be happy to assist.
+Need an accommodation? If you require a reasonable accommodation to complete this interview due to a disability, please contact us at jobs@ccfs.com or call (800) 521-0287 and we'll be happy to assist.
 
 Looking forward to connecting with you,
 {{recruiter_name}}
 {{company_name}}
+jobs@ccfs.com | (800) 521-0287
