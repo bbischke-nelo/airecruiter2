@@ -981,7 +981,7 @@ async def activate_interview(
     if data.method == "email":
         # Send email via SES
         try:
-            from processor.integrations.ses import SESService
+            from api.integrations.ses import SESService
 
             ses = SESService()
             recruiter_email = None
