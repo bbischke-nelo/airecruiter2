@@ -65,7 +65,7 @@ class Settings(BaseSettings):
 
     # AWS SES
     SES_FROM_EMAIL: str = "jobs@ccfs.com"
-    SES_FROM_NAME: str = "CrossCountry Freight Solutions"
+    SES_FROM_NAME: str = "CCFS Talent Team"
     SES_REGION: str = "us-east-1"
 
     # Frontend URL (for interview links)
