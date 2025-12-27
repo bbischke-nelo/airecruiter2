@@ -198,10 +198,13 @@ def generate_interview_email_preview(
                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                                 <tr>
                                     <td style="text-align: center;">
-                                        <p style="font-size: 12px; color: #888888; margin: 0 0 8px 0;">
-                                            This is an automated message from our recruiting system.
+                                        <p style="font-size: 12px; color: #555555; margin: 0 0 12px 0;">
+                                            <strong>Important:</strong> This interview uses artificial intelligence (AI) technology. Your responses will be recorded and reviewed as part of our hiring process.
                                         </p>
-                                        <p style="font-size: 12px; color: #888888; margin: 0;">
+                                        <p style="font-size: 11px; color: #888888; margin: 0 0 12px 0;">
+                                            {company_name} is an equal opportunity employer. We do not discriminate based on race, color, religion, sex, national origin, age, disability, veteran status, sexual orientation, gender identity, or any other protected characteristic.
+                                        </p>
+                                        <p style="font-size: 12px; color: #888888; margin: 0 0 8px 0;">
                                             Having trouble with the link? Copy and paste this URL into your browser:<br>
                                             <a href="{interview_url}" style="color: {CCFS_BLUE}; word-break: break-all; font-size: 11px;">{interview_url}</a>
                                         </p>

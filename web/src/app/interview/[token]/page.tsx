@@ -379,6 +379,13 @@ export default function InterviewPage() {
         <p className="text-xs text-center text-muted-foreground mt-2 hidden sm:block">
           Press Enter to send, Shift+Enter for new line
         </p>
+        {/* Compliance disclosures */}
+        <div className="max-w-3xl mx-auto mt-3 pt-3 border-t border-gray-100">
+          <p className="text-[10px] text-muted-foreground text-center leading-relaxed">
+            This interview uses artificial intelligence (AI) technology. Your responses are recorded and reviewed as part of our hiring process.
+            CrossCountry Freight Solutions is an equal opportunity employer.
+          </p>
+        </div>
       </div>
     </div>
   );

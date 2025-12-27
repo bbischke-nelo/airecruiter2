@@ -137,6 +137,8 @@ def substitute_prompt_variables(template: str, interview: Interview, db: Session
     # Opening script
     opening_script = f"""Hi {interview.application.candidate_name.split()[0]}! Thanks for taking the time to chat with me about the {interview.application.requisition.name} position. I'm an AI assistant helping with initial screening interviews.
 
+Before we begin, just so you know: your responses will be recorded and reviewed as part of our hiring process.
+
 This should take about 15-20 minutes. I'll ask you some questions about your background and experience. Ready to get started?"""
 
     # Build substitution dictionary

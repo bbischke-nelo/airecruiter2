@@ -22,3 +22,9 @@ Looking forward to connecting with you,
 {{recruiter_name}}
 {{company_name}}
 jobs@ccfs.com | (800) 521-0287
+
+---
+
+Important: This interview uses artificial intelligence (AI) technology. Your responses will be recorded and reviewed as part of our hiring process.
+
+{{company_name}} is an equal opportunity employer. We do not discriminate based on race, color, religion, sex, national origin, age, disability, veteran status, sexual orientation, gender identity, or any other protected characteristic.
