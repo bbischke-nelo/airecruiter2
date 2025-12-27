@@ -128,6 +128,7 @@ class WorkdayProvider(TMSProvider):
         requisition_external_id: str,
         since: Optional[datetime] = None,
         wid: Optional[str] = None,
+        enrich_profiles: bool = True,
     ) -> List[TMSApplication]:
         """Fetch applications for a requisition.
 
@@ -135,6 +136,7 @@ class WorkdayProvider(TMSProvider):
             requisition_external_id: The Job_Requisition_ID
             since: Only return applications after this date
             wid: Optional Workday ID (WID) - preferred for Get_Candidates query
+            enrich_profiles: If True, fetch additional profile data using Get_Applicants
         """
         page = 1
         count = 100
@@ -164,6 +166,21 @@ class WorkdayProvider(TMSProvider):
                 # Filter by since date if provided
                 if since and applied_at and applied_at < since:
                     continue
+
+                # Try to enrich with profile data from Get_Applicants if enabled and missing data
+                # Note: Get_Applicants only works for pre-hires (candidates who have been
+                # advanced to applicant status). For regular candidates, profile data
+                # must come from resume extraction in the extract_facts processor.
+                if enrich_profiles and raw.get("external_candidate_id"):
+                    # Only try to enrich if we're missing key profile fields
+                    if not raw.get("phone_number") and not raw.get("work_history"):
+                        profile = await self._client.get_applicant_profile(raw["external_candidate_id"])
+                        if profile:
+                            # Merge profile data into raw, preferring existing values
+                            for key in ["phone_number", "secondary_email", "city", "state",
+                                        "work_history", "education", "skills"]:
+                                if profile.get(key) and not raw.get(key):
+                                    raw[key] = profile[key]
 
                 app = TMSApplication(
                     external_application_id=raw.get("external_application_id", ""),
@@ -200,6 +217,21 @@ class WorkdayProvider(TMSProvider):
             count=len(all_applications),
         )
         return all_applications
+
+    async def get_applicant_profile(self, candidate_external_id: str) -> Optional[dict]:
+        """Fetch detailed profile data for a candidate.
+
+        Uses Get_Applicants API which has richer Response_Group options than
+        Get_Candidates, including personal info (phone, address) and
+        qualification profile (work experience, education, skills).
+
+        Args:
+            candidate_external_id: The Candidate_ID
+
+        Returns:
+            Dictionary with profile data or None
+        """
+        return await self._client.get_applicant_profile(candidate_external_id)
 
     async def get_resume(
         self,

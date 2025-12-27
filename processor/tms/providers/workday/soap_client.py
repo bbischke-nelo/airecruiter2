@@ -293,6 +293,214 @@ class WorkdaySOAPClient:
         logger.info("Fetched candidates", count=len(applications))
         return applications
 
+    async def get_applicant_profile(
+        self,
+        candidate_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Fetch detailed applicant profile using Get_Applicants API.
+
+        Get_Applicants has richer Response_Group options than Get_Candidates,
+        including personal info (phone, address) and qualification profile
+        (work experience, education, skills).
+
+        Args:
+            candidate_id: The Candidate_ID (not WID)
+
+        Returns:
+            Dictionary with profile data or None if not found
+        """
+        logger.info("Fetching applicant profile", candidate_id=candidate_id)
+
+        params = {
+            "Request_References": {
+                "Applicant_Reference": [
+                    {"ID": [{"type": ID_TYPE_CANDIDATE, "_value_1": candidate_id}]}
+                ]
+            },
+            "Response_Group": {
+                "Include_Reference": True,
+                "Include_Personal_Information": True,
+                "Include_Qualification_Profile": True,
+            },
+        }
+
+        try:
+            response = await self._call_service("Get_Applicants", params)
+        except Exception as e:
+            # Get_Applicants may fail if candidate is not an applicant
+            logger.warning(
+                "Get_Applicants failed, candidate may not be an applicant",
+                candidate_id=candidate_id,
+                error=str(e),
+            )
+            return None
+
+        if not response or not hasattr(response, "Response_Data") or not response.Response_Data:
+            return None
+
+        applicants = getattr(response.Response_Data, "Applicant", None) or []
+        if not applicants:
+            return None
+
+        applicant = applicants[0] if isinstance(applicants, list) else applicants
+        return self._parse_applicant_profile(applicant)
+
+    def _parse_applicant_profile(self, applicant: Any) -> Dict[str, Any]:
+        """Parse applicant profile data from Get_Applicants response."""
+        data = {}
+
+        # Get Applicant_Data (Pre-Hire_Data_WWSType in WSDL)
+        app_data = getattr(applicant, "Applicant_Data", None)
+        if not app_data:
+            return data
+
+        # Parse Personal_Data for contact info
+        personal = getattr(app_data, "Personal_Data", None)
+        if personal:
+            # Contact Data
+            contact = getattr(personal, "Contact_Data", None)
+            if contact:
+                # Phone numbers
+                phone_list = getattr(contact, "Phone_Data", None)
+                if phone_list:
+                    if not isinstance(phone_list, list):
+                        phone_list = [phone_list]
+                    for phone in phone_list:
+                        phone_num = (
+                            getattr(phone, "Phone_Number", None) or
+                            getattr(phone, "Complete_Phone_Number", None) or
+                            getattr(phone, "Formatted_Phone", None)
+                        )
+                        if phone_num:
+                            data["phone_number"] = str(phone_num)
+                            break
+
+                # Email addresses (may have multiple)
+                email_list = getattr(contact, "Email_Address_Data", None)
+                if email_list:
+                    if not isinstance(email_list, list):
+                        email_list = [email_list]
+                    emails = []
+                    for email_item in email_list:
+                        email_addr = getattr(email_item, "Email_Address", None)
+                        if email_addr:
+                            emails.append(email_addr)
+                    if emails:
+                        data["primary_email"] = emails[0]
+                        if len(emails) > 1:
+                            data["secondary_email"] = emails[1]
+
+                # Address data
+                addr_list = getattr(contact, "Address_Data", None)
+                if addr_list:
+                    if not isinstance(addr_list, list):
+                        addr_list = [addr_list]
+                    for addr in addr_list:
+                        # City
+                        city = getattr(addr, "Municipality", None) or getattr(addr, "City_Subdivision_1", None)
+                        if city:
+                            data["city"] = city
+
+                        # State/Region
+                        region = getattr(addr, "Country_Region_Descriptor", None)
+                        if not region:
+                            region_ref = getattr(addr, "Region_Reference", None) or getattr(addr, "Country_Region_Reference", None)
+                            if region_ref:
+                                region = getattr(region_ref, "Descriptor", None)
+                        if region:
+                            data["state"] = region
+
+                        if data.get("city") or data.get("state"):
+                            break
+
+        # Parse Qualification_Data for work history, education, skills
+        qual = getattr(app_data, "Qualification_Data", None)
+        if qual:
+            # Work Experience
+            work_exp = getattr(qual, "Experience", None) or getattr(qual, "Work_Experience", None)
+            if work_exp:
+                if not isinstance(work_exp, list):
+                    work_exp = [work_exp]
+                work_history = []
+                for job in work_exp[:10]:
+                    job_entry = {}
+                    job_entry["company"] = (
+                        getattr(job, "Company_Name", None) or
+                        getattr(job, "Company", None) or
+                        getattr(job, "Employer", None)
+                    )
+                    job_entry["title"] = (
+                        getattr(job, "Job_Title", None) or
+                        getattr(job, "Title", None) or
+                        getattr(job, "Position", None)
+                    )
+                    start_year = getattr(job, "Start_Year", None)
+                    start_month = getattr(job, "Start_Month", None)
+                    if start_year:
+                        job_entry["start_date"] = f"{start_year}-{start_month or 1:02d}-01"
+                    end_year = getattr(job, "End_Year", None)
+                    end_month = getattr(job, "End_Month", None)
+                    if end_year:
+                        job_entry["end_date"] = f"{end_year}-{end_month or 1:02d}-01"
+                    job_entry["description"] = getattr(job, "Responsibilities", None) or getattr(job, "Description", None)
+                    if job_entry.get("company") or job_entry.get("title"):
+                        work_history.append(job_entry)
+                if work_history:
+                    data["work_history"] = work_history
+
+            # Education
+            edu_data = getattr(qual, "Education", None)
+            if edu_data:
+                if not isinstance(edu_data, list):
+                    edu_data = [edu_data]
+                education = []
+                for edu in edu_data[:5]:
+                    edu_entry = {}
+                    edu_entry["school"] = getattr(edu, "School_Name", None) or getattr(edu, "School", None)
+                    edu_entry["degree"] = getattr(edu, "Degree", None)
+                    degree_ref = getattr(edu, "Degree_Reference", None)
+                    if degree_ref and not edu_entry.get("degree"):
+                        edu_entry["degree"] = getattr(degree_ref, "Descriptor", None)
+                    edu_entry["field"] = getattr(edu, "Field_Of_Study", None) or getattr(edu, "Major", None)
+                    grad_year = getattr(edu, "Graduation_Year", None) or getattr(edu, "Last_Year_Attended", None)
+                    if grad_year:
+                        edu_entry["graduation_date"] = f"{grad_year}-01-01"
+                    if edu_entry.get("school") or edu_entry.get("degree"):
+                        education.append(edu_entry)
+                if education:
+                    data["education"] = education
+
+            # Skills/Competencies
+            skills_data = getattr(qual, "Competency", None) or getattr(qual, "Skills", None)
+            if skills_data:
+                if not isinstance(skills_data, list):
+                    skills_data = [skills_data]
+                skills = []
+                for skill in skills_data[:20]:
+                    skill_name = (
+                        getattr(skill, "Competency_Descriptor", None) or
+                        getattr(skill, "Skill_Descriptor", None) or
+                        getattr(skill, "Name", None)
+                    )
+                    if not skill_name:
+                        skill_ref = getattr(skill, "Competency_Reference", None) or getattr(skill, "Skill_Reference", None)
+                        if skill_ref:
+                            skill_name = getattr(skill_ref, "Descriptor", None)
+                    if skill_name:
+                        skills.append(skill_name)
+                if skills:
+                    data["skills"] = skills
+
+        logger.info(
+            "Parsed applicant profile",
+            has_phone=bool(data.get("phone_number")),
+            has_city=bool(data.get("city")),
+            has_work_history=bool(data.get("work_history")),
+            has_education=bool(data.get("education")),
+            has_skills=bool(data.get("skills")),
+        )
+        return data
+
     def _parse_candidate(
         self, candidate: Any, requisition_id: str, requisition_wid: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
