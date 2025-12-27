@@ -19,7 +19,7 @@ class Activity(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     # What happened
-    # status_changed, interview_sent, report_uploaded, human_requested, etc.
+    # status_changed, interview_sent, interview_completed, report_uploaded, etc.
     action = Column(String(100), nullable=False)
 
     # Context

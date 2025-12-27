@@ -59,14 +59,13 @@ This collects useful data for the hiring manager. Note their questions - they re
 
 Then close with a friendly goodbye.
 
-## IMPORTANT: Closing Tags
+## IMPORTANT: Closing Tag
 
-When ending the interview, you MUST include one of these tags on its own line at the end of your message:
+When ending the interview, you MUST include this tag on its own line at the end of your message:
 
 - `[INTERVIEW_COMPLETE]` - Use when the interview finishes normally
-- `[HUMAN_REQUESTED]` - Use when the candidate asks to speak with a human recruiter instead
 
-The system reads these tags to handle the interview appropriately.
+The system reads this tag to handle the interview appropriately.
 
 ---
 

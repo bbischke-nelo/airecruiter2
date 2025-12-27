@@ -230,8 +230,8 @@ async def interview_websocket(websocket: WebSocket, token: str):
     - Client sends: {"type": "end"} to end interview
     - Server sends: {"type": "completed"} when interview ends
 
-    The AI will include [INTERVIEW_COMPLETE] or [HUMAN_REQUESTED] tags when appropriate.
-    These tags are stripped before sending to the client.
+    The AI will include [INTERVIEW_COMPLETE] tag when the interview ends.
+    This tag is stripped before sending to the client.
     """
     db = SessionLocal()
 
