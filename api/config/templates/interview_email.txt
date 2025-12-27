@@ -1,8 +1,8 @@
 Hi {{first_name}},
 
-We received your application for the {{position}} role and we're interested. We'd like to move forward.
+We received your application for the {{position}} role and are ready to move forward.
 
-At CCFS, we respect that your time is money. Instead of making you wait for a recruiter to call, you can complete your initial interview right now - on your phone, whenever works for you.
+At CCFS, we respect that your time is money. This lets you skip the phone screen and move your application forward today - no waiting for callbacks, no scheduling. Complete it on your phone whenever works for you.
 
 How it works:
 1. Click the link below (works on any phone or computer)
