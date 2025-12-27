@@ -200,6 +200,11 @@ async def generate_claude_response(
     try:
         client = ClaudeClient()
 
+        # Claude requires at least one user message
+        # If no messages, ask for an opening greeting
+        if not messages:
+            messages = [{"role": "user", "content": "Please begin the interview with your opening greeting."}]
+
         # Use the messages API with system prompt
         response = client.client.messages.create(
             model=client.model,
