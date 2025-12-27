@@ -25,11 +25,11 @@ class SESService:
             from_email: Override sender email (defaults to settings.SES_FROM_EMAIL)
             from_name: Override sender name (defaults to settings.SES_FROM_NAME)
         """
-        # Explicitly pass credentials if configured
+        # Explicitly pass SES-specific credentials if configured
         client_kwargs = {"region_name": settings.SES_REGION}
-        if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
-            client_kwargs["aws_access_key_id"] = settings.AWS_ACCESS_KEY_ID
-            client_kwargs["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
+        if settings.SES_ACCESS_KEY_ID and settings.SES_SECRET_ACCESS_KEY:
+            client_kwargs["aws_access_key_id"] = settings.SES_ACCESS_KEY_ID
+            client_kwargs["aws_secret_access_key"] = settings.SES_SECRET_ACCESS_KEY
 
         self.client = boto3.client("ses", **client_kwargs)
         self.from_email = from_email or settings.SES_FROM_EMAIL

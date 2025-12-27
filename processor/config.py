@@ -46,15 +46,19 @@ class ProcessorSettings(BaseSettings):
     CLAUDE_MODEL: str = "claude-sonnet-4-5-20250929"
     CLAUDE_MAX_TOKENS: int = 16384
 
-    # S3
+    # S3 (separate credentials)
     S3_BUCKET: str = "airecruiter-artifacts"
-    S3_REGION: str = "us-east-1"
+    S3_REGION: str = "us-west-2"
     S3_PREFIX: str = "v2/"
+    S3_ACCESS_KEY_ID: Optional[str] = None
+    S3_SECRET_ACCESS_KEY: Optional[str] = None
 
-    # Email (SES)
+    # Email (SES - separate credentials)
     SES_FROM_EMAIL: str = "noreply@example.com"
     SES_FROM_NAME: str = "AIRecruiter"
-    SES_REGION: str = "us-east-1"
+    SES_REGION: str = "us-west-2"
+    SES_ACCESS_KEY_ID: Optional[str] = None
+    SES_SECRET_ACCESS_KEY: Optional[str] = None
 
     # Frontend
     FRONTEND_URL: str = "http://localhost:3000"

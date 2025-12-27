@@ -122,7 +122,7 @@ async def detailed_health_check(
         "s3": {
             "bucket": settings.S3_BUCKET,
             "prefix": settings.S3_PREFIX,
-            "region": settings.AWS_REGION,
+            "region": settings.S3_REGION,
         },
         "ses": {
             "from_email": settings.SES_FROM_EMAIL,

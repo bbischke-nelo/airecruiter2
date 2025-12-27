@@ -13,8 +13,12 @@ class S3Service:
     """Service for S3 presigned URL operations."""
 
     def __init__(self):
-        """Initialize S3 client."""
-        self.client = boto3.client("s3", region_name=settings.AWS_REGION)
+        """Initialize S3 client with S3-specific credentials."""
+        client_kwargs = {"region_name": settings.S3_REGION}
+        if settings.S3_ACCESS_KEY_ID and settings.S3_SECRET_ACCESS_KEY:
+            client_kwargs["aws_access_key_id"] = settings.S3_ACCESS_KEY_ID
+            client_kwargs["aws_secret_access_key"] = settings.S3_SECRET_ACCESS_KEY
+        self.client = boto3.client("s3", **client_kwargs)
         self.bucket = settings.S3_BUCKET
 
     async def get_presigned_url(

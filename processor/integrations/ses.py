@@ -22,12 +22,16 @@ class SESService:
     """Service for sending emails via AWS SES."""
 
     def __init__(self, db: Optional[Session] = None):
-        """Initialize SES client.
+        """Initialize SES client with SES-specific credentials.
 
         Args:
             db: Optional database session for fetching email templates
         """
-        self.client = boto3.client("ses", region_name=settings.SES_REGION)
+        client_kwargs = {"region_name": settings.SES_REGION}
+        if settings.SES_ACCESS_KEY_ID and settings.SES_SECRET_ACCESS_KEY:
+            client_kwargs["aws_access_key_id"] = settings.SES_ACCESS_KEY_ID
+            client_kwargs["aws_secret_access_key"] = settings.SES_SECRET_ACCESS_KEY
+        self.client = boto3.client("ses", **client_kwargs)
         self.from_email = settings.SES_FROM_EMAIL
         self.from_name = settings.SES_FROM_NAME
         self.db = db

@@ -56,17 +56,19 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     CLAUDE_MODEL: str = "claude-sonnet-4-5-20250929"
 
-    # AWS S3
+    # AWS S3 (separate credentials)
     S3_BUCKET: str = "airecruiter-artifacts"
     S3_PREFIX: str = "airecruiter2"
-    AWS_REGION: str = "us-west-2"
-    AWS_ACCESS_KEY_ID: Optional[str] = None
-    AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    S3_REGION: str = "us-west-2"
+    S3_ACCESS_KEY_ID: Optional[str] = None
+    S3_SECRET_ACCESS_KEY: Optional[str] = None
 
-    # AWS SES
+    # AWS SES (separate credentials)
     SES_FROM_EMAIL: str = "jobs@ccfs.com"
     SES_FROM_NAME: str = "CCFS Talent Team"
     SES_REGION: str = "us-west-2"
+    SES_ACCESS_KEY_ID: Optional[str] = None
+    SES_SECRET_ACCESS_KEY: Optional[str] = None
 
     # Frontend URL (for interview links)
     FRONTEND_URL: str = "http://localhost:3000"
