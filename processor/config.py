@@ -24,7 +24,7 @@ class ProcessorSettings(BaseSettings):
     REQUISITION_SYNC_INTERVAL: int = 60  # Minutes between full requisition syncs
 
     # Queue/Worker
-    QUEUE_MAX_CONCURRENCY: int = 3  # Parallel job limit
+    QUEUE_MAX_CONCURRENCY: int = 10  # Parallel job limit
     QUEUE_MAX_ATTEMPTS: int = 3  # Default retry limit
     QUEUE_POLL_INTERVAL: int = 5  # Seconds between queue checks when idle
     QUEUE_RETRY_BASE_DELAY: int = 30  # Base delay for exponential backoff (seconds)
