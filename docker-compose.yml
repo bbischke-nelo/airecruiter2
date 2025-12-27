@@ -29,13 +29,16 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}
       - CLAUDE_MAX_TOKENS=${CLAUDE_MAX_TOKENS:-16384}
-      # AWS
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION:-us-west-2}
+      # S3 (separate credentials)
       - S3_BUCKET=${S3_BUCKET}
+      - S3_REGION=${S3_REGION:-us-west-2}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+      # SES (separate credentials)
       - SES_FROM_EMAIL=${SES_FROM_EMAIL:-jobs@ccfs.com}
       - SES_REGION=${SES_REGION:-us-west-2}
+      - SES_ACCESS_KEY_ID=${SES_ACCESS_KEY_ID}
+      - SES_SECRET_ACCESS_KEY=${SES_SECRET_ACCESS_KEY}
       # Frontend URL for email links
       - FRONTEND_URL=${FRONTEND_URL:-https://admin.ccfs.com/recruiter2}
       # Encryption
@@ -110,13 +113,16 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}
       - CLAUDE_MAX_TOKENS=${CLAUDE_MAX_TOKENS:-16384}
-      # AWS
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION:-us-west-2}
+      # S3 (separate credentials)
       - S3_BUCKET=${S3_BUCKET}
+      - S3_REGION=${S3_REGION:-us-west-2}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+      # SES (separate credentials)
       - SES_FROM_EMAIL=${SES_FROM_EMAIL:-jobs@ccfs.com}
       - SES_REGION=${SES_REGION:-us-west-2}
+      - SES_ACCESS_KEY_ID=${SES_ACCESS_KEY_ID}
+      - SES_SECRET_ACCESS_KEY=${SES_SECRET_ACCESS_KEY}
       # Frontend URL for email links
       - FRONTEND_URL=${FRONTEND_URL:-https://admin.ccfs.com/recruiter2}
       # Encryption
