@@ -145,7 +145,7 @@ export function SendInterviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[800px]">
         <DialogHeader>
           <DialogTitle>Send AI Interview</DialogTitle>
           <DialogDescription>
@@ -278,7 +278,7 @@ export function SendInterviewModal({
                         <span className="text-gray-500">Subject:</span>{' '}
                         {preparedData.emailPreview.subject}
                       </p>
-                      <div className="mt-4 pt-4 border-t border-gray-200 max-h-[300px] overflow-y-auto">
+                      <div className="mt-4 pt-4 border-t border-gray-200 max-h-[450px] overflow-y-auto">
                         <div
                           className="prose prose-sm max-w-none"
                           dangerouslySetInnerHTML={{
