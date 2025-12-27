@@ -35,6 +35,7 @@ async def list_interviews(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
+    application_id: Optional[int] = Query(None),
     requisition_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
     date_from: Optional[str] = Query(None),
@@ -45,6 +46,8 @@ async def list_interviews(
     query = db.query(Interview).join(Application).join(Requisition)
 
     # Filters
+    if application_id:
+        query = query.filter(Interview.application_id == application_id)
     if requisition_id:
         query = query.filter(Application.requisition_id == requisition_id)
     if status:

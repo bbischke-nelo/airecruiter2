@@ -151,9 +151,30 @@ interface InterviewData {
 interface EvaluationData {
   id: number;
   interviewId: number;
+  // Scores (1-5 scale, overall is 0-100)
+  reliabilityScore: number | null;
+  accountabilityScore: number | null;
+  professionalismScore: number | null;
+  communicationScore: number | null;
+  technicalScore: number | null;
+  growthPotentialScore: number | null;
+  overallScore: number | null;
+  // Summary and lists
   summary: string | null;
+  strengths: string[];
+  weaknesses: string[];
+  redFlags: string[];
   interviewHighlights: string[];
+  // Assessment fields
+  characterPassed: boolean | null;
+  retentionRisk: string | null;
+  authenticityAssessment: string | null;
+  readiness: string | null;
+  // Recommendation
+  recommendation: string | null;
   nextInterviewFocus: string[];
+  modelVersion: string | null;
+  createdAt: string;
 }
 
 interface TranscriptMessage {
@@ -985,6 +1006,96 @@ export function ApplicationDrawer({
                               {/* Evaluation Summary */}
                               {ivData.evaluation && (
                                 <>
+                                  {/* Overall Score & Recommendation */}
+                                  <div className="p-4 rounded-lg border">
+                                    <div className="flex items-center justify-between mb-4">
+                                      <div>
+                                        <div className="text-sm text-muted-foreground">Overall Score</div>
+                                        <div className="text-3xl font-bold">
+                                          {ivData.evaluation.overallScore ?? 'N/A'}
+                                          <span className="text-lg font-normal text-muted-foreground">/100</span>
+                                        </div>
+                                      </div>
+                                      <div className="text-right">
+                                        <div className="text-sm text-muted-foreground">Recommendation</div>
+                                        <span className={cn(
+                                          'px-3 py-1 rounded-full text-sm font-medium',
+                                          ivData.evaluation.recommendation === 'interview'
+                                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                            : ivData.evaluation.recommendation === 'review'
+                                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                                            : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                        )}>
+                                          {ivData.evaluation.recommendation?.toUpperCase() || 'PENDING'}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Assessment Indicators */}
+                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                      {ivData.evaluation.characterPassed !== null && (
+                                        <div className="flex items-center gap-2">
+                                          {ivData.evaluation.characterPassed ? (
+                                            <CheckCircle className="h-4 w-4 text-green-600" />
+                                          ) : (
+                                            <XCircle className="h-4 w-4 text-red-600" />
+                                          )}
+                                          <span>Character Gate: {ivData.evaluation.characterPassed ? 'PASS' : 'FAIL'}</span>
+                                        </div>
+                                      )}
+                                      {ivData.evaluation.authenticityAssessment && (
+                                        <div className="flex items-center gap-2">
+                                          {ivData.evaluation.authenticityAssessment === 'PASS' ? (
+                                            <CheckCircle className="h-4 w-4 text-green-600" />
+                                          ) : ivData.evaluation.authenticityAssessment === 'FAIL' ? (
+                                            <XCircle className="h-4 w-4 text-red-600" />
+                                          ) : (
+                                            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                                          )}
+                                          <span>Authenticity: {ivData.evaluation.authenticityAssessment}</span>
+                                        </div>
+                                      )}
+                                      {ivData.evaluation.retentionRisk && (
+                                        <div className="flex items-center gap-2">
+                                          <span className={cn(
+                                            'w-2 h-2 rounded-full',
+                                            ivData.evaluation.retentionRisk === 'LOW' ? 'bg-green-500'
+                                              : ivData.evaluation.retentionRisk === 'MEDIUM' ? 'bg-yellow-500'
+                                              : 'bg-red-500'
+                                          )} />
+                                          <span>Retention Risk: {ivData.evaluation.retentionRisk}</span>
+                                        </div>
+                                      )}
+                                      {ivData.evaluation.readiness && (
+                                        <div className="flex items-center gap-2">
+                                          <span>Readiness: {ivData.evaluation.readiness}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Individual Scores */}
+                                  {(ivData.evaluation.reliabilityScore || ivData.evaluation.accountabilityScore ||
+                                    ivData.evaluation.professionalismScore || ivData.evaluation.communicationScore ||
+                                    ivData.evaluation.technicalScore || ivData.evaluation.growthPotentialScore) && (
+                                    <div className="grid grid-cols-3 gap-2">
+                                      {[
+                                        { label: 'Reliability', score: ivData.evaluation.reliabilityScore },
+                                        { label: 'Accountability', score: ivData.evaluation.accountabilityScore },
+                                        { label: 'Professionalism', score: ivData.evaluation.professionalismScore },
+                                        { label: 'Communication', score: ivData.evaluation.communicationScore },
+                                        { label: 'Technical', score: ivData.evaluation.technicalScore },
+                                        { label: 'Growth Potential', score: ivData.evaluation.growthPotentialScore },
+                                      ].filter(s => s.score !== null).map((s, i) => (
+                                        <div key={i} className="p-2 rounded border text-center">
+                                          <div className="text-lg font-bold">{s.score}/5</div>
+                                          <div className="text-xs text-muted-foreground">{s.label}</div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* Summary */}
                                   {ivData.evaluation.summary && (
                                     <div>
                                       <h3 className="font-medium mb-2">Summary</h3>
@@ -994,14 +1105,65 @@ export function ApplicationDrawer({
                                     </div>
                                   )}
 
+                                  {/* Strengths & Weaknesses side by side */}
+                                  {(ivData.evaluation.strengths?.length > 0 || ivData.evaluation.weaknesses?.length > 0) && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                      {ivData.evaluation.strengths?.length > 0 && (
+                                        <div>
+                                          <h3 className="font-medium flex items-center gap-2 mb-2">
+                                            <ThumbsUp className="h-4 w-4 text-green-600" /> Strengths
+                                          </h3>
+                                          <ul className="space-y-1">
+                                            {ivData.evaluation.strengths.map((s, i) => (
+                                              <li key={i} className="text-sm p-2 rounded bg-green-50 dark:bg-green-900/20">
+                                                {s}
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                      {ivData.evaluation.weaknesses?.length > 0 && (
+                                        <div>
+                                          <h3 className="font-medium flex items-center gap-2 mb-2">
+                                            <ThumbsDown className="h-4 w-4 text-amber-600" /> Weaknesses
+                                          </h3>
+                                          <ul className="space-y-1">
+                                            {ivData.evaluation.weaknesses.map((w, i) => (
+                                              <li key={i} className="text-sm p-2 rounded bg-amber-50 dark:bg-amber-900/20">
+                                                {w}
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Red Flags */}
+                                  {ivData.evaluation.redFlags?.length > 0 && (
+                                    <div>
+                                      <h3 className="font-medium flex items-center gap-2 mb-2">
+                                        <AlertTriangle className="h-4 w-4 text-red-600" /> Red Flags
+                                      </h3>
+                                      <ul className="space-y-1">
+                                        {ivData.evaluation.redFlags.map((r, i) => (
+                                          <li key={i} className="text-sm p-2 rounded bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                                            {r}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+
+                                  {/* Key Highlights from Interview */}
                                   {ivData.evaluation.interviewHighlights?.length > 0 && (
                                     <div>
-                                      <h3 className="font-medium flex items-center gap-2 mb-3">
-                                        <ThumbsUp className="h-4 w-4" /> Key Highlights
+                                      <h3 className="font-medium flex items-center gap-2 mb-2">
+                                        <CheckCircle className="h-4 w-4" /> Key Interview Highlights
                                       </h3>
-                                      <ul className="space-y-2">
+                                      <ul className="space-y-1">
                                         {ivData.evaluation.interviewHighlights.map((h, i) => (
-                                          <li key={i} className="text-sm p-2 rounded bg-green-50 dark:bg-green-900/20">
+                                          <li key={i} className="text-sm p-2 rounded bg-blue-50 dark:bg-blue-900/20">
                                             {h}
                                           </li>
                                         ))}
@@ -1009,14 +1171,15 @@ export function ApplicationDrawer({
                                     </div>
                                   )}
 
+                                  {/* Next Interview Focus */}
                                   {ivData.evaluation.nextInterviewFocus?.length > 0 && (
                                     <div>
-                                      <h3 className="font-medium flex items-center gap-2 mb-3">
+                                      <h3 className="font-medium flex items-center gap-2 mb-2">
                                         <HelpCircle className="h-4 w-4" /> Areas for Live Interview
                                       </h3>
-                                      <ul className="space-y-2">
+                                      <ul className="space-y-1">
                                         {ivData.evaluation.nextInterviewFocus.map((f, i) => (
-                                          <li key={i} className="text-sm p-2 rounded bg-blue-50 dark:bg-blue-900/20">
+                                          <li key={i} className="text-sm p-2 rounded bg-purple-50 dark:bg-purple-900/20">
                                             {f}
                                           </li>
                                         ))}
