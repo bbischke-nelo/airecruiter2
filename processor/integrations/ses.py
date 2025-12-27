@@ -145,6 +145,7 @@ class SESService:
         recruiter_email: Optional[str] = None,
         expires_in_days: int = 7,
         company_name: str = "CrossCountry Freight Solutions",
+        logo_url: Optional[str] = None,
     ) -> str:
         """Send an interview invitation email.
 
@@ -157,12 +158,17 @@ class SESService:
             recruiter_email: Recruiter's email for reply-to
             expires_in_days: Days until link expires
             company_name: Company name for branding
+            logo_url: URL to company logo (use logo-white.png for dark header)
 
         Returns:
             SES message ID
         """
         subject = f"Interview Invitation: {position} at {company_name}"
         first_name = candidate_name.split()[0] if candidate_name else "there"
+
+        # Default logo URL from frontend
+        if not logo_url:
+            logo_url = f"{settings.FRONTEND_URL}/logo-white.png"
 
         # Template variables
         template_vars = {
@@ -172,6 +178,7 @@ class SESService:
             "interview_url": interview_url,
             "expires_in_days": expires_in_days,
             "recruiter_name": recruiter_name or "The Talent Team",
+            "logo_url": logo_url,
         }
 
         # Load and render templates
