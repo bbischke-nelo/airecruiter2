@@ -1,6 +1,6 @@
 """Application model for candidate applications."""
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Float
 from sqlalchemy import func, UniqueConstraint
 from sqlalchemy.orm import relationship
 
@@ -67,6 +67,14 @@ class Application(Base):
     rejected_at = Column(DateTime, nullable=True)
     advanced_by = Column(Integer, ForeignKey("recruiters.id", ondelete="SET NULL"), nullable=True)
     advanced_at = Column(DateTime, nullable=True)
+
+    # Denormalized sort columns (populated by extract_facts processor)
+    jd_match_percentage = Column(Integer, nullable=True)  # JD requirements match %
+    total_experience_months = Column(Integer, nullable=True)  # Total career experience
+    avg_tenure_months = Column(Float, nullable=True)  # Average tenure (recent 5 years)
+    current_title = Column(String(200), nullable=True)  # Most recent job title
+    current_employer = Column(String(200), nullable=True)  # Most recent employer
+    months_since_last_employment = Column(Integer, nullable=True)  # Gap detection
 
     # Metadata
     created_at = Column(DateTime, default=func.getutcdate())

@@ -234,6 +234,11 @@ export function ApplicationDrawer({
   const [reconsiderComment, setReconsiderComment] = useState('');
   const [activeTab, setActiveTab] = useState('screening');
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
+  const [expandedRequirements, setExpandedRequirements] = useState<{
+    met: boolean;
+    partial: boolean;
+    unmet: boolean;
+  }>({ met: false, partial: false, unmet: false });
 
   // Find current index
   const currentIndex = application ? applications.findIndex((a) => a.id === application.id) : -1;
@@ -261,9 +266,10 @@ export function ApplicationDrawer({
     }
   }, [application, handleKeyDown]);
 
-  // Reset tab when application changes
+  // Reset tab and expanded state when application changes
   useEffect(() => {
     setActiveTab('screening');
+    setExpandedRequirements({ met: false, partial: false, unmet: false });
   }, [application?.id]);
 
   // Fetch resume URL when application changes
@@ -625,7 +631,7 @@ export function ApplicationDrawer({
                                     Met ({metRequirements.length})
                                   </span>
                                   <div className="mt-1 space-y-1">
-                                    {metRequirements.slice(0, 3).map((req, i) => (
+                                    {(expandedRequirements.met ? metRequirements : metRequirements.slice(0, 3)).map((req, i) => (
                                       <div
                                         key={i}
                                         className="px-2 py-1 text-xs bg-green-50 dark:bg-green-900/30 rounded border border-green-200 dark:border-green-800"
@@ -637,9 +643,12 @@ export function ApplicationDrawer({
                                       </div>
                                     ))}
                                     {metRequirements.length > 3 && (
-                                      <span className="text-xs text-muted-foreground">
-                                        +{metRequirements.length - 3} more met
-                                      </span>
+                                      <button
+                                        onClick={() => setExpandedRequirements(prev => ({ ...prev, met: !prev.met }))}
+                                        className="text-xs text-primary hover:underline cursor-pointer"
+                                      >
+                                        {expandedRequirements.met ? 'Show less' : `+${metRequirements.length - 3} more met`}
+                                      </button>
                                     )}
                                   </div>
                                 </div>
@@ -651,7 +660,7 @@ export function ApplicationDrawer({
                                     Partial ({partialRequirements.length})
                                   </span>
                                   <div className="mt-1 space-y-1">
-                                    {partialRequirements.slice(0, 2).map((req, i) => (
+                                    {(expandedRequirements.partial ? partialRequirements : partialRequirements.slice(0, 2)).map((req, i) => (
                                       <div
                                         key={i}
                                         className="px-2 py-1 text-xs bg-yellow-50 dark:bg-yellow-900/30 rounded border border-yellow-200 dark:border-yellow-800"
@@ -661,9 +670,12 @@ export function ApplicationDrawer({
                                       </div>
                                     ))}
                                     {partialRequirements.length > 2 && (
-                                      <span className="text-xs text-muted-foreground">
-                                        +{partialRequirements.length - 2} more partial
-                                      </span>
+                                      <button
+                                        onClick={() => setExpandedRequirements(prev => ({ ...prev, partial: !prev.partial }))}
+                                        className="text-xs text-primary hover:underline cursor-pointer"
+                                      >
+                                        {expandedRequirements.partial ? 'Show less' : `+${partialRequirements.length - 2} more partial`}
+                                      </button>
                                     )}
                                   </div>
                                 </div>
@@ -675,7 +687,7 @@ export function ApplicationDrawer({
                                     Not Met ({unmetRequirements.length})
                                   </span>
                                   <div className="mt-1 space-y-1">
-                                    {unmetRequirements.slice(0, 3).map((req, i) => (
+                                    {(expandedRequirements.unmet ? unmetRequirements : unmetRequirements.slice(0, 3)).map((req, i) => (
                                       <div
                                         key={i}
                                         className="px-2 py-1 text-xs bg-red-50 dark:bg-red-900/30 rounded border border-red-200 dark:border-red-800"
@@ -685,9 +697,12 @@ export function ApplicationDrawer({
                                       </div>
                                     ))}
                                     {unmetRequirements.length > 3 && (
-                                      <span className="text-xs text-muted-foreground">
-                                        +{unmetRequirements.length - 3} more not met
-                                      </span>
+                                      <button
+                                        onClick={() => setExpandedRequirements(prev => ({ ...prev, unmet: !prev.unmet }))}
+                                        className="text-xs text-primary hover:underline cursor-pointer"
+                                      >
+                                        {expandedRequirements.unmet ? 'Show less' : `+${unmetRequirements.length - 3} more not met`}
+                                      </button>
                                     )}
                                   </div>
                                 </div>

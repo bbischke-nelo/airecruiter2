@@ -174,6 +174,9 @@ class ExtractFactsProcessor(BaseProcessor):
             if app.candidate_profile_id:
                 await self._update_candidate_profile(app.candidate_profile_id, facts)
 
+            # Denormalize key metrics to application for sorting
+            await self._update_application_sort_columns(application_id, facts)
+
             # ATOMIC: Set status + queue next job
             status = "extracted" if not extraction_notes else "extraction_failed"
             await self._update_status_and_queue(
@@ -521,6 +524,94 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
                     has_certifications=certifications is not None,
                     has_licenses=licenses is not None,
                     total_exp_months=total_experience_months,
+                )
+
+        await asyncio.to_thread(_update)
+
+    async def _update_application_sort_columns(self, application_id: int, facts) -> None:
+        """Denormalize key metrics to application table for efficient sorting.
+
+        Populates: jd_match_percentage, total_experience_months, avg_tenure_months,
+                   current_title, current_employer, months_since_last_employment
+        """
+        def _update():
+            # Extract JD match percentage
+            jd_match_percentage = None
+            if hasattr(facts, "jd_requirements_match") and facts.jd_requirements_match:
+                summary = facts.jd_requirements_match.get("summary", {})
+                if summary.get("match_percentage") is not None:
+                    try:
+                        jd_match_percentage = int(round(summary["match_percentage"]))
+                    except (ValueError, TypeError):
+                        pass
+
+            # Extract summary stats
+            total_experience_months = None
+            avg_tenure_months = None
+            current_title = None
+            current_employer = None
+            months_since_last = None
+
+            if hasattr(facts, "summary_stats") and facts.summary_stats:
+                stats = facts.summary_stats
+                if stats.get("total_experience_months") is not None:
+                    try:
+                        total_experience_months = int(stats["total_experience_months"])
+                    except (ValueError, TypeError):
+                        pass
+                if stats.get("recent_5yr_average_tenure_months") is not None:
+                    try:
+                        avg_tenure_months = float(stats["recent_5yr_average_tenure_months"])
+                    except (ValueError, TypeError):
+                        pass
+                if stats.get("most_recent_title"):
+                    current_title = str(stats["most_recent_title"])[:200]
+                if stats.get("most_recent_employer"):
+                    current_employer = str(stats["most_recent_employer"])[:200]
+                if stats.get("months_since_last_employment") is not None:
+                    try:
+                        months_since_last = int(stats["months_since_last_employment"])
+                    except (ValueError, TypeError):
+                        pass
+
+            # Check if we have any data to update
+            has_data = any([
+                jd_match_percentage is not None,
+                total_experience_months is not None,
+                avg_tenure_months is not None,
+                current_title,
+                current_employer,
+                months_since_last is not None,
+            ])
+
+            if has_data:
+                query = text("""
+                    UPDATE applications
+                    SET jd_match_percentage = COALESCE(:jd_match, jd_match_percentage),
+                        total_experience_months = COALESCE(:total_exp, total_experience_months),
+                        avg_tenure_months = COALESCE(:avg_tenure, avg_tenure_months),
+                        current_title = COALESCE(:title, current_title),
+                        current_employer = COALESCE(:employer, current_employer),
+                        months_since_last_employment = COALESCE(:months_since, months_since_last_employment),
+                        updated_at = GETUTCDATE()
+                    WHERE id = :app_id
+                """)
+                self.db.execute(query, {
+                    "app_id": application_id,
+                    "jd_match": jd_match_percentage,
+                    "total_exp": total_experience_months,
+                    "avg_tenure": avg_tenure_months,
+                    "title": current_title,
+                    "employer": current_employer,
+                    "months_since": months_since_last,
+                })
+                self.db.commit()
+                self.logger.info(
+                    "Updated application sort columns",
+                    application_id=application_id,
+                    jd_match=jd_match_percentage,
+                    total_exp=total_experience_months,
+                    avg_tenure=avg_tenure_months,
                 )
 
         await asyncio.to_thread(_update)

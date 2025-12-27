@@ -65,6 +65,11 @@ SORTABLE_COLUMNS = {
     "status": Application.status,
     "createdAt": Application.created_at,
     "requisitionName": Requisition.name,
+    # Denormalized sort columns from extract_facts
+    "jdMatchPercentage": Application.jd_match_percentage,
+    "totalExperienceMonths": Application.total_experience_months,
+    "avgTenureMonths": Application.avg_tenure_months,
+    "currentTitle": Application.current_title,
 }
 
 
@@ -139,48 +144,9 @@ async def list_applications(
         .all()
     )
 
-    # Get extracted facts for JD match and tenure
-    analyses = (
-        db.query(Analysis.application_id, Analysis.extracted_facts)
-        .filter(Analysis.application_id.in_(app_ids))
-        .all()
-    )
-
-    # Parse extracted facts for display fields (grid triage columns)
-    jd_match_percentages = {}
-    avg_tenure_months = {}
-    current_titles = {}
-    current_employers = {}
-    total_experience_months = {}
-    months_since_last = {}
-
-    for app_id, facts_json in analyses:
-        if facts_json:
-            try:
-                facts = json.loads(facts_json)
-                # Get JD match percentage from jd_requirements_match.summary
-                jd_match = facts.get("jd_requirements_match", {})
-                if jd_match:
-                    summary = jd_match.get("summary", {})
-                    if summary.get("match_percentage") is not None:
-                        jd_match_percentages[app_id] = round(summary["match_percentage"])
-
-                # Get summary stats for grid columns
-                summary = facts.get("summary_stats", {})
-                if summary.get("recent_5yr_average_tenure_months"):
-                    avg_tenure_months[app_id] = summary["recent_5yr_average_tenure_months"]
-                elif summary.get("average_tenure_months"):
-                    avg_tenure_months[app_id] = summary["average_tenure_months"]
-                if summary.get("most_recent_title"):
-                    current_titles[app_id] = summary["most_recent_title"]
-                if summary.get("most_recent_employer"):
-                    current_employers[app_id] = summary["most_recent_employer"]
-                if summary.get("total_experience_months"):
-                    total_experience_months[app_id] = summary["total_experience_months"]
-                if summary.get("months_since_last_employment") is not None:
-                    months_since_last[app_id] = summary["months_since_last_employment"]
-            except (json.JSONDecodeError, TypeError):
-                pass
+    # Note: Sort columns (jd_match_percentage, total_experience_months, avg_tenure_months,
+    # current_title, current_employer, months_since_last_employment) are now denormalized
+    # directly on the applications table for efficient sorting. No JSON parsing needed.
 
     items = [
         ApplicationListItem(
@@ -195,12 +161,13 @@ async def list_applications(
             has_analysis=a.id in analysis_app_ids,
             has_interview=a.id in interview_app_ids,
             has_report=a.id in report_app_ids,
-            jd_match_percentage=jd_match_percentages.get(a.id),
-            avg_tenure_months=avg_tenure_months.get(a.id),
-            current_title=current_titles.get(a.id),
-            current_employer=current_employers.get(a.id),
-            total_experience_months=total_experience_months.get(a.id),
-            months_since_last_employment=months_since_last.get(a.id),
+            # Denormalized sort columns (populated by extract_facts processor)
+            jd_match_percentage=a.jd_match_percentage,
+            avg_tenure_months=a.avg_tenure_months,
+            current_title=a.current_title,
+            current_employer=a.current_employer,
+            total_experience_months=a.total_experience_months,
+            months_since_last_employment=a.months_since_last_employment,
             human_requested=a.human_requested,
             compliance_review=a.compliance_review,
             rejection_reason_code=a.rejection_reason_code,

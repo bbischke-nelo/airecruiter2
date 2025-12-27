@@ -518,7 +518,16 @@ export default function ApplicationsPage() {
                         <SortIndicator column="candidateName" />
                       </span>
                     </th>
-                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden xl:table-cell">Current Role</th>
+                    <th
+                      scope="col"
+                      className="px-4 py-3 text-left text-sm font-medium hidden xl:table-cell cursor-pointer hover:bg-muted/80 select-none"
+                      onClick={() => handleSort('currentTitle')}
+                    >
+                      <span className="flex items-center">
+                        Current Role
+                        <SortIndicator column="currentTitle" />
+                      </span>
+                    </th>
                     <th
                       scope="col"
                       className="px-4 py-3 text-left text-sm font-medium hidden sm:table-cell cursor-pointer hover:bg-muted/80 select-none"
@@ -539,9 +548,37 @@ export default function ApplicationsPage() {
                         <SortIndicator column="status" />
                       </span>
                     </th>
-                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium w-24">Match</th>
-                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden lg:table-cell w-16">Exp</th>
-                    <th scope="col" className="px-4 py-3 text-left text-sm font-medium hidden lg:table-cell w-16" title="Avg tenure in last 5 years">Tenure</th>
+                    <th
+                      scope="col"
+                      className="px-4 py-3 text-left text-sm font-medium w-24 cursor-pointer hover:bg-muted/80 select-none"
+                      onClick={() => handleSort('jdMatchPercentage')}
+                    >
+                      <span className="flex items-center">
+                        Match
+                        <SortIndicator column="jdMatchPercentage" />
+                      </span>
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-3 text-left text-sm font-medium hidden lg:table-cell w-16 cursor-pointer hover:bg-muted/80 select-none"
+                      onClick={() => handleSort('totalExperienceMonths')}
+                    >
+                      <span className="flex items-center">
+                        Exp
+                        <SortIndicator column="totalExperienceMonths" />
+                      </span>
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-3 text-left text-sm font-medium hidden lg:table-cell w-16 cursor-pointer hover:bg-muted/80 select-none"
+                      onClick={() => handleSort('avgTenureMonths')}
+                      title="Avg tenure in last 5 years"
+                    >
+                      <span className="flex items-center">
+                        Tenure
+                        <SortIndicator column="avgTenureMonths" />
+                      </span>
+                    </th>
                     <th
                       scope="col"
                       className="px-4 py-3 text-left text-sm font-medium hidden md:table-cell cursor-pointer hover:bg-muted/80 select-none"
