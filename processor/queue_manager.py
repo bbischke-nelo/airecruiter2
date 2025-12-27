@@ -294,3 +294,68 @@ class QueueManager:
         if count > 0:
             logger.info("Cleared completed jobs", count=count, older_than_hours=older_than_hours)
         return count
+
+    def recover_orphaned_interviews(self) -> int:
+        """Find completed interviews without evaluation jobs and create them.
+
+        This catches interviews that completed but didn't get an evaluate job
+        queued (e.g., due to crashes, bugs, or missing code paths).
+
+        Returns:
+            Number of evaluate jobs created
+        """
+        # Find completed interviews without any evaluate job (pending, running, completed, or dead)
+        query = text("""
+            INSERT INTO jobs (job_type, application_id, priority, status,
+                            attempts, max_attempts, scheduled_for, created_at)
+            SELECT 'evaluate', i.application_id, 5, 'pending',
+                   0, :max_attempts, GETUTCDATE(), GETUTCDATE()
+            FROM interviews i
+            WHERE i.status = 'completed'
+              AND i.completed_at IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM jobs j
+                  WHERE j.application_id = i.application_id
+                    AND j.job_type = 'evaluate'
+              )
+              -- Only recover interviews completed more than 5 minutes ago
+              -- (gives normal flow time to create the job)
+              AND i.completed_at < DATEADD(MINUTE, -5, GETUTCDATE())
+        """)
+
+        result = self.db.execute(query, {"max_attempts": self.max_attempts})
+        self.db.commit()
+
+        count = result.rowcount
+        if count > 0:
+            logger.warning("Recovered orphaned interviews", count=count)
+        return count
+
+    def recover_stuck_jobs(self, stuck_threshold_minutes: int = 30) -> int:
+        """Reset jobs stuck in 'running' status back to 'pending'.
+
+        Jobs can get stuck if a worker crashes mid-processing.
+
+        Args:
+            stuck_threshold_minutes: Minutes after which a running job is considered stuck
+
+        Returns:
+            Number of jobs recovered
+        """
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=stuck_threshold_minutes)
+
+        query = text("""
+            UPDATE jobs
+            SET status = 'pending',
+                started_at = NULL,
+                last_error = 'Recovered from stuck state (worker likely crashed)'
+            WHERE status = 'running'
+              AND started_at < :cutoff
+        """)
+        result = self.db.execute(query, {"cutoff": cutoff})
+        self.db.commit()
+
+        count = result.rowcount
+        if count > 0:
+            logger.warning("Recovered stuck jobs", count=count, threshold_minutes=stuck_threshold_minutes)
+        return count

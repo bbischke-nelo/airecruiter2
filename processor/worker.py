@@ -1,6 +1,7 @@
 """Worker that executes jobs from the queue."""
 
 import asyncio
+import time
 from typing import Dict, Type, Optional, Callable
 
 import structlog
@@ -124,6 +125,9 @@ class Worker:
     async def run(self) -> None:
         """Main worker loop."""
         self.running = True
+        self._last_maintenance = 0  # Track last maintenance run
+        self._maintenance_interval = 60  # Run maintenance every 60 seconds
+
         logger.info(
             "Worker started",
             max_concurrency=self.max_concurrency,
@@ -139,6 +143,12 @@ class Worker:
             ]
             for job_id in completed:
                 del self.active_jobs[job_id]
+
+            # Run periodic maintenance (recover orphans, stuck jobs)
+            now = time.time()
+            if now - self._last_maintenance > self._maintenance_interval:
+                self._last_maintenance = now
+                await self._run_maintenance()
 
             # Check if we can take more jobs
             if len(self.active_jobs) >= self.max_concurrency:
@@ -162,6 +172,29 @@ class Worker:
             self.active_jobs[job["id"]] = task
 
         logger.info("Worker stopped")
+
+    async def _run_maintenance(self) -> None:
+        """Run periodic maintenance tasks."""
+        db = self.session_factory()
+        try:
+            queue = QueueManager(db)
+
+            # Recover orphaned interviews (completed but no evaluate job)
+            orphaned = queue.recover_orphaned_interviews()
+
+            # Recover stuck jobs (running for too long)
+            stuck = queue.recover_stuck_jobs(stuck_threshold_minutes=30)
+
+            if orphaned > 0 or stuck > 0:
+                logger.info(
+                    "Maintenance completed",
+                    orphaned_interviews=orphaned,
+                    stuck_jobs=stuck,
+                )
+        except Exception as e:
+            logger.error("Maintenance task failed", error=str(e))
+        finally:
+            db.close()
 
     async def stop(self) -> None:
         """Stop the worker gracefully."""
