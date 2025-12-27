@@ -21,6 +21,7 @@ class ProcessorSettings(BaseSettings):
     # Scheduler
     SCHEDULER_INTERVAL: int = 60  # Seconds between checks
     SCHEDULER_ENABLED: bool = True
+    REQUISITION_SYNC_INTERVAL: int = 60  # Minutes between full requisition syncs
 
     # Queue/Worker
     QUEUE_MAX_CONCURRENCY: int = 3  # Parallel job limit

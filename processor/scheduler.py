@@ -56,7 +56,10 @@ class Scheduler:
         """Check for work that needs to be done."""
         logger.debug("Checking for work")
 
-        # 1. Check for active requisitions that need syncing
+        # 0. Check if requisitions need to be synced from Workday (full refresh)
+        await self._queue_requisition_sync()
+
+        # 1. Check for active requisitions that need syncing (applicants)
         await self._queue_sync_jobs()
 
         # 2. Check for applications stuck in intermediate pipeline states
@@ -72,8 +75,65 @@ class Scheduler:
         # 5. Check for evaluated interviews needing reports
         await self._queue_report_jobs()
 
+    async def _queue_requisition_sync(self) -> None:
+        """Queue a full requisition sync if interval has elapsed.
+
+        This syncs the list of requisitions from Workday (not applicants).
+        """
+        # Check last sync time from settings
+        query = text("""
+            SELECT value FROM settings WHERE [key] = 'last_requisition_sync'
+        """)
+        result = self.db.execute(query)
+        row = result.fetchone()
+
+        should_sync = False
+        if not row or not row.value:
+            should_sync = True
+        else:
+            try:
+                last_sync = datetime.fromisoformat(row.value.replace("Z", "+00:00"))
+                minutes_since = (datetime.now(timezone.utc) - last_sync).total_seconds() / 60
+                if minutes_since >= settings.REQUISITION_SYNC_INTERVAL:
+                    should_sync = True
+            except (ValueError, TypeError):
+                should_sync = True
+
+        if not should_sync:
+            return
+
+        # Check if there's already a pending/running requisition sync job (no requisition_id)
+        check_query = text("""
+            SELECT 1 FROM jobs
+            WHERE job_type = 'sync'
+              AND requisition_id IS NULL
+              AND status IN ('pending', 'running')
+        """)
+        result = self.db.execute(check_query)
+        if result.fetchone():
+            return  # Already have a pending requisition sync
+
+        # Queue the sync job (no requisition_id = full requisition sync)
+        self.queue.enqueue(
+            job_type="sync",
+            priority=0,
+        )
+
+        # Update last sync time
+        upsert_query = text("""
+            MERGE settings AS target
+            USING (SELECT 'last_requisition_sync' as [key]) AS source
+            ON target.[key] = source.[key]
+            WHEN MATCHED THEN UPDATE SET value = :value
+            WHEN NOT MATCHED THEN INSERT ([key], value) VALUES ('last_requisition_sync', :value);
+        """)
+        self.db.execute(upsert_query, {"value": datetime.now(timezone.utc).isoformat()})
+        self.db.commit()
+
+        logger.info("Queued requisition sync job", interval_minutes=settings.REQUISITION_SYNC_INTERVAL)
+
     async def _queue_sync_jobs(self) -> None:
-        """Queue sync jobs for active requisitions."""
+        """Queue sync jobs for active requisitions (applicants)."""
         # Get active requisitions that need syncing based on their sync_interval_minutes
         query = text("""
             SELECT r.id, r.external_id, r.name

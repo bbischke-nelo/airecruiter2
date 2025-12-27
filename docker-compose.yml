@@ -116,8 +116,8 @@ services:
       # Encryption
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       # Processor settings
-      - POLL_INTERVAL=${POLL_INTERVAL:-300}
-      - SYNC_INTERVAL=${SYNC_INTERVAL:-300}
+      - SCHEDULER_INTERVAL=${SCHEDULER_INTERVAL:-60}
+      - REQUISITION_SYNC_INTERVAL=${REQUISITION_SYNC_INTERVAL:-60}
     volumes:
       - ./logs:/app/logs
     networks:
