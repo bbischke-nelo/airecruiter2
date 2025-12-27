@@ -51,10 +51,6 @@ class Interview(Base):
     # When the interview invite email was actually sent (NULL if link-only)
     invite_sent_at = Column(DateTime, nullable=True)
 
-    # Flags
-    human_requested = Column(Boolean, default=False)
-    human_requested_at = Column(DateTime, nullable=True)
-
     # Timestamps
     created_at = Column(DateTime, default=func.getutcdate())
     started_at = Column(DateTime, nullable=True)

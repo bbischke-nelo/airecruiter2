@@ -50,7 +50,6 @@ class Application(Base):
     tms_sync_at = Column(DateTime, nullable=True)  # Last sync attempt timestamp
 
     # Flags
-    human_requested = Column(Boolean, default=False)  # Candidate asked for human
     compliance_review = Column(Boolean, default=False)  # Flagged for review
 
     # Artifacts (S3 keys) - stored as JSON string
