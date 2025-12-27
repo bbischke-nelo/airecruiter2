@@ -327,11 +327,11 @@ class WorkdaySOAPClient:
         try:
             response = await self._call_service("Get_Applicants", params)
         except Exception as e:
-            # Get_Applicants may fail if candidate is not an applicant
-            logger.warning(
-                "Get_Applicants failed, candidate may not be an applicant",
+            # Get_Applicants fails for non-pre-hires - this is expected
+            # Only log at debug level to avoid spam
+            logger.debug(
+                "Get_Applicants returned no data (candidate not a pre-hire)",
                 candidate_id=candidate_id,
-                error=str(e),
             )
             return None
 
