@@ -31,7 +31,20 @@
       "Bash(pip install:*)",
       "WebFetch(domain:www.ccfs.com)",
       "Bash(npm install:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(find:*)",
+      "Bash(api/endpoints/applications.py )",
+      "Bash(api/endpoints/interview_websocket.py )",
+      "Bash(api/models/analyses.py )",
+      "Bash(api/models/candidate_profiles.py )",
+      "Bash(api/schemas/applications.py )",
+      "Bash(api/migrations/versions/00022_add_resume_text_cache.py )",
+      "Bash(api/migrations/versions/00023_add_job_idempotency.py )",
+      "Bash(api/migrations/versions/00024_add_profile_version.py )",
+      "Bash(processor/processors/extract_facts.py )",
+      "Bash(processor/processors/sync.py )",
+      "Bash(web/src/components/applications/RejectReasonSelector.tsx)",
+      "Bash(alembic upgrade:*)"
     ]
   }
 }

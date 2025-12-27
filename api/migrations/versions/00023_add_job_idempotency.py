@@ -33,14 +33,19 @@ def index_exists(index_name: str) -> bool:
 def upgrade() -> None:
     """Add filtered unique index for job idempotency.
 
-    Only one pending/running job per application+job_type combination.
+    Only one pending/running job per application+requisition+job_type combination.
     Completed/failed/dead jobs don't count - we can have many of those.
+
+    The index includes both application_id and requisition_id because:
+    - Application-level jobs (extract_facts, evaluate) use application_id
+    - Requisition-level jobs (sync) use requisition_id with NULL application_id
     """
     if not index_exists("idx_jobs_idempotency"):
         # SQL Server filtered unique index
+        # Include both IDs so sync jobs for different requisitions don't conflict
         op.execute(text("""
             CREATE UNIQUE INDEX idx_jobs_idempotency
-            ON jobs (application_id, job_type)
+            ON jobs (application_id, requisition_id, job_type)
             WHERE status IN ('pending', 'running')
         """))
 
