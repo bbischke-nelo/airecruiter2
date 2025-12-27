@@ -39,6 +39,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Markdown } from '@/components/ui/markdown';
 import { api } from '@/lib/api';
 import { formatRelativeTime, cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -941,9 +942,9 @@ export function ApplicationDrawer({
                             {interviewData.evaluation.summary && (
                               <div>
                                 <h3 className="font-medium mb-2">Summary</h3>
-                                <p className="text-sm text-muted-foreground">
+                                <Markdown className="text-sm text-muted-foreground">
                                   {interviewData.evaluation.summary}
-                                </p>
+                                </Markdown>
                               </div>
                             )}
 

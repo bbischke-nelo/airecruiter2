@@ -3,8 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Send, Loader2, User, AlertCircle, CheckCircle } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkBreaks from 'remark-breaks';
+import { Markdown } from '@/components/ui/markdown';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -365,9 +364,7 @@ export default function InterviewPage() {
                     : 'bg-white border border-gray-200 shadow-sm text-gray-800'
                 }`}
               >
-                <div className="prose prose-sm max-w-none prose-p:my-2 prose-p:leading-relaxed">
-                  <ReactMarkdown remarkPlugins={[remarkBreaks]}>{message.content}</ReactMarkdown>
-                </div>
+                <Markdown>{message.content}</Markdown>
               </div>
               {message.role === 'user' && (
                 <div className="w-8 h-8 rounded-full bg-ccfs-red flex items-center justify-center flex-shrink-0">

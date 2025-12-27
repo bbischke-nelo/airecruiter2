@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Markdown } from '@/components/ui/markdown';
 import { api } from '@/lib/api';
 import { formatDateTime } from '@/lib/utils';
 import { Interview, Message, Evaluation } from '@/types';
@@ -279,7 +280,7 @@ export default function InterviewDetailPage() {
                   <CardTitle className="text-sm">Summary</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm">{evaluation.summary}</p>
+                  <Markdown className="text-sm">{evaluation.summary}</Markdown>
                 </CardContent>
               </Card>
 
@@ -292,11 +293,11 @@ export default function InterviewDetailPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ul className="space-y-1 text-sm">
+                    <ul className="space-y-2 text-sm">
                       {evaluation.strengths.map((s, i) => (
                         <li key={i} className="flex items-start gap-2">
                           <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                          {s}
+                          <Markdown className="text-sm flex-1">{s}</Markdown>
                         </li>
                       ))}
                     </ul>
@@ -311,11 +312,11 @@ export default function InterviewDetailPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ul className="space-y-1 text-sm">
+                    <ul className="space-y-2 text-sm">
                       {evaluation.weaknesses.map((w, i) => (
                         <li key={i} className="flex items-start gap-2">
                           <AlertCircle className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
-                          {w}
+                          <Markdown className="text-sm flex-1">{w}</Markdown>
                         </li>
                       ))}
                     </ul>
@@ -331,11 +332,11 @@ export default function InterviewDetailPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <ul className="space-y-1 text-sm">
+                      <ul className="space-y-2 text-sm">
                         {evaluation.redFlags.map((r, i) => (
                           <li key={i} className="flex items-start gap-2">
                             <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                            {r}
+                            <Markdown className="text-sm flex-1">{r}</Markdown>
                           </li>
                         ))}
                       </ul>
