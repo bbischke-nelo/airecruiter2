@@ -9,8 +9,8 @@ class SettingsResponse(CamelModel):
     """Schema for all settings response."""
 
     # Email settings
-    email_from_address: str = "noreply@company.com"
-    email_from_name: str = "AIRecruiter"
+    email_from_address: str = "jobs@ccfs.com"
+    email_from_name: str = "CCFS Talent Team"
 
     # Interview settings
     interview_token_expiry_days: int = 7

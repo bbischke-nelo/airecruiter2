@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Mail,
   Plus,
@@ -63,6 +63,11 @@ export default function EmailSettingsPage() {
     isDefault: false,
   });
 
+  // Local state for email settings form
+  const [fromAddress, setFromAddress] = useState('');
+  const [fromName, setFromName] = useState('');
+  const [settingsDirty, setSettingsDirty] = useState(false);
+
   // Fetch settings
   const { data: settings } = useQuery<EmailSettings>({
     queryKey: ['email-settings'],
@@ -76,6 +81,15 @@ export default function EmailSettingsPage() {
       };
     },
   });
+
+  // Sync local state with fetched settings
+  useEffect(() => {
+    if (settings) {
+      setFromAddress(settings.fromAddress);
+      setFromName(settings.fromName);
+      setSettingsDirty(false);
+    }
+  }, [settings]);
 
   // Fetch templates - filter by active unless showInactive is checked
   const { data: templates, isLoading } = useQuery<{ data: EmailTemplate[] }>({
@@ -99,14 +113,15 @@ export default function EmailSettingsPage() {
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({
-    mutationFn: async (data: EmailSettings) => {
+    mutationFn: async () => {
       await api.patch('/settings', {
-        email_from_address: data.fromAddress,
-        email_from_name: data.fromName,
+        email_from_address: fromAddress,
+        email_from_name: fromName,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['email-settings'] });
+      setSettingsDirty(false);
     },
   });
 
@@ -190,39 +205,47 @@ export default function EmailSettingsPage() {
             <div>
               <label className="text-sm font-medium">From Address</label>
               <Input
-                value={settings?.fromAddress || ''}
-                onChange={(e) =>
-                  updateSettingsMutation.mutate({
-                    ...settings!,
-                    fromAddress: e.target.value,
-                  })
-                }
-                placeholder="noreply@company.com"
+                value={fromAddress}
+                onChange={(e) => {
+                  setFromAddress(e.target.value);
+                  setSettingsDirty(true);
+                }}
+                placeholder="jobs@ccfs.com"
                 className="mt-1"
               />
             </div>
             <div>
               <label className="text-sm font-medium">From Name</label>
               <Input
-                value={settings?.fromName || ''}
-                onChange={(e) =>
-                  updateSettingsMutation.mutate({
-                    ...settings!,
-                    fromName: e.target.value,
-                  })
-                }
-                placeholder="AIRecruiter"
+                value={fromName}
+                onChange={(e) => {
+                  setFromName(e.target.value);
+                  setSettingsDirty(true);
+                }}
+                placeholder="CCFS Talent Team"
                 className="mt-1"
               />
             </div>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Provider:</span>
-            <span className="px-2 py-1 bg-muted rounded text-xs font-mono">
-              {settings?.provider || 'AWS SES'}
-            </span>
-            <CheckCircle className="h-4 w-4 text-green-500" />
-            <span className="text-green-600 text-xs">Connected</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Provider:</span>
+              <span className="px-2 py-1 bg-muted rounded text-xs font-mono">
+                {settings?.provider || 'AWS SES'}
+              </span>
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <span className="text-green-600 text-xs">Connected</span>
+            </div>
+            {settingsDirty && (
+              <Button
+                size="sm"
+                onClick={() => updateSettingsMutation.mutate()}
+                disabled={updateSettingsMutation.isPending}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -982,8 +982,16 @@ async def activate_interview(
         # Send email via SES
         try:
             from api.integrations.ses import SESService
+            from api.endpoints.settings import get_setting_value
 
-            ses = SESService()
+            # Get email settings from database (falls back to config defaults)
+            from_email = get_setting_value(db, "email_from_address", "")
+            from_name = get_setting_value(db, "email_from_name", "")
+
+            ses = SESService(
+                from_email=from_email if from_email else None,
+                from_name=from_name if from_name else None,
+            )
             recruiter_email = None
             recruiter_name = None
             if application.requisition.recruiter:

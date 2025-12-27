@@ -18,11 +18,16 @@ TEMPLATE_DIR = Path(__file__).parent.parent / "config" / "templates"
 class SESService:
     """Service for sending emails via AWS SES."""
 
-    def __init__(self):
-        """Initialize SES client."""
+    def __init__(self, from_email: Optional[str] = None, from_name: Optional[str] = None):
+        """Initialize SES client.
+
+        Args:
+            from_email: Override sender email (defaults to settings.SES_FROM_EMAIL)
+            from_name: Override sender name (defaults to settings.SES_FROM_NAME)
+        """
         self.client = boto3.client("ses", region_name=settings.SES_REGION)
-        self.from_email = settings.SES_FROM_EMAIL
-        self.from_name = settings.SES_FROM_NAME
+        self.from_email = from_email or settings.SES_FROM_EMAIL
+        self.from_name = from_name or settings.SES_FROM_NAME
 
     async def send_email(
         self,

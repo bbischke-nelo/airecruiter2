@@ -38,8 +38,8 @@ class Setting(Base):
 # Default settings to seed
 DEFAULT_SETTINGS = {
     # Email settings
-    "email_from_address": ("noreply@company.com", "Email sender address"),
-    "email_from_name": ("AIRecruiter", "Email sender name"),
+    "email_from_address": ("jobs@ccfs.com", "Email sender address"),
+    "email_from_name": ("CCFS Talent Team", "Email sender name"),
 
     # Storage settings
     "s3_bucket": ("airecruiter-artifacts", "S3 bucket for artifacts"),

@@ -40,8 +40,8 @@ async def get_settings(
     """Get all system settings."""
     return SettingsResponse(
         # Email settings
-        email_from_address=get_setting_value(db, "email_from_address", "noreply@company.com"),
-        email_from_name=get_setting_value(db, "email_from_name", "AIRecruiter"),
+        email_from_address=get_setting_value(db, "email_from_address", "jobs@ccfs.com"),
+        email_from_name=get_setting_value(db, "email_from_name", "CCFS Talent Team"),
         # Interview settings
         interview_token_expiry_days=int(get_setting_value(db, "interview_token_expiry_days", "7")),
         # Global requisition defaults
