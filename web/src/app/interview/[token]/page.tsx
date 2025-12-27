@@ -37,6 +37,7 @@ export default function InterviewPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 3;
+  const connectionStatusRef = useRef<ConnectionStatus>('connecting');
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -79,6 +80,7 @@ export default function InterviewPage() {
 
         switch (data.type) {
           case 'connected':
+            connectionStatusRef.current = 'connected';
             setConnectionStatus('connected');
             setInterviewInfo(data.interview);
             break;
@@ -115,6 +117,7 @@ export default function InterviewPage() {
             break;
 
           case 'completed':
+            connectionStatusRef.current = 'completed';
             setConnectionStatus('completed');
             break;
 
@@ -132,6 +135,7 @@ export default function InterviewPage() {
 
           case 'error':
             setError(data.message);
+            connectionStatusRef.current = 'error';
             setConnectionStatus('error');
             break;
         }
@@ -148,16 +152,18 @@ export default function InterviewPage() {
       console.log('WebSocket closed', event.code);
 
       // Don't reconnect if interview is completed or there was an auth error
-      if (connectionStatus === 'completed' || event.code === 4000) {
+      if (connectionStatusRef.current === 'completed' || event.code === 4000) {
         return;
       }
 
       // Try to reconnect
       if (reconnectAttempts.current < maxReconnectAttempts) {
         reconnectAttempts.current += 1;
+        connectionStatusRef.current = 'connecting';
         setConnectionStatus('connecting');
         setTimeout(connectWebSocket, 2000 * reconnectAttempts.current);
       } else {
+        connectionStatusRef.current = 'disconnected';
         setConnectionStatus('disconnected');
         setError('Connection lost. Please refresh the page to continue.');
       }
@@ -166,7 +172,7 @@ export default function InterviewPage() {
     return () => {
       ws.close();
     };
-  }, [token, connectionStatus]);
+  }, [token]);
 
   useEffect(() => {
     const cleanup = connectWebSocket();
