@@ -17,9 +17,8 @@ from api.models import Interview, Application, Requisition, Message, Persona, Pr
 logger = structlog.get_logger()
 router = APIRouter()
 
-# Completion tags that the AI uses to signal interview state
+# Completion tag that the AI uses to signal interview is complete
 COMPLETE_TAG = "[INTERVIEW_COMPLETE]"
-HUMAN_TAG = "[HUMAN_REQUESTED]"
 
 # Path to default prompts
 PROMPTS_DIR = Path(__file__).parent.parent / "config" / "prompts"
@@ -166,27 +165,22 @@ This should take about 15-20 minutes. I'll ask you some questions about your bac
         return template
 
 
-def check_and_strip_tags(content: str) -> Tuple[Optional[str], Optional[str], str]:
-    """Check if the AI's message contains completion tags and strip them.
+def check_and_strip_tags(content: str) -> Tuple[Optional[str], str]:
+    """Check if the AI's message contains completion tag and strip it.
 
     Returns:
-        Tuple of (complete_reason, human_reason, cleaned_content)
+        Tuple of (complete_reason, cleaned_content)
         - complete_reason: Set if interview should complete normally
-        - human_reason: Set if human was requested
-        - cleaned_content: Content with tags removed
+        - cleaned_content: Content with tag removed
     """
     cleaned = content
     complete_reason = None
-    human_reason = None
 
-    if HUMAN_TAG in content:
-        human_reason = "Candidate requested human recruiter"
-        cleaned = content.replace(HUMAN_TAG, "").strip()
-    elif COMPLETE_TAG in content:
+    if COMPLETE_TAG in content:
         complete_reason = "Interview completed normally"
         cleaned = content.replace(COMPLETE_TAG, "").strip()
 
-    return complete_reason, human_reason, cleaned
+    return complete_reason, cleaned
 
 
 async def generate_claude_response(
@@ -309,7 +303,7 @@ async def interview_websocket(websocket: WebSocket, token: str):
                 initial_response = "Hello! Thanks for joining us today. I'm here to learn more about your background and experience. Ready to get started?"
 
             # Check for tags (unlikely in opening but be safe)
-            _, _, cleaned_response = check_and_strip_tags(initial_response)
+            _, cleaned_response = check_and_strip_tags(initial_response)
 
             await websocket.send_json({"type": "typing", "status": False})
 
@@ -414,8 +408,8 @@ async def interview_websocket(websocket: WebSocket, token: str):
                     interview=interview,
                 )
 
-                # Check for completion tags
-                complete_reason, human_reason, cleaned_response = check_and_strip_tags(ai_response)
+                # Check for completion tag
+                complete_reason, cleaned_response = check_and_strip_tags(ai_response)
 
                 # Stop typing indicator
                 await websocket.send_json({"type": "typing", "status": False})
@@ -448,18 +442,6 @@ async def interview_websocket(websocket: WebSocket, token: str):
                     await websocket.send_json({"type": "completed"})
                     break
 
-                if human_reason:
-                    interview.human_requested = True
-                    interview.human_requested_at = datetime.now(timezone.utc)
-                    interview.application.human_requested = True
-                    db.commit()
-
-                    logger.info("Human requested by AI detection", interview_id=interview.id)
-                    await websocket.send_json({
-                        "type": "human_requested",
-                        "message": "A recruiter will reach out to you soon.",
-                    })
-
             elif msg_type == "end":
                 # User explicitly ends interview - generate a graceful closing
                 await websocket.send_json({"type": "typing", "status": True})
@@ -488,7 +470,7 @@ async def interview_websocket(websocket: WebSocket, token: str):
                 )
 
                 # Strip any tags just in case
-                _, _, cleaned_closing = check_and_strip_tags(closing_response)
+                _, cleaned_closing = check_and_strip_tags(closing_response)
 
                 await websocket.send_json({"type": "typing", "status": False})
 
@@ -515,63 +497,6 @@ async def interview_websocket(websocket: WebSocket, token: str):
                 await websocket.send_json({"type": "completed"})
                 logger.info("Interview ended by user with graceful closing", interview_id=interview.id)
                 break
-
-            elif msg_type == "request_human":
-                # User requests human recruiter - acknowledge and wrap up
-                await websocket.send_json({"type": "typing", "status": True})
-
-                # Generate acknowledgment
-                all_messages = (
-                    db.query(Message)
-                    .filter(Message.interview_id == interview.id)
-                    .order_by(Message.created_at)
-                    .all()
-                )
-                claude_messages = [
-                    {"role": m.role, "content": m.content}
-                    for m in all_messages
-                ]
-                claude_messages.append({
-                    "role": "user",
-                    "content": "[The candidate has requested to speak with a human recruiter instead. Please acknowledge their request warmly and let them know someone will reach out soon.]"
-                })
-
-                human_response = await generate_claude_response(
-                    messages=claude_messages,
-                    system_prompt=system_prompt + "\n\nIMPORTANT: The candidate wants to speak with a human. Acknowledge this warmly, thank them for their time, and assure them a recruiter will reach out soon. Keep it brief.",
-                    interview=interview,
-                )
-
-                _, _, cleaned_human = check_and_strip_tags(human_response)
-
-                await websocket.send_json({"type": "typing", "status": False})
-
-                # Save acknowledgment message
-                human_msg = Message(
-                    interview_id=interview.id,
-                    role="assistant",
-                    content=cleaned_human,
-                )
-                db.add(human_msg)
-
-                interview.human_requested = True
-                interview.human_requested_at = datetime.now(timezone.utc)
-                interview.application.human_requested = True
-                db.commit()
-                db.refresh(human_msg)
-
-                await websocket.send_json({
-                    "type": "message",
-                    "role": "assistant",
-                    "content": cleaned_human,
-                    "id": human_msg.id,
-                    "createdAt": human_msg.created_at.isoformat(),
-                })
-                await websocket.send_json({
-                    "type": "human_requested",
-                    "message": "A recruiter will reach out to you soon.",
-                })
-                logger.info("Human requested via WebSocket", interview_id=interview.id)
 
             elif msg_type == "ping":
                 await websocket.send_json({"type": "pong"})

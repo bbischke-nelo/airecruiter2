@@ -122,18 +122,6 @@ export default function InterviewPage() {
             setConnectionStatus('completed');
             break;
 
-          case 'human_requested':
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: Date.now(),
-                role: 'assistant',
-                content: data.message,
-                createdAt: new Date().toISOString(),
-              },
-            ]);
-            break;
-
           case 'error':
             setError(data.message);
             connectionStatusRef.current = 'error';
@@ -204,12 +192,6 @@ export default function InterviewPage() {
 
     // Focus back on input
     inputRef.current?.focus();
-  };
-
-  const requestHuman = () => {
-    if (wsRef.current && connectionStatus === 'connected') {
-      wsRef.current.send(JSON.stringify({ type: 'request_human' }));
-    }
   };
 
   const endInterview = () => {
@@ -312,28 +294,16 @@ export default function InterviewPage() {
               <p className="text-sm text-white/80 truncate">Welcome, {interviewInfo?.candidateName}</p>
             </div>
           </div>
-          <div className="flex gap-1 sm:gap-2 shrink-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-white/10 px-2 sm:px-3"
-              onClick={requestHuman}
-              title="Request Human"
-            >
-              <span className="hidden sm:inline">Request Human</span>
-              <span className="sm:hidden">Help</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-white/10 px-2 sm:px-3"
-              onClick={endInterview}
-              title="End Interview"
-            >
-              <span className="hidden sm:inline">End Interview</span>
-              <span className="sm:hidden">End</span>
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-white hover:bg-white/10 px-2 sm:px-3"
+            onClick={endInterview}
+            title="End Interview"
+          >
+            <span className="hidden sm:inline">End Interview</span>
+            <span className="sm:hidden">End</span>
+          </Button>
         </div>
       </header>
 
