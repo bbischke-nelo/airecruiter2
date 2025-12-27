@@ -273,44 +273,44 @@ async def interview_websocket(websocket: WebSocket, token: str):
             interview.started_at = datetime.now(timezone.utc)
             db.commit()
 
-            # Send initial greeting if no messages exist
-            existing_count = (
-                db.query(Message)
-                .filter(Message.interview_id == interview.id)
-                .count()
+        # Check if we need to generate a greeting (no messages yet)
+        existing_count = (
+            db.query(Message)
+            .filter(Message.interview_id == interview.id)
+            .count()
+        )
+
+        if existing_count == 0 and interview.status == "in_progress":
+            # Generate opening from Claude using the system prompt
+            await websocket.send_json({"type": "typing", "status": True})
+
+            initial_response = await generate_claude_response(
+                messages=[],  # Empty - just get the opening
+                system_prompt=system_prompt,
+                interview=interview,
             )
 
-            if existing_count == 0:
-                # Generate opening from Claude using the system prompt
-                await websocket.send_json({"type": "typing", "status": True})
+            # Check for tags (unlikely in opening but be safe)
+            _, _, cleaned_response = check_and_strip_tags(initial_response)
 
-                initial_response = await generate_claude_response(
-                    messages=[],  # Empty - just get the opening
-                    system_prompt=system_prompt,
-                    interview=interview,
-                )
+            await websocket.send_json({"type": "typing", "status": False})
 
-                # Check for tags (unlikely in opening but be safe)
-                _, _, cleaned_response = check_and_strip_tags(initial_response)
+            greeting_msg = Message(
+                interview_id=interview.id,
+                role="assistant",
+                content=cleaned_response,
+            )
+            db.add(greeting_msg)
+            db.commit()
+            db.refresh(greeting_msg)
 
-                await websocket.send_json({"type": "typing", "status": False})
-
-                greeting_msg = Message(
-                    interview_id=interview.id,
-                    role="assistant",
-                    content=cleaned_response,
-                )
-                db.add(greeting_msg)
-                db.commit()
-                db.refresh(greeting_msg)
-
-                await websocket.send_json({
-                    "type": "message",
-                    "role": "assistant",
-                    "content": cleaned_response,
-                    "id": greeting_msg.id,
-                    "createdAt": greeting_msg.created_at.isoformat(),
-                })
+            await websocket.send_json({
+                "type": "message",
+                "role": "assistant",
+                "content": cleaned_response,
+                "id": greeting_msg.id,
+                "createdAt": greeting_msg.created_at.isoformat(),
+            })
 
         # Load existing messages
         existing_messages = (

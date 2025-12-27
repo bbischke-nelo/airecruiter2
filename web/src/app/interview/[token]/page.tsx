@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { Send, Loader2, User, Bot, AlertCircle, CheckCircle } from 'lucide-react';
+import { Send, Loader2, User, AlertCircle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -231,7 +231,13 @@ export default function InterviewPage() {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <Card className="w-full max-w-md bg-white border shadow-lg">
           <CardContent className="p-8 text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-ccfs-red mx-auto mb-4" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/recruiter2/logo-primary.png"
+              alt="CrossCountry Freight Solutions"
+              className="h-12 w-auto mx-auto mb-6"
+            />
+            <Loader2 className="h-8 w-8 animate-spin text-ccfs-red mx-auto mb-4" />
             <p className="text-lg text-gray-800">Connecting to interview...</p>
           </CardContent>
         </Card>
@@ -244,7 +250,13 @@ export default function InterviewPage() {
       <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <Card className="w-full max-w-md bg-white border shadow-lg">
           <CardContent className="p-8 text-center">
-            <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/recruiter2/logo-primary.png"
+              alt="CrossCountry Freight Solutions"
+              className="h-12 w-auto mx-auto mb-6"
+            />
+            <AlertCircle className="h-10 w-10 text-red-600 mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2 text-gray-900">
               {connectionStatus === 'error' ? 'Unable to Connect' : 'Connection Lost'}
             </h2>
@@ -263,7 +275,13 @@ export default function InterviewPage() {
       <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <Card className="w-full max-w-md bg-white border shadow-lg">
           <CardContent className="p-8 text-center">
-            <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/recruiter2/logo-primary.png"
+              alt="CrossCountry Freight Solutions"
+              className="h-12 w-auto mx-auto mb-6"
+            />
+            <CheckCircle className="h-10 w-10 text-green-500 mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2 text-gray-900">Interview Complete</h2>
             <p className="text-gray-600">
               Thank you for taking the time to interview with us,{' '}
@@ -281,9 +299,17 @@ export default function InterviewPage() {
       {/* Header */}
       <header className="bg-ccfs-red text-white px-4 py-3 sticky top-0 z-10 safe-area-top">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
-          <div className="min-w-0 flex-1">
-            <h1 className="font-semibold truncate">{interviewInfo?.positionTitle} Interview</h1>
-            <p className="text-sm text-white/80 truncate">Welcome, {interviewInfo?.candidateName}</p>
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/recruiter2/logo-white.png"
+              alt="CrossCountry Freight Solutions"
+              className="h-10 w-auto hidden sm:block"
+            />
+            <div className="min-w-0">
+              <h1 className="font-semibold truncate">{interviewInfo?.positionTitle} Interview</h1>
+              <p className="text-sm text-white/80 truncate">Welcome, {interviewInfo?.candidateName}</p>
+            </div>
           </div>
           <div className="flex gap-1 sm:gap-2 shrink-0">
             <Button
@@ -321,8 +347,13 @@ export default function InterviewPage() {
               }`}
             >
               {message.role === 'assistant' && (
-                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-5 w-5 text-ccfs-red" />
+                <div className="w-8 h-8 rounded-full bg-ccfs-red flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/recruiter2/logo-white.png"
+                    alt=""
+                    className="w-6 h-6 object-contain"
+                  />
                 </div>
               )}
               <div
@@ -344,8 +375,13 @@ export default function InterviewPage() {
 
           {isTyping && (
             <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                <Bot className="h-5 w-5 text-ccfs-red" />
+              <div className="w-8 h-8 rounded-full bg-ccfs-red flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/recruiter2/logo-white.png"
+                  alt=""
+                  className="w-6 h-6 object-contain"
+                />
               </div>
               <div className="bg-white border border-gray-200 shadow-sm rounded-2xl px-4 py-3">
                 <div className="flex gap-1">
