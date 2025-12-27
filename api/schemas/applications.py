@@ -62,14 +62,13 @@ class ApplicationListItem(CamelModel):
     current_employer: Optional[str] = None
     total_experience_months: Optional[int] = None
     months_since_last_employment: Optional[int] = None
-    human_requested: bool = False
     compliance_review: bool = False
     # Decision tracking
     rejection_reason_code: Optional[str] = None
     created_at: datetime
 
     # Validators to coerce None to False
-    @field_validator("human_requested", "compliance_review", "has_analysis", "has_interview", "has_report", mode="before")
+    @field_validator("compliance_review", "has_analysis", "has_interview", "has_report", mode="before")
     @classmethod
     def coerce_bool(cls, v: Any) -> bool:
         return _coerce_bool(v)
@@ -87,7 +86,6 @@ class ApplicationResponse(CamelModel):
     status: str
     workday_status: Optional[str] = None
     workday_status_changed: Optional[datetime] = None
-    human_requested: bool = False
     compliance_review: bool = False
     artifacts: dict[str, Any] = {}
     created_at: datetime
@@ -95,7 +93,7 @@ class ApplicationResponse(CamelModel):
     processed_at: Optional[datetime] = None
 
     # Validators to coerce None to False
-    @field_validator("human_requested", "compliance_review", mode="before")
+    @field_validator("compliance_review", mode="before")
     @classmethod
     def coerce_bool(cls, v: Any) -> bool:
         return _coerce_bool(v)

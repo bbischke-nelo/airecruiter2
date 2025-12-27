@@ -301,8 +301,6 @@ function getActivityIcon(action: string) {
       return <TrendingUp className="h-4 w-4 text-purple-500" />;
     case 'status_changed':
       return <Activity className="h-4 w-4 text-orange-500" />;
-    case 'human_requested':
-      return <AlertCircle className="h-4 w-4 text-yellow-500" />;
     default:
       return <Activity className="h-4 w-4 text-muted-foreground" />;
   }
@@ -314,7 +312,6 @@ function formatAction(action: string): string {
     interview_sent: 'Interview invite sent',
     evaluation_completed: 'Interview evaluated',
     status_changed: 'Status updated',
-    human_requested: 'Human review requested',
     report_generated: 'Report generated',
     report_uploaded: 'Report uploaded to Workday',
   };

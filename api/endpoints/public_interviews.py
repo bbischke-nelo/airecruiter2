@@ -167,29 +167,6 @@ async def send_message(
     )
 
 
-@router.post("/{token}/request-human")
-async def request_human(
-    token: str,
-    db: Session = Depends(get_db),
-):
-    """Request to speak with a human recruiter."""
-    interview = get_interview_by_token(token, db)
-
-    interview.human_requested = True
-    interview.human_requested_at = datetime.now(timezone.utc)
-
-    # Also flag on application
-    interview.application.human_requested = True
-
-    db.commit()
-
-    logger.info("Human requested", interview_id=interview.id)
-
-    return {
-        "message": "Your request to speak with a human recruiter has been noted. Someone will reach out to you soon."
-    }
-
-
 @router.get("/{token}/messages", response_model=list[MessageResponse])
 async def get_messages(
     token: str,
