@@ -1,31 +1,36 @@
 Hi {{first_name}},
 
-Thank you for your interest in the {{position}} position. We'd like to learn more about you as part of our hiring process.
+We received your application for the {{position}} role and we're interested. We'd like to move forward.
 
-You'll answer a few questions through our digital interview platform - no video call or scheduling required. Just click the link below when you're ready.
+At CCFS, we respect that your time is money. Instead of making you wait for a recruiter to call, you can complete your initial interview right now - on your phone, whenever works for you.
 
-What to expect:
-- Move forward faster - no waiting for callbacks or scheduling
-- Complete on your schedule - anytime, from any device
-- Only 10-15 minutes - a few straightforward questions
-- Review before submitting - no pressure, take your time
+How it works:
+1. Click the link below (works on any phone or computer)
+2. Answer a few questions about your experience (~10 min)
+3. A real member of our team reviews every response
+
+No video required. No scheduling. Do it while you're parked or on a break.
 
 To start your interview, visit:
 {{interview_url}}
 
 This link is valid for {{expires_in_days}} days.
 
-What happens next? After you complete the interview, our team will review your responses and reach out about next steps within a few business days.
+---
 
-Need an accommodation? If you require a reasonable accommodation to complete this interview due to a disability, please contact us at jobs@ccfs.com or call (800) 521-0287 and we'll be happy to assist.
+Prefer to talk to a person? We get it. Reply to this email or call (800) 521-0287 and we'll set up a time that fits your schedule.
 
-Prefer to speak with someone directly? We're happy to accommodate alternative interview formats. Just reply to this email or contact our recruiting team and we'll work with you.
+---
 
-Looking forward to connecting with you,
+What happens next? After you complete the interview, our recruiting team will review your responses and reach out about next steps within a few business days.
+
+Need an accommodation? If you require assistance to complete this interview due to a disability, please contact us at jobs@ccfs.com or call (800) 521-0287.
+
+Talk soon,
 {{recruiter_name}}
 {{company_name}}
 jobs@ccfs.com | (800) 521-0287
 
 ---
 
-Important: This interview uses artificial intelligence (AI) technology. Your responses will be recorded and reviewed as part of our hiring process.
+This interview uses an automated chat system. Your responses are recorded and reviewed by our recruiting team.
