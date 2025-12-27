@@ -59,14 +59,14 @@ class Settings(BaseSettings):
     # AWS S3
     S3_BUCKET: str = "airecruiter-artifacts"
     S3_PREFIX: str = "airecruiter2"
-    AWS_REGION: str = "us-east-1"
+    AWS_REGION: str = "us-west-2"
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
 
     # AWS SES
     SES_FROM_EMAIL: str = "jobs@ccfs.com"
     SES_FROM_NAME: str = "CCFS Talent Team"
-    SES_REGION: str = "us-east-1"
+    SES_REGION: str = "us-west-2"
 
     # Frontend URL (for interview links)
     FRONTEND_URL: str = "http://localhost:3000"
