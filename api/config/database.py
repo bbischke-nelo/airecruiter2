@@ -7,11 +7,18 @@ from sqlalchemy.orm import Session, sessionmaker, declarative_base
 
 from .settings import settings
 
+# Build connection URL with MARS enabled
+# MARS (Multiple Active Result Sets) allows multiple queries on the same connection
+database_url = settings.DATABASE_URL
+if "MARS_Connection" not in database_url:
+    separator = "&" if "?" in database_url else "?"
+    database_url = f"{database_url}{separator}MARS_Connection=Yes"
+
 # Create engine for SQL Server
 # Note: We use sync engine since aioodbc is not well-maintained
 # FastAPI can handle sync database operations via thread pool
 engine = create_engine(
-    settings.DATABASE_URL,
+    database_url,
     echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_size=5,

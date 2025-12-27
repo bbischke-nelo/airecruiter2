@@ -8,9 +8,16 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from processor.config import settings
 
+# Build connection URL with MARS enabled
+# MARS (Multiple Active Result Sets) allows multiple queries on the same connection
+database_url = settings.DATABASE_URL
+if "MARS_Connection" not in database_url:
+    separator = "&" if "?" in database_url else "?"
+    database_url = f"{database_url}{separator}MARS_Connection=Yes"
+
 # Create engine with SQL Server specific settings
 engine = create_engine(
-    settings.DATABASE_URL,
+    database_url,
     pool_pre_ping=True,
     pool_size=5,
     max_overflow=10,

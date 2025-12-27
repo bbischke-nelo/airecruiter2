@@ -51,6 +51,7 @@ class EvaluateProcessor(BaseProcessor):
                 {"app_id": application_id},
             )
             row = result.fetchone()
+            result.close()  # Close cursor to free connection for next query
             if not row:
                 raise ValueError(f"No interview found for application {application_id}")
             interview_id = row.id
@@ -68,6 +69,7 @@ class EvaluateProcessor(BaseProcessor):
         """)
         result = self.db.execute(query, {"int_id": interview_id})
         interview = result.fetchone()
+        result.close()  # Close cursor to free connection
 
         if not interview:
             raise ValueError(f"Interview {interview_id} not found")
@@ -180,6 +182,7 @@ class EvaluateProcessor(BaseProcessor):
         """)
         result = self.db.execute(query, {"prompt_type": prompt_type, "req_id": requisition_id})
         row = result.fetchone()
+        result.close()  # Close cursor to free connection
 
         if row and row.template_content:
             return row.template_content
