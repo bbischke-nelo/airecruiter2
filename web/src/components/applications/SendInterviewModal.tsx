@@ -68,39 +68,43 @@ export function SendInterviewModal({
     }
   }, [open, application]);
 
-  // Send interview mutation - single step, prepare + activate combined
+  // Send interview mutation - prepare + activate in one step
   const sendMutation = useMutation({
     mutationFn: async () => {
-      // First prepare
+      // Prepare interview
       await api.post(`/applications/${application?.id}/prepare-interview`, {
         mode,
         emailOverride: emailOverride || undefined,
         expiryDays,
       });
-      // Then activate
+      // Activate interview
       const response = await api.post(`/applications/${application?.id}/activate-interview`, {
         method: mode,
         emailOverride: emailOverride || undefined,
       });
       return response.data as SendInterviewResponse;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setResult(data);
       setError(null);
       queryClient.invalidateQueries({ queryKey: ['applications'] });
+      // Auto-copy link for link_only mode
+      if (mode === 'link_only' && data.interviewUrl) {
+        await navigator.clipboard.writeText(data.interviewUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 3000);
+      }
     },
     onError: (err: Error) => {
       setError(err.message || 'Failed to send interview');
     },
   });
 
-  // Handle send button click
   const handleSend = () => {
     setError(null);
     sendMutation.mutate();
   };
 
-  // Copy link to clipboard
   const handleCopyLink = async () => {
     if (result?.interviewUrl) {
       await navigator.clipboard.writeText(result.interviewUrl);
@@ -109,107 +113,109 @@ export function SendInterviewModal({
     }
   };
 
-  // Handle done - close and trigger success
   const handleDone = () => {
     onSuccess();
     onOpenChange(false);
   };
 
   const isLoading = sendMutation.isPending;
+  const effectiveEmail = emailOverride || application?.candidateEmail;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[440px]">
         <DialogHeader>
-          <DialogTitle>Send AI Interview</DialogTitle>
+          <DialogTitle>Send Interview</DialogTitle>
           <DialogDescription>
-            Send an AI-powered screening interview to {application?.candidateName}
+            {application?.candidateName} &bull; {application?.requisitionName}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 space-y-6">
+        <div className="py-4">
           {!result ? (
-            <>
-              {/* Mode Selection */}
-              <div className="space-y-3">
-                <Label>Interview Method</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setMode('email')}
-                    className={cn(
-                      'flex flex-col items-center justify-center rounded-md border-2 p-3 cursor-pointer transition-colors',
-                      mode === 'email'
-                        ? 'border-primary bg-primary/5'
-                        : 'border-muted bg-popover hover:bg-accent hover:text-accent-foreground'
-                    )}
-                  >
-                    <Mail className="mb-2 h-5 w-5" />
-                    <span className="text-sm font-medium">Send Email</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMode('link_only')}
-                    className={cn(
-                      'flex flex-col items-center justify-center rounded-md border-2 p-3 cursor-pointer transition-colors',
-                      mode === 'link_only'
-                        ? 'border-primary bg-primary/5'
-                        : 'border-muted bg-popover hover:bg-accent hover:text-accent-foreground'
-                    )}
-                  >
-                    <Link2 className="mb-2 h-5 w-5" />
-                    <span className="text-sm font-medium">Link Only</span>
-                  </button>
-                </div>
+            <div className="space-y-5">
+              {/* Mode Selection - Simple toggle buttons */}
+              <div className="flex rounded-lg border p-1 bg-muted/30">
+                <button
+                  type="button"
+                  onClick={() => setMode('email')}
+                  className={cn(
+                    'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors',
+                    mode === 'email'
+                      ? 'bg-background shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Mail className="h-4 w-4" />
+                  Email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('link_only')}
+                  className={cn(
+                    'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors',
+                    mode === 'link_only'
+                      ? 'bg-background shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Link2 className="h-4 w-4" />
+                  Link Only
+                </button>
               </div>
 
-              {/* Email Override (for email mode) */}
+              {/* Email field (only for email mode) */}
               {mode === 'email' && (
                 <div className="space-y-2">
-                  <Label htmlFor="email-override">Email Address</Label>
+                  <Label htmlFor="email">Send to</Label>
                   <Input
-                    id="email-override"
+                    id="email"
                     type="email"
-                    placeholder={application?.candidateEmail || 'Enter email address'}
+                    placeholder={application?.candidateEmail || 'Enter email'}
                     value={emailOverride}
                     onChange={(e) => setEmailOverride(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Leave blank to use candidate's email on file
-                    {application?.candidateEmail && `: ${application.candidateEmail}`}
+                    {emailOverride
+                      ? 'One-time override (won\'t update candidate record)'
+                      : application?.candidateEmail
+                        ? `Using: ${application.candidateEmail}`
+                        : 'No email on file'}
                   </p>
                 </div>
               )}
 
-              {/* Expiry Days */}
-              <div className="space-y-2">
-                <Label htmlFor="expiry-days">Link Expires In</Label>
+              {/* Expiry - inline with label */}
+              <div className="flex items-center justify-between">
+                <Label htmlFor="expiry" className="text-muted-foreground">
+                  Link expires in
+                </Label>
                 <div className="flex items-center gap-2">
                   <Input
-                    id="expiry-days"
+                    id="expiry"
                     type="number"
                     min={1}
                     max={30}
                     value={expiryDays}
                     onChange={(e) => setExpiryDays(parseInt(e.target.value) || 7)}
-                    className="w-20"
+                    className="w-16 text-center"
                   />
                   <span className="text-sm text-muted-foreground">days</span>
                 </div>
               </div>
-            </>
+            </div>
           ) : (
             /* Success state */
             <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+              <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-900/20">
                 <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
                 <div>
                   <div className="font-medium text-green-800 dark:text-green-200">
-                    {result.emailSent ? 'Interview email sent!' : 'Interview link created!'}
+                    {result.emailSent ? 'Email sent!' : 'Link copied to clipboard!'}
                   </div>
                   {result.emailSent && result.emailSentTo && (
                     <div className="text-sm text-green-700 dark:text-green-300">
-                      Sent to {result.emailSentTo}
+                      {result.emailSentTo}
                     </div>
                   )}
                 </div>
@@ -227,7 +233,6 @@ export function SendInterviewModal({
                     variant="outline"
                     size="icon"
                     onClick={handleCopyLink}
-                    title="Copy link"
                   >
                     {copied ? (
                       <Check className="h-4 w-4 text-green-600" />
@@ -237,15 +242,14 @@ export function SendInterviewModal({
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Expires: {new Date(result.expiresAt).toLocaleDateString()}
+                  Expires {new Date(result.expiresAt).toLocaleDateString()}
                 </p>
               </div>
             </div>
           )}
 
-          {/* Error Display */}
           {error && (
-            <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 text-destructive">
+            <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 text-destructive mt-4">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               <span className="text-sm">{error}</span>
             </div>
@@ -255,16 +259,19 @@ export function SendInterviewModal({
         <DialogFooter>
           {!result ? (
             <>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button variant="ghost" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSend} disabled={isLoading}>
+              <Button
+                onClick={handleSend}
+                disabled={isLoading || (mode === 'email' && !effectiveEmail)}
+              >
                 {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {mode === 'email' ? 'Send Email' : 'Generate Link'}
+                {mode === 'email' ? 'Send Email' : 'Get Link'}
               </Button>
             </>
           ) : (
-            <Button onClick={handleDone}>
+            <Button onClick={handleDone} className="w-full">
               Done
             </Button>
           )}

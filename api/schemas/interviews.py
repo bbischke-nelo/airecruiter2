@@ -152,6 +152,8 @@ class ActivateInterviewRequest(CamelModel):
 
     method: Literal["email", "link_only"]  # "email" sends email, "link_only" just activates
     email_override: Optional[str] = None  # Can override at send time too
+    custom_subject: Optional[str] = None  # Custom email subject (if edited)
+    custom_html: Optional[str] = None  # Custom email HTML body (if edited)
 
 
 class ActivateInterviewResponse(CamelModel):

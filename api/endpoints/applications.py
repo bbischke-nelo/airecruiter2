@@ -996,15 +996,24 @@ async def activate_interview(
                 recruiter_email = application.requisition.recruiter.email
                 recruiter_name = application.requisition.recruiter.name
 
-            await ses.send_interview_invite(
-                to=final_email,
-                candidate_name=application.candidate_name,
-                position=application.requisition.name,
-                interview_url=interview_url,
-                recruiter_name=recruiter_name,
-                recruiter_email=recruiter_email,
-                expires_in_days=7,
-            )
+            # Use custom HTML/subject if provided, otherwise use template
+            if data.custom_html and data.custom_subject:
+                await ses.send_email(
+                    to=final_email,
+                    subject=data.custom_subject,
+                    html_body=data.custom_html,
+                    reply_to=recruiter_email,
+                )
+            else:
+                await ses.send_interview_invite(
+                    to=final_email,
+                    candidate_name=application.candidate_name,
+                    position=application.requisition.name,
+                    interview_url=interview_url,
+                    recruiter_name=recruiter_name,
+                    recruiter_email=recruiter_email,
+                    expires_in_days=7,
+                )
 
             interview.invite_sent_at = datetime.now(timezone.utc)
             email_sent = True
@@ -1014,6 +1023,7 @@ async def activate_interview(
                 "Interview email sent",
                 interview_id=interview.id,
                 to=final_email,
+                custom_email=bool(data.custom_html),
             )
 
         except Exception as e:
