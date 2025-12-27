@@ -42,6 +42,9 @@ class Analysis(Base):
     # Raw AI response
     raw_response = Column(Text, nullable=True)  # JSON: Full AI output for debugging
 
+    # Cached resume text (avoids re-parsing on retry)
+    raw_resume_text = Column(Text, nullable=True)  # Extracted text from PDF/DOCX
+
     # Prompt used
     prompt_id = Column(Integer, ForeignKey("prompts.id"), nullable=True)
 

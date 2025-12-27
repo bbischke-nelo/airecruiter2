@@ -9,6 +9,7 @@ from typing import Optional, Tuple
 
 import structlog
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from api.config.database import SessionLocal
@@ -437,13 +438,37 @@ async def interview_websocket(websocket: WebSocket, token: str):
                     interview.status = "completed"
                     interview.completed_at = datetime.now(timezone.utc)
 
-                    # Queue evaluation job
-                    eval_job = Job(
-                        application_id=interview.application_id,
-                        job_type="evaluate",
-                        priority=5,
-                    )
-                    db.add(eval_job)
+                    # Queue evaluation job (idempotent - check if pending/running exists)
+                    existing_job = db.query(Job).filter(
+                        Job.application_id == interview.application_id,
+                        Job.job_type == "evaluate",
+                        Job.status.in_(["pending", "running"])
+                    ).first()
+
+                    eval_job_id = None
+                    if not existing_job:
+                        try:
+                            eval_job = Job(
+                                application_id=interview.application_id,
+                                job_type="evaluate",
+                                priority=5,
+                            )
+                            db.add(eval_job)
+                            db.flush()  # Get the ID
+                            eval_job_id = eval_job.id
+                        except IntegrityError:
+                            # Race condition - another request created the job
+                            db.rollback()
+                            existing_job = db.query(Job).filter(
+                                Job.application_id == interview.application_id,
+                                Job.job_type == "evaluate",
+                                Job.status.in_(["pending", "running"])
+                            ).first()
+                            eval_job_id = existing_job.id if existing_job else None
+                            logger.info("Evaluate job created by concurrent request", existing_job_id=eval_job_id)
+                    else:
+                        logger.info("Evaluate job already exists", existing_job_id=existing_job.id)
+                        eval_job_id = existing_job.id
 
                     # Log activity
                     activity = Activity(
@@ -456,7 +481,7 @@ async def interview_websocket(websocket: WebSocket, token: str):
 
                     db.commit()
 
-                    logger.info("Interview completed", interview_id=interview.id, reason=complete_reason, eval_job_id=eval_job.id)
+                    logger.info("Interview completed", interview_id=interview.id, reason=complete_reason, eval_job_id=eval_job_id)
                     await websocket.send_json({"type": "completed"})
                     break
 
@@ -503,13 +528,37 @@ async def interview_websocket(websocket: WebSocket, token: str):
                 interview.status = "completed"
                 interview.completed_at = datetime.now(timezone.utc)
 
-                # Queue evaluation job
-                eval_job = Job(
-                    application_id=interview.application_id,
-                    job_type="evaluate",
-                    priority=5,
-                )
-                db.add(eval_job)
+                # Queue evaluation job (idempotent - check if pending/running exists)
+                existing_job = db.query(Job).filter(
+                    Job.application_id == interview.application_id,
+                    Job.job_type == "evaluate",
+                    Job.status.in_(["pending", "running"])
+                ).first()
+
+                eval_job_id = None
+                if not existing_job:
+                    try:
+                        eval_job = Job(
+                            application_id=interview.application_id,
+                            job_type="evaluate",
+                            priority=5,
+                        )
+                        db.add(eval_job)
+                        db.flush()
+                        eval_job_id = eval_job.id
+                    except IntegrityError:
+                        # Race condition - another request created the job
+                        db.rollback()
+                        existing_job = db.query(Job).filter(
+                            Job.application_id == interview.application_id,
+                            Job.job_type == "evaluate",
+                            Job.status.in_(["pending", "running"])
+                        ).first()
+                        eval_job_id = existing_job.id if existing_job else None
+                        logger.info("Evaluate job created by concurrent request", existing_job_id=eval_job_id)
+                else:
+                    logger.info("Evaluate job already exists", existing_job_id=existing_job.id)
+                    eval_job_id = existing_job.id
 
                 # Log activity
                 activity = Activity(
@@ -531,7 +580,7 @@ async def interview_websocket(websocket: WebSocket, token: str):
                     "createdAt": closing_msg.created_at.isoformat(),
                 })
                 await websocket.send_json({"type": "completed"})
-                logger.info("Interview ended by user", interview_id=interview.id, eval_job_id=eval_job.id)
+                logger.info("Interview ended by user", interview_id=interview.id, eval_job_id=eval_job_id)
                 break
 
             elif msg_type == "ping":

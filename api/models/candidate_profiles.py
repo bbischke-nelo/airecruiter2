@@ -41,6 +41,15 @@ class CandidateProfile(Base):
     education = Column(Text, nullable=True)     # JSON array of education entries
     skills = Column(Text, nullable=True)        # JSON array of skills
 
+    # Enrichment from resume extraction (added in migration 00018)
+    linkedin_url = Column(String(500), nullable=True)
+    certifications = Column(Text, nullable=True)  # JSON array
+    licenses = Column(Text, nullable=True)        # JSON array
+    total_experience_months = Column(Integer, nullable=True)
+
+    # Optimistic locking (added in migration 00024)
+    version = Column(Integer, nullable=False, default=0)
+
     # Metadata
     last_synced_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -16,29 +16,19 @@ def _coerce_bool(v: Any) -> bool:
     return bool(v)
 
 
-# Valid rejection reason codes (must match model)
-# These are legally defensible, objective reason codes that don't require commentary
+# Valid rejection reason codes (must match rejection_reasons table in database)
+# These map to Workday disposition IDs for TMS sync
 # No free-form comments allowed - they become discovery liabilities in litigation
 class RejectionReasonCode(str, Enum):
-    """Legally defensible rejection reason codes."""
-    QUAL_LICENSE = "QUAL_LICENSE"
-    QUAL_EXPERIENCE = "QUAL_EXPERIENCE"
-    QUAL_SKILLS = "QUAL_SKILLS"
-    QUAL_EDUCATION = "QUAL_EDUCATION"
-    RETENTION_RISK = "RETENTION_RISK"
-    RECENCY_OF_SKILLS = "RECENCY_OF_SKILLS"
-    OVERQUALIFIED = "OVERQUALIFIED"
-    LOCATION_MISMATCH = "LOCATION_MISMATCH"
-    SCHEDULE_MISMATCH = "SCHEDULE_MISMATCH"
-    SALARY_MISMATCH = "SALARY_MISMATCH"
-    WITHDREW = "WITHDREW"
-    NO_RESPONSE = "NO_RESPONSE"
-    INTERVIEW_INCOMPLETE = "INTERVIEW_INCOMPLETE"
-    INTERVIEW_PERFORMANCE = "INTERVIEW_PERFORMANCE"
-    WORK_AUTHORIZATION = "WORK_AUTHORIZATION"
-    DID_NOT_SHOW = "DID_NOT_SHOW"
-    POSITION_FILLED = "POSITION_FILLED"
-    DUPLICATE = "DUPLICATE"
+    """Rejection reason codes matching rejection_reasons table."""
+    EXPERIENCE_SKILLS = "EXPERIENCE_SKILLS"
+    NOT_INTERESTED = "NOT_INTERESTED"
+    OFF_THE_MARKET = "OFF_THE_MARKET"
+    DIDNT_MEET_GUIDELINES = "DIDNT_MEET_GUIDELINES"
+    CANDIDATE_WITHDRAWN = "CANDIDATE_WITHDRAWN"
+    REQUISITION_CLOSED = "REQUISITION_CLOSED"
+    ANOTHER_CANDIDATE_HIRED = "ANOTHER_CANDIDATE_HIRED"
+    NO_SHOW = "NO_SHOW"
 
 
 class ApplicationListItem(CamelModel):

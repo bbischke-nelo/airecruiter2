@@ -384,6 +384,17 @@ async def advance_application(
                 }),
             )
             db.add(sync_job)
+            logger.info(
+                "Queued Workday sync job for advance",
+                application_id=application_id,
+                stage_id=tms_stage_id,
+            )
+        else:
+            logger.warning(
+                "TMS stage not configured - Workday sync skipped",
+                application_id=application_id,
+                setting_key=tms_stage_key,
+            )
 
     # Log decision
     decision = ApplicationDecision(
@@ -485,6 +496,25 @@ async def reject_application(
             }),
         )
         db.add(sync_job)
+        logger.info(
+            "Queued Workday sync job for rejection",
+            application_id=application_id,
+            disposition_id=rejection_reason.external_id,
+        )
+    else:
+        # No sync job queued - log why
+        if not rejection_reason:
+            logger.warning(
+                "Rejection reason not found in database - Workday sync skipped",
+                application_id=application_id,
+                reason_code=reason_code,
+            )
+        elif not rejection_reason.external_id:
+            logger.warning(
+                "Rejection reason has no external_id - Workday sync skipped",
+                application_id=application_id,
+                reason_code=reason_code,
+            )
 
     # Log decision (no comment stored - discovery liability)
     decision = ApplicationDecision(

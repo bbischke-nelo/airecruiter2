@@ -20,27 +20,17 @@ import {
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
 
-// Must match api/schemas/applications.py RejectionReasonCode
-// These are legally defensible, objective reason codes that don't require commentary
+// Must match api/schemas/applications.py RejectionReasonCode AND rejection_reasons table
+// These map to Workday disposition IDs for TMS sync
 export const REJECTION_REASON_CODES = {
-  QUAL_LICENSE: 'Missing Required License',
-  QUAL_EXPERIENCE: 'Insufficient Experience',
-  QUAL_SKILLS: 'Missing Required Skills',
-  QUAL_EDUCATION: 'Education Requirements Not Met',
-  RETENTION_RISK: 'Retention Risk',
-  RECENCY_OF_SKILLS: 'Skills Not Recent',
-  OVERQUALIFIED: 'Overqualified',
-  LOCATION_MISMATCH: 'Location Mismatch',
-  SCHEDULE_MISMATCH: 'Schedule Mismatch',
-  SALARY_MISMATCH: 'Salary Expectations Mismatch',
-  WITHDREW: 'Candidate Withdrew',
-  NO_RESPONSE: 'No Response from Candidate',
-  INTERVIEW_INCOMPLETE: 'Interview Not Completed',
-  INTERVIEW_PERFORMANCE: 'Interview Performance',
-  WORK_AUTHORIZATION: 'Work Authorization Issue',
-  DID_NOT_SHOW: 'Did Not Show',
-  POSITION_FILLED: 'Position Filled',
-  DUPLICATE: 'Duplicate Application',
+  EXPERIENCE_SKILLS: 'Experience/Skills',
+  NOT_INTERESTED: 'Not Interested in Position',
+  OFF_THE_MARKET: 'Off the Market',
+  DIDNT_MEET_GUIDELINES: "Didn't Meet Hiring Guidelines",
+  CANDIDATE_WITHDRAWN: 'Candidate Withdrawn',
+  REQUISITION_CLOSED: 'Requisition Closed',
+  ANOTHER_CANDIDATE_HIRED: 'Another Candidate Hired',
+  NO_SHOW: 'No Show',
 } as const;
 
 export type RejectionReasonCode = keyof typeof REJECTION_REASON_CODES;

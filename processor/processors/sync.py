@@ -6,6 +6,7 @@ from typing import Optional
 
 import structlog
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from processor.processors.base import BaseProcessor
@@ -14,6 +15,11 @@ from processor.services.tms_service import TMSService
 from processor.tms.base import TMSApplication
 
 logger = structlog.get_logger()
+
+
+class ConcurrentUpdateError(Exception):
+    """Raised when optimistic locking fails after max retries."""
+    pass
 
 
 class SyncProcessor(BaseProcessor):
@@ -375,8 +381,11 @@ class SyncProcessor(BaseProcessor):
             },
         )
 
-    async def _upsert_candidate_profile(self, tms_app: TMSApplication) -> Optional[int]:
+    async def _upsert_candidate_profile(self, tms_app: TMSApplication, max_retries: int = 3) -> Optional[int]:
         """Create or update a CandidateProfile from TMS data.
+
+        Uses optimistic locking to prevent race conditions when multiple
+        sync jobs update the same candidate profile concurrently.
 
         Returns:
             Profile ID or None if no external_candidate_id
@@ -384,89 +393,125 @@ class SyncProcessor(BaseProcessor):
         if not tms_app.external_candidate_id:
             return None
 
-        # Check if profile exists
-        query = text("""
-            SELECT id FROM candidate_profiles
-            WHERE external_candidate_id = :ext_cand_id
-        """)
-        result = self.db.execute(query, {"ext_cand_id": tms_app.external_candidate_id})
-        existing = result.fetchone()
-
         # Serialize lists to JSON
         work_history_json = json.dumps(tms_app.work_history) if tms_app.work_history else None
         education_json = json.dumps(tms_app.education) if tms_app.education else None
         skills_json = json.dumps(tms_app.skills) if tms_app.skills else None
 
-        if existing:
-            # Update existing profile
-            update_query = text("""
-                UPDATE candidate_profiles
-                SET candidate_wid = COALESCE(:wid, candidate_wid),
-                    primary_email = COALESCE(:email, primary_email),
-                    secondary_email = COALESCE(:secondary_email, secondary_email),
-                    phone_number = COALESCE(:phone, phone_number),
-                    city = COALESCE(:city, city),
-                    state = COALESCE(:state, state),
-                    work_history = COALESCE(:work_history, work_history),
-                    education = COALESCE(:education, education),
-                    skills = COALESCE(:skills, skills),
-                    last_synced_at = GETUTCDATE(),
-                    updated_at = GETUTCDATE()
-                WHERE id = :profile_id
+        for attempt in range(max_retries):
+            # Check if profile exists with current version
+            query = text("""
+                SELECT id, version FROM candidate_profiles
+                WHERE external_candidate_id = :ext_cand_id
             """)
-            self.db.execute(
-                update_query,
-                {
-                    "profile_id": existing.id,
-                    "wid": tms_app.candidate_wid,
-                    "email": tms_app.candidate_email,
-                    "secondary_email": tms_app.secondary_email,
-                    "phone": tms_app.phone_number,
-                    "city": tms_app.city,
-                    "state": tms_app.state,
-                    "work_history": work_history_json,
-                    "education": education_json,
-                    "skills": skills_json,
-                },
-            )
-            self.db.commit()
-            return existing.id
-        else:
-            # Insert new profile
-            insert_query = text("""
-                INSERT INTO candidate_profiles (
-                    external_candidate_id, candidate_wid, primary_email, secondary_email,
-                    phone_number, city, state, work_history, education, skills,
-                    last_synced_at, created_at
-                )
-                OUTPUT INSERTED.id
-                VALUES (
-                    :ext_cand_id, :wid, :email, :secondary_email,
-                    :phone, :city, :state, :work_history, :education, :skills,
-                    GETUTCDATE(), GETUTCDATE()
-                )
-            """)
-            result = self.db.execute(
-                insert_query,
-                {
-                    "ext_cand_id": tms_app.external_candidate_id,
-                    "wid": tms_app.candidate_wid,
-                    "email": tms_app.candidate_email,
-                    "secondary_email": tms_app.secondary_email,
-                    "phone": tms_app.phone_number,
-                    "city": tms_app.city,
-                    "state": tms_app.state,
-                    "work_history": work_history_json,
-                    "education": education_json,
-                    "skills": skills_json,
-                },
-            )
-            profile_id = result.scalar()
-            self.db.commit()
+            result = self.db.execute(query, {"ext_cand_id": tms_app.external_candidate_id})
+            existing = result.fetchone()
 
-            self.logger.info(
-                "Created candidate profile",
-                profile_id=profile_id,
-                external_candidate_id=tms_app.external_candidate_id,
-            )
-            return profile_id
+            if existing:
+                # Update existing profile with optimistic lock check
+                update_query = text("""
+                    UPDATE candidate_profiles
+                    SET candidate_wid = COALESCE(:wid, candidate_wid),
+                        primary_email = COALESCE(:email, primary_email),
+                        secondary_email = COALESCE(:secondary_email, secondary_email),
+                        phone_number = COALESCE(:phone, phone_number),
+                        city = COALESCE(:city, city),
+                        state = COALESCE(:state, state),
+                        work_history = COALESCE(:work_history, work_history),
+                        education = COALESCE(:education, education),
+                        skills = COALESCE(:skills, skills),
+                        version = version + 1,
+                        last_synced_at = GETUTCDATE(),
+                        updated_at = GETUTCDATE()
+                    WHERE id = :profile_id AND version = :expected_version
+                """)
+                update_result = self.db.execute(
+                    update_query,
+                    {
+                        "profile_id": existing.id,
+                        "expected_version": existing.version,
+                        "wid": tms_app.candidate_wid,
+                        "email": tms_app.candidate_email,
+                        "secondary_email": tms_app.secondary_email,
+                        "phone": tms_app.phone_number,
+                        "city": tms_app.city,
+                        "state": tms_app.state,
+                        "work_history": work_history_json,
+                        "education": education_json,
+                        "skills": skills_json,
+                    },
+                )
+
+                if update_result.rowcount == 0:
+                    # Conflict - another process updated the profile
+                    self.db.rollback()
+                    if attempt < max_retries - 1:
+                        self.logger.warning(
+                            "Profile update conflict, retrying",
+                            profile_id=existing.id,
+                            attempt=attempt + 1,
+                        )
+                        continue
+                    else:
+                        # Raise exception so job can be retried later
+                        raise ConcurrentUpdateError(
+                            f"Failed to update profile {existing.id} after {max_retries} attempts"
+                        )
+
+                self.db.commit()
+                return existing.id
+            else:
+                # Profile doesn't exist - try to insert
+                try:
+                    insert_query = text("""
+                        INSERT INTO candidate_profiles (
+                            external_candidate_id, candidate_wid, primary_email, secondary_email,
+                            phone_number, city, state, work_history, education, skills,
+                            version, last_synced_at, created_at
+                        )
+                        OUTPUT INSERTED.id
+                        VALUES (
+                            :ext_cand_id, :wid, :email, :secondary_email,
+                            :phone, :city, :state, :work_history, :education, :skills,
+                            0, GETUTCDATE(), GETUTCDATE()
+                        )
+                    """)
+                    result = self.db.execute(
+                        insert_query,
+                        {
+                            "ext_cand_id": tms_app.external_candidate_id,
+                            "wid": tms_app.candidate_wid,
+                            "email": tms_app.candidate_email,
+                            "secondary_email": tms_app.secondary_email,
+                            "phone": tms_app.phone_number,
+                            "city": tms_app.city,
+                            "state": tms_app.state,
+                            "work_history": work_history_json,
+                            "education": education_json,
+                            "skills": skills_json,
+                        },
+                    )
+                    profile_id = result.scalar()
+                    self.db.commit()
+
+                    self.logger.info(
+                        "Created candidate profile",
+                        profile_id=profile_id,
+                        external_candidate_id=tms_app.external_candidate_id,
+                    )
+                    return profile_id
+                except IntegrityError:
+                    # Race condition - another process created the profile
+                    # Retry loop will now find and update it
+                    self.db.rollback()
+                    self.logger.warning(
+                        "Profile insert conflict, retrying as update",
+                        external_candidate_id=tms_app.external_candidate_id,
+                        attempt=attempt + 1,
+                    )
+                    continue
+
+        # Should not reach here, but just in case
+        raise ConcurrentUpdateError(
+            f"Failed to upsert profile for {tms_app.external_candidate_id} after {max_retries} attempts"
+        )

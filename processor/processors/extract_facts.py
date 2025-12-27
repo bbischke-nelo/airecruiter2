@@ -21,6 +21,11 @@ from processor.integrations.claude import ClaudeClient
 from processor.integrations.s3 import S3Service
 from processor.utils.pdf_extractor import extract_text_from_file
 
+
+class ConcurrentUpdateError(Exception):
+    """Raised when optimistic locking fails after max retries."""
+    pass
+
 logger = structlog.get_logger()
 
 # Path to prompts
@@ -92,7 +97,12 @@ class ExtractFactsProcessor(BaseProcessor):
         resume_text = ""
         extraction_notes = None
 
-        if resume_key:
+        # Check for cached resume text from previous failed attempt
+        cached_text = await self._get_cached_resume_text(application_id)
+        if cached_text:
+            self.logger.info("Using cached resume text", application_id=application_id)
+            resume_text = cached_text
+        elif resume_key:
             try:
                 # Download resume from S3
                 resume_content = await self.s3.download(resume_key)
@@ -167,12 +177,20 @@ class ExtractFactsProcessor(BaseProcessor):
                 workday_profile=workday_profile if workday_profile else None,
             )
 
-            # Store extraction results
-            await self._store_extraction(application_id, facts, extraction_notes)
+            # Store extraction results (with cached resume text)
+            await self._store_extraction(application_id, facts, extraction_notes, resume_text)
 
             # Update candidate profile with extracted data
+            # Note: This is secondary - extraction is already saved, so continue on failure
             if app.candidate_profile_id:
-                await self._update_candidate_profile(app.candidate_profile_id, facts)
+                try:
+                    await self._update_candidate_profile(app.candidate_profile_id, facts)
+                except ConcurrentUpdateError as e:
+                    self.logger.warning(
+                        "Profile update failed due to concurrent modification, continuing",
+                        profile_id=app.candidate_profile_id,
+                        error=str(e),
+                    )
 
             # Denormalize key metrics to application for sorting
             await self._update_application_sort_columns(application_id, facts)
@@ -212,7 +230,7 @@ class ExtractFactsProcessor(BaseProcessor):
             self.logger.error("Claude extraction failed", application_id=application_id, error=str(e))
             extraction_notes = (extraction_notes or "") + f" Claude error: {str(e)}"
 
-            await self._store_extraction_failure(application_id, extraction_notes)
+            await self._store_extraction_failure(application_id, extraction_notes, resume_text)
             await self._update_status_and_queue(
                 application_id=application_id,
                 status="extraction_failed",
@@ -309,9 +327,27 @@ Return as JSON with this structure:
 Extract ONLY facts explicitly stated. Use null for anything not found.
 """
 
-    async def _store_extraction(self, application_id: int, facts, notes: Optional[str]) -> None:
-        """Store extraction results in database (async-safe)."""
-        def _insert():
+    async def _get_cached_resume_text(self, application_id: int) -> Optional[str]:
+        """Get cached resume text from previous extraction attempt."""
+        def _query():
+            query = text("""
+                SELECT raw_resume_text
+                FROM analyses
+                WHERE application_id = :app_id AND raw_resume_text IS NOT NULL
+            """)
+            result = self.db.execute(query, {"app_id": application_id})
+            row = result.fetchone()
+            result.close()
+            return row.raw_resume_text if row else None
+
+        return await asyncio.to_thread(_query)
+
+    async def _store_extraction(self, application_id: int, facts, notes: Optional[str], resume_text: Optional[str] = None) -> None:
+        """Store extraction results in database (async-safe, idempotent).
+
+        Uses MERGE pattern with HOLDLOCK - updates if exists, inserts if not.
+        """
+        def _upsert():
             # Convert facts object to JSON
             extracted_facts_json = json.dumps({
                 "extraction_version": getattr(facts, "extraction_version", "1.0"),
@@ -327,12 +363,28 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
 
             observations = facts.observations if hasattr(facts, "observations") else {}
 
+            # Use SQL Server MERGE with HOLDLOCK for atomic idempotent upsert
             query = text("""
-                INSERT INTO analyses (application_id, extracted_facts, extraction_version, extraction_notes,
-                                     relevance_summary, pros, cons, suggested_questions,
-                                     raw_response, created_at)
-                VALUES (:app_id, :extracted_facts, :version, :notes, :summary,
-                        :pros, :cons, :questions, :raw, GETUTCDATE())
+                MERGE analyses WITH (HOLDLOCK) AS target
+                USING (SELECT :app_id AS application_id) AS source
+                ON target.application_id = source.application_id
+                WHEN MATCHED THEN
+                    UPDATE SET
+                        extracted_facts = :extracted_facts,
+                        extraction_version = :version,
+                        extraction_notes = :notes,
+                        relevance_summary = :summary,
+                        pros = :pros,
+                        cons = :cons,
+                        suggested_questions = :questions,
+                        raw_response = :raw,
+                        raw_resume_text = COALESCE(NULLIF(:resume_text, ''), raw_resume_text)
+                WHEN NOT MATCHED THEN
+                    INSERT (application_id, extracted_facts, extraction_version, extraction_notes,
+                            relevance_summary, pros, cons, suggested_questions,
+                            raw_response, raw_resume_text, created_at)
+                    VALUES (:app_id, :extracted_facts, :version, :notes, :summary,
+                            :pros, :cons, :questions, :raw, :resume_text, GETUTCDATE());
             """)
             self.db.execute(
                 query,
@@ -346,23 +398,40 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
                     "cons": json.dumps(observations.get("cons", [])),
                     "questions": json.dumps(observations.get("suggested_questions", [])),
                     "raw": facts.raw_response if hasattr(facts, "raw_response") else None,
+                    "resume_text": resume_text if resume_text else None,
                 },
             )
             self.db.commit()
 
-        await asyncio.to_thread(_insert)
+        await asyncio.to_thread(_upsert)
 
-    async def _store_extraction_failure(self, application_id: int, notes: str) -> None:
-        """Store extraction failure in database (async-safe)."""
-        def _insert():
+    async def _store_extraction_failure(self, application_id: int, notes: str, resume_text: Optional[str] = None) -> None:
+        """Store extraction failure in database (async-safe, idempotent).
+
+        Uses MERGE pattern with HOLDLOCK - updates if exists, inserts if not.
+        Caches resume_text so retries don't need to re-extract.
+        """
+        def _upsert():
             query = text("""
-                INSERT INTO analyses (application_id, extraction_notes, created_at)
-                VALUES (:app_id, :notes, GETUTCDATE())
+                MERGE analyses WITH (HOLDLOCK) AS target
+                USING (SELECT :app_id AS application_id) AS source
+                ON target.application_id = source.application_id
+                WHEN MATCHED THEN
+                    UPDATE SET
+                        extraction_notes = :notes,
+                        raw_resume_text = COALESCE(NULLIF(:resume_text, ''), raw_resume_text)
+                WHEN NOT MATCHED THEN
+                    INSERT (application_id, extraction_notes, raw_resume_text, created_at)
+                    VALUES (:app_id, :notes, :resume_text, GETUTCDATE());
             """)
-            self.db.execute(query, {"app_id": application_id, "notes": notes})
+            self.db.execute(query, {
+                "app_id": application_id,
+                "notes": notes,
+                "resume_text": resume_text if resume_text else None,
+            })
             self.db.commit()
 
-        await asyncio.to_thread(_insert)
+        await asyncio.to_thread(_upsert)
 
     async def _update_status(self, application_id: int, status: str) -> None:
         """Update application status (async-safe)."""
@@ -410,8 +479,11 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
             next_job=next_job_type,
         )
 
-    async def _update_candidate_profile(self, profile_id: int, facts) -> None:
+    async def _update_candidate_profile(self, profile_id: int, facts, max_retries: int = 3) -> None:
         """Update candidate profile with extracted facts (async-safe).
+
+        Uses optimistic locking to prevent race conditions when multiple
+        extract_facts jobs update the same profile concurrently.
 
         Pattern: Resume data OVERWRITES Workday data where available.
         Workday provides baseline, resume provides richer/more current data.
@@ -420,7 +492,7 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
                    work_history, education, skills, certifications, licenses,
                    total_experience_months from resume extraction.
         """
-        def _update():
+        def _update_with_retry():
             # Extract contact info from facts
             contact_info = getattr(facts, "contact_info", {}) or {}
 
@@ -481,9 +553,22 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
                 total_experience_months is not None
             ])
 
-            if has_data:
-                # Resume data OVERWRITES Workday data (not COALESCE - we want resume to win)
-                # Use COALESCE only to preserve existing data if resume doesn't have it
+            if not has_data:
+                return
+
+            # Retry loop for optimistic locking
+            for attempt in range(max_retries):
+                # Get current version
+                version_query = text("SELECT version FROM candidate_profiles WHERE id = :profile_id")
+                result = self.db.execute(version_query, {"profile_id": profile_id})
+                row = result.fetchone()
+                if not row:
+                    self.logger.warning("Profile not found", profile_id=profile_id)
+                    return
+
+                expected_version = row.version
+
+                # Update with version check
                 query = text("""
                     UPDATE candidate_profiles
                     SET phone_number = COALESCE(:phone_number, phone_number),
@@ -497,11 +582,13 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
                         certifications = COALESCE(:certifications, certifications),
                         licenses = COALESCE(:licenses, licenses),
                         total_experience_months = COALESCE(:total_exp, total_experience_months),
+                        version = version + 1,
                         last_synced_at = GETUTCDATE()
-                    WHERE id = :profile_id
+                    WHERE id = :profile_id AND version = :expected_version
                 """)
-                self.db.execute(query, {
+                update_result = self.db.execute(query, {
                     "profile_id": profile_id,
+                    "expected_version": expected_version,
                     "phone_number": phone_number,
                     "secondary_email": secondary_email,
                     "city": city,
@@ -514,6 +601,23 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
                     "licenses": licenses,
                     "total_exp": total_experience_months,
                 })
+
+                if update_result.rowcount == 0:
+                    # Version conflict - retry
+                    self.db.rollback()
+                    if attempt < max_retries - 1:
+                        self.logger.warning(
+                            "Profile update conflict, retrying",
+                            profile_id=profile_id,
+                            attempt=attempt + 1,
+                        )
+                        continue
+                    else:
+                        # Raise exception so caller knows update failed
+                        raise ConcurrentUpdateError(
+                            f"Failed to update profile {profile_id} after {max_retries} attempts"
+                        )
+
                 self.db.commit()
                 self.logger.info(
                     "Updated candidate profile with extracted data",
@@ -525,8 +629,9 @@ Extract ONLY facts explicitly stated. Use null for anything not found.
                     has_licenses=licenses is not None,
                     total_exp_months=total_experience_months,
                 )
+                return  # Success - exit retry loop
 
-        await asyncio.to_thread(_update)
+        await asyncio.to_thread(_update_with_retry)
 
     async def _update_application_sort_columns(self, application_id: int, facts) -> None:
         """Denormalize key metrics to application table for efficient sorting.
