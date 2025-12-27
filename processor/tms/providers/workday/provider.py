@@ -141,6 +141,10 @@ class WorkdayProvider(TMSProvider):
         """
         # Apply global minimum date filter
         effective_since = since
+        # Ensure since is timezone-aware for comparison
+        if effective_since is not None and effective_since.tzinfo is None:
+            effective_since = effective_since.replace(tzinfo=timezone.utc)
+
         if settings.APPLICATION_MIN_DATE:
             try:
                 min_date = datetime.fromisoformat(settings.APPLICATION_MIN_DATE).replace(tzinfo=timezone.utc)
