@@ -1,0 +1,22 @@
+Hi {{first_name}},
+
+Great news! Your application for {{position}} has been selected for the next step.
+
+We've reviewed your application and are excited to move forward with you. We'd love to learn more about you through a brief digital interview.
+
+What to expect:
+- Quick & Convenient - Only 10-15 minutes, complete anytime
+- Go Beyond Your Resume - Show us who you really are
+- Fair & Consistent - Every candidate gets the same experience
+- No Scheduling - Skip the calendar back-and-forth
+
+To start your interview, visit:
+{{interview_url}}
+
+This link is valid for {{expires_in_days}} days.
+
+Need an accommodation? If you require a reasonable accommodation to complete this interview due to a disability, please contact us and we'll be happy to assist.
+
+Looking forward to connecting with you,
+{{recruiter_name}}
+{{company_name}}

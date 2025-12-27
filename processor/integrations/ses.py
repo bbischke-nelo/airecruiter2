@@ -1,24 +1,36 @@
 """SES integration for sending emails."""
 
+import os
+from pathlib import Path
 from typing import List, Optional
 
 import boto3
 import structlog
 from botocore.exceptions import ClientError
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from processor.config import settings
 
 logger = structlog.get_logger()
 
+# Template directory - relative to project root
+TEMPLATE_DIR = Path(__file__).parent.parent.parent / "api" / "config" / "templates"
+
 
 class SESService:
     """Service for sending emails via AWS SES."""
 
-    def __init__(self):
-        """Initialize SES client."""
+    def __init__(self, db: Optional[Session] = None):
+        """Initialize SES client.
+
+        Args:
+            db: Optional database session for fetching email templates
+        """
         self.client = boto3.client("ses", region_name=settings.SES_REGION)
         self.from_email = settings.SES_FROM_EMAIL
         self.from_name = settings.SES_FROM_NAME
+        self.db = db
 
     async def send_email(
         self,
@@ -92,6 +104,37 @@ class SESService:
             logger.error("SES send failed", error=str(e), to=to)
             raise SESError(f"Email send failed: {str(e)}") from e
 
+    def _load_template(self, name: str) -> str:
+        """Load a template file by name.
+
+        Args:
+            name: Template filename (e.g., 'interview_email.html')
+
+        Returns:
+            Template content as string
+        """
+        template_path = TEMPLATE_DIR / name
+        if not template_path.exists():
+            raise FileNotFoundError(f"Template not found: {template_path}")
+        return template_path.read_text(encoding="utf-8")
+
+    def _render_template(self, template: str, **kwargs) -> str:
+        """Render a template with variable substitution.
+
+        Uses {{variable}} syntax for placeholders.
+
+        Args:
+            template: Template string with {{placeholders}}
+            **kwargs: Variables to substitute
+
+        Returns:
+            Rendered template
+        """
+        result = template
+        for key, value in kwargs.items():
+            result = result.replace(f"{{{{{key}}}}}", str(value))
+        return result
+
     async def send_interview_invite(
         self,
         to: str,
@@ -101,6 +144,7 @@ class SESService:
         recruiter_name: Optional[str] = None,
         recruiter_email: Optional[str] = None,
         expires_in_days: int = 7,
+        company_name: str = "CrossCountry Freight Solutions",
     ) -> str:
         """Send an interview invitation email.
 
@@ -112,65 +156,30 @@ class SESService:
             recruiter_name: Recruiter's name for reply-to
             recruiter_email: Recruiter's email for reply-to
             expires_in_days: Days until link expires
+            company_name: Company name for branding
 
         Returns:
             SES message ID
         """
-        subject = f"Interview Invitation - {position}"
+        subject = f"Interview Invitation: {position} at {company_name}"
+        first_name = candidate_name.split()[0] if candidate_name else "there"
 
-        html_body = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background-color: #0F5A9C; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">Interview Invitation</h1>
-    </div>
+        # Template variables
+        template_vars = {
+            "company_name": company_name,
+            "first_name": first_name,
+            "position": position,
+            "interview_url": interview_url,
+            "expires_in_days": expires_in_days,
+            "recruiter_name": recruiter_name or "The Talent Team",
+        }
 
-    <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
-        <p>Dear {candidate_name},</p>
+        # Load and render templates
+        html_template = self._load_template("interview_email.html")
+        text_template = self._load_template("interview_email.txt")
 
-        <p>Thank you for your interest in the <strong>{position}</strong> position. We were impressed with your application and would like to invite you to complete a brief screening interview.</p>
-
-        <p>This is an AI-assisted interview that you can complete at your convenience. The interview typically takes 10-15 minutes and allows you to share more about your experience and qualifications.</p>
-
-        <div style="text-align: center; margin: 30px 0;">
-            <a href="{interview_url}" style="background-color: #0F5A9C; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Start Your Interview</a>
-        </div>
-
-        <p style="color: #666; font-size: 14px;">This link will expire in {expires_in_days} days. If you have any questions or need assistance, please don't hesitate to reach out.</p>
-
-        <p>We look forward to learning more about you!</p>
-
-        <p>Best regards,<br>
-        {recruiter_name or "The Recruiting Team"}</p>
-    </div>
-
-    <div style="text-align: center; padding: 20px; color: #888; font-size: 12px;">
-        <p>This is an automated message. Please do not reply directly to this email.</p>
-    </div>
-</body>
-</html>
-"""
-
-        text_body = f"""
-Dear {candidate_name},
-
-Thank you for your interest in the {position} position. We were impressed with your application and would like to invite you to complete a brief screening interview.
-
-This is an AI-assisted interview that you can complete at your convenience. The interview typically takes 10-15 minutes.
-
-To start your interview, please visit:
-{interview_url}
-
-This link will expire in {expires_in_days} days.
-
-Best regards,
-{recruiter_name or "The Recruiting Team"}
-"""
+        html_body = self._render_template(html_template, **template_vars)
+        text_body = self._render_template(text_template, **template_vars)
 
         return await self.send_email(
             to=to,
