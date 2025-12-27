@@ -595,11 +595,22 @@ If the candidate mentioned any of the following during the interview, you MUST N
 
 ---
 
+## CANDIDATE BACKGROUND (from resume analysis)
+
+This context was extracted during initial resume processing. Use it to evaluate whether the candidate's interview responses are consistent with their documented background.
+
+{candidate_context}
+
+---
+
 ## INTERVIEW TRANSCRIPT TO EVALUATE
 
 Below is the full interview transcript. Each message is marked with a timestamp and speaker (either "Interviewer" or the candidate's name).
 
-**IMPORTANT:** Evaluate ONLY based on what is actually in this transcript. The transcript shows individual messages from an interview conversation - analyze the candidate's responses within their conversational context.
+**IMPORTANT:** Evaluate based on:
+1. The interview transcript content below
+2. Consistency with the candidate background above
+3. The job requirements
 
 ```
 {transcript}

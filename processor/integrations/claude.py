@@ -414,22 +414,25 @@ class ClaudeClient:
         self,
         transcript: str,
         prompt_template: str,
+        candidate_context: str = "",
     ) -> EvaluationResult:
         """Evaluate a completed interview.
 
         Args:
             transcript: Full interview transcript
             prompt_template: Evaluation prompt template
+            candidate_context: Pre-extracted candidate background (from fact extraction)
 
         Returns:
             EvaluationResult with scores and assessment
         """
         logger.info("Evaluating interview with Claude")
 
-        # Build the evaluation request
+        # Build the evaluation request with candidate context
         prompt = safe_template_substitute(
             prompt_template,
             transcript=transcript,
+            candidate_context=candidate_context or "No candidate background available",
         )
 
         # Add JSON output instructions if not in template

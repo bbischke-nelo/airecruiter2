@@ -58,10 +58,11 @@ class EvaluateProcessor(BaseProcessor):
 
         self.logger.info("Starting interview evaluation", interview_id=interview_id)
 
-        # Get interview with messages
+        # Get interview with messages and candidate context
         query = text("""
             SELECT i.id, i.application_id, i.status, a.candidate_name,
-                   a.requisition_id, r.name as position
+                   a.requisition_id, r.name as position,
+                   r.detailed_description as job_description
             FROM interviews i
             JOIN applications a ON i.application_id = a.id
             JOIN requisitions r ON a.requisition_id = r.id
@@ -95,6 +96,16 @@ class EvaluateProcessor(BaseProcessor):
             self.logger.warning("No messages in interview", interview_id=interview_id)
             return
 
+        # Get extracted facts from analysis (resume already parsed once)
+        analysis_query = text("""
+            SELECT extracted_facts, relevance_summary, pros, cons
+            FROM analyses
+            WHERE application_id = :app_id
+        """)
+        analysis_result = self.db.execute(analysis_query, {"app_id": interview.application_id})
+        analysis = analysis_result.fetchone()
+        analysis_result.close()
+
         # Validate messages have content
         valid_messages = [m for m in messages if m.content and m.content.strip()]
         if len(valid_messages) < 2:  # Need at least one Q&A exchange
@@ -111,13 +122,22 @@ class EvaluateProcessor(BaseProcessor):
         # Format transcript
         transcript = self._format_transcript(valid_messages, interview.candidate_name)
 
+        # Build candidate context from extracted facts (don't re-parse resume)
+        candidate_context = self._build_candidate_context(
+            analysis=analysis,
+            candidate_name=interview.candidate_name,
+            position=interview.position,
+            job_description=interview.job_description,
+        )
+
         # Get evaluation prompt
         prompt_template = await self._get_prompt("evaluation", interview.requisition_id)
 
-        # Call Claude for evaluation
+        # Call Claude for evaluation with full context
         evaluation = await self.claude.evaluate_interview(
             transcript=transcript,
             prompt_template=prompt_template,
+            candidate_context=candidate_context,
         )
 
         # Calculate overall score (scale to 0-100 from 1-5 averages per v1)
@@ -178,6 +198,91 @@ class EvaluateProcessor(BaseProcessor):
             timestamp = msg.created_at.strftime("%H:%M:%S") if msg.created_at else ""
             lines.append(f"[{timestamp}] {speaker}: {msg.content}")
         return "\n\n".join(lines)
+
+    def _build_candidate_context(
+        self,
+        analysis,
+        candidate_name: str,
+        position: str,
+        job_description: str,
+    ) -> str:
+        """Build candidate context from extracted facts (resume already parsed once).
+
+        This uses the structured data from fact extraction rather than
+        re-processing the raw resume, which is more efficient.
+        """
+        sections = []
+
+        sections.append(f"## Candidate: {candidate_name}")
+        sections.append(f"## Position: {position}")
+
+        if job_description:
+            # Truncate job description to avoid token bloat
+            jd_preview = job_description[:1500] + "..." if len(job_description) > 1500 else job_description
+            sections.append(f"\n## Job Description (Summary)\n{jd_preview}")
+
+        if analysis:
+            # Use relevance summary if available
+            if analysis.relevance_summary:
+                sections.append(f"\n## Resume Summary\n{analysis.relevance_summary}")
+
+            # Parse extracted facts
+            extracted_facts = {}
+            if analysis.extracted_facts:
+                try:
+                    extracted_facts = json.loads(analysis.extracted_facts) if isinstance(
+                        analysis.extracted_facts, str
+                    ) else analysis.extracted_facts
+                except json.JSONDecodeError:
+                    pass
+
+            # Employment history (key for context)
+            employment = extracted_facts.get("employment_history", [])
+            if employment:
+                sections.append("\n## Recent Employment")
+                for job in employment[:4]:
+                    title = job.get("title", "Unknown")
+                    employer = job.get("employer", "Unknown")
+                    duration = job.get("duration_months", 0)
+                    sections.append(f"- {title} at {employer} ({duration} months)")
+
+            # Skills
+            skills = extracted_facts.get("skills", {})
+            if skills:
+                all_skills = []
+                if isinstance(skills, dict):
+                    for category_skills in skills.values():
+                        if isinstance(category_skills, list):
+                            all_skills.extend(category_skills[:5])
+                elif isinstance(skills, list):
+                    all_skills = skills[:15]
+                if all_skills:
+                    sections.append(f"\n## Skills\n{', '.join(all_skills[:15])}")
+
+            # Strengths and gaps from analysis (already identified)
+            if analysis.pros:
+                try:
+                    pros = json.loads(analysis.pros) if isinstance(analysis.pros, str) else analysis.pros
+                    if pros:
+                        sections.append("\n## Known Strengths")
+                        for p in pros[:3]:
+                            sections.append(f"- {p}")
+                except json.JSONDecodeError:
+                    pass
+
+            if analysis.cons:
+                try:
+                    cons = json.loads(analysis.cons) if isinstance(analysis.cons, str) else analysis.cons
+                    if cons:
+                        sections.append("\n## Gaps/Areas to Probe")
+                        for c in cons[:3]:
+                            sections.append(f"- {c}")
+                except json.JSONDecodeError:
+                    pass
+        else:
+            sections.append("\n## Note: No resume data available - evaluate based on interview only")
+
+        return "\n".join(sections)
 
     async def _store_minimal_evaluation(self, interview_id: int, reason: str) -> None:
         """Store a minimal evaluation when content is insufficient."""
