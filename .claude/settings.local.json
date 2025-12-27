@@ -29,7 +29,9 @@
       "Bash(open:*)",
       "Bash(curl:*)",
       "Bash(pip install:*)",
-      "WebFetch(domain:www.ccfs.com)"
+      "WebFetch(domain:www.ccfs.com)",
+      "Bash(npm install:*)",
+      "Bash(git restore:*)"
     ]
   }
 }

@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Markdown } from '@/components/ui/markdown';
 import { api } from '@/lib/api';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, formatStatus } from '@/lib/utils';
 import { Interview, Message, Evaluation } from '@/types';
 
 interface InterviewDetail extends Interview {
@@ -123,7 +123,7 @@ export default function InterviewDetailPage() {
           <span
             className={`px-3 py-1 rounded-full text-sm ${getStatusColor(interview.status)}`}
           >
-            {interview.status.replace(/_/g, ' ')}
+            {formatStatus(interview.status)}
           </span>
         </div>
       </div>

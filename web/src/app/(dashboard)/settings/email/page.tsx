@@ -26,7 +26,7 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { api } from '@/lib/api';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, formatStatus } from '@/lib/utils';
 
 interface EmailTemplate {
   id: number;
@@ -449,7 +449,7 @@ export default function EmailSettingsPage() {
                         <div className="flex items-center gap-2">
                           <h3 className="font-medium">{template.name}</h3>
                           <span className="px-2 py-0.5 bg-muted rounded text-xs">
-                            {template.templateType.replace(/_/g, ' ')}
+                            {formatStatus(template.templateType)}
                           </span>
                           {template.isDefault && (
                             <span className="px-2 py-0.5 bg-primary/10 text-primary rounded text-xs">

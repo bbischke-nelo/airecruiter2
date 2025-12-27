@@ -20,7 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api';
-import { formatDateTime, formatRelativeTime } from '@/lib/utils';
+import { formatDateTime, formatRelativeTime, formatStatus } from '@/lib/utils';
 import { Application, Analysis, Interview, Evaluation } from '@/types';
 
 interface ApplicationDetail extends Application {
@@ -139,7 +139,7 @@ export default function ApplicationDetailPage() {
           <div className="flex items-center gap-3">
             {getStatusIcon(application.status)}
             <div>
-              <p className="font-medium">Status: {application.status.replace(/_/g, ' ')}</p>
+              <p className="font-medium">Status: {formatStatus(application.status)}</p>
               <p className="text-sm text-muted-foreground">
                 {application.workdayStatus && `Workday: ${application.workdayStatus}`}
               </p>

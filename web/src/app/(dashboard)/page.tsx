@@ -15,7 +15,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
-import { formatRelativeTime } from '@/lib/utils';
+import { formatRelativeTime, formatStatus } from '@/lib/utils';
 
 interface DashboardStats {
   requisitions: { total: number; active: number };
@@ -315,5 +315,5 @@ function formatAction(action: string): string {
     report_generated: 'Report generated',
     report_uploaded: 'Report uploaded to Workday',
   };
-  return actionMap[action] || action.replace(/_/g, ' ');
+  return actionMap[action] || formatStatus(action);
 }

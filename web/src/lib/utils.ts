@@ -46,3 +46,14 @@ export function formatRelativeTime(date: string | Date): string {
   }
   return 'just now';
 }
+
+/**
+ * Format a snake_case status to Title Case.
+ * e.g., "interview_pending" -> "Interview Pending"
+ */
+export function formatStatus(status: string): string {
+  return status
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}

@@ -21,7 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
-import { formatDateTime, formatRelativeTime } from '@/lib/utils';
+import { formatDateTime, formatRelativeTime, formatStatus } from '@/lib/utils';
 import { Requisition, Application } from '@/types';
 
 type TabType = 'overview' | 'applications' | 'settings';
@@ -241,7 +241,7 @@ export default function RequisitionDetailPage() {
                         <span
                           className={`px-2 py-1 text-xs rounded-full ${getStatusColor(app.status)}`}
                         >
-                          {app.status.replace(/_/g, ' ')}
+                          {formatStatus(app.status)}
                         </span>
                         {app.riskScore !== null && (
                           <span className="text-sm">

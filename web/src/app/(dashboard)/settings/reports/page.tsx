@@ -25,7 +25,7 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { api } from '@/lib/api';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, formatStatus } from '@/lib/utils';
 
 interface ReportTemplate {
   id: number;
@@ -374,7 +374,7 @@ export default function ReportTemplatesSettingsPage() {
                           <FileText className="h-4 w-4 text-muted-foreground" />
                           <h4 className="font-medium">{template.name}</h4>
                           <span className="px-2 py-0.5 bg-muted rounded text-xs">
-                            {template.templateType.replace(/_/g, ' ')}
+                            {formatStatus(template.templateType)}
                           </span>
                           {template.isDefault && (
                             <span className="px-2 py-0.5 bg-primary/10 text-primary rounded text-xs">

@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { api } from '@/lib/api';
-import { formatDateTime, formatRelativeTime } from '@/lib/utils';
+import { formatDateTime, formatRelativeTime, formatStatus } from '@/lib/utils';
 import { Interview } from '@/types';
 
 interface InterviewWithDetails extends Interview {
@@ -173,7 +173,7 @@ export default function InterviewsPage() {
                           interview.status
                         )}`}
                       >
-                        {interview.status.replace(/_/g, ' ')}
+                        {formatStatus(interview.status)}
                       </p>
                       <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
                         {interview.completedAt
