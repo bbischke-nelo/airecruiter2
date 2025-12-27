@@ -1134,6 +1134,98 @@ class WorkdaySOAPClient:
             {"id": "Background_Check", "name": "Background Check"},
         ]
 
+    async def get_recruiting_dispositions(self) -> List[Dict[str, Any]]:
+        """Fetch available recruiting dispositions from Workday.
+
+        Uses the Integrations service Get_References operation with
+        Reference_ID_Type = Recruiting_Disposition_ID.
+
+        Returns:
+            List of disposition dictionaries with id, name, and workday_id
+        """
+        logger.info("Fetching recruiting dispositions from Workday")
+
+        access_token = await self.auth.get_access_token()
+        wd = "wd"
+
+        xml = f'''<?xml version="1.0" encoding="utf-8"?>
+<soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap-env:Body>
+    <{wd}:Get_References_Request xmlns:{wd}="urn:com.workday/bsvc" {wd}:version="{self.config.api_version}">
+      <{wd}:Request_Criteria>
+        <{wd}:Reference_ID_Type>Recruiting_Disposition_ID</{wd}:Reference_ID_Type>
+      </{wd}:Request_Criteria>
+    </{wd}:Get_References_Request>
+  </soap-env:Body>
+</soap-env:Envelope>'''
+
+        headers = {
+            "SOAPAction": '""',
+            "Content-Type": "text/xml; charset=utf-8",
+            "Authorization": f"Bearer {access_token}",
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    self.config.integrations_service_url,
+                    content=xml,
+                    headers=headers,
+                )
+
+            if response.status_code != 200 or "Fault" in response.text:
+                logger.error(
+                    "Get_References failed",
+                    status=response.status_code,
+                    response_snippet=response.text[:500],
+                )
+                return []
+
+            # Parse the response XML to extract dispositions
+            dispositions = []
+            import re
+
+            # Find all Reference_ID elements
+            # Pattern: <wd:Reference_ID wd:Descriptor="...">...<wd:ID wd:type="...">value</wd:ID>...
+            ref_pattern = r'<wd:Reference_ID[^>]*wd:Descriptor="([^"]*)"[^>]*>(.*?)</wd:Reference_ID>'
+            id_pattern = r'<wd:ID[^>]*wd:type="([^"]*)"[^>]*>([^<]*)</wd:ID>'
+
+            for ref_match in re.finditer(ref_pattern, response.text, re.DOTALL):
+                descriptor = ref_match.group(1)
+                inner_content = ref_match.group(2)
+
+                disposition = {
+                    "name": descriptor,
+                    "id": None,
+                    "workday_id": None,
+                }
+
+                # Extract IDs from inner content
+                for id_match in re.finditer(id_pattern, inner_content):
+                    id_type = id_match.group(1)
+                    id_value = id_match.group(2)
+
+                    if id_type == "Recruiting_Disposition_ID":
+                        disposition["id"] = id_value
+                    elif id_type == "WID":
+                        disposition["workday_id"] = id_value
+
+                if disposition["id"] or disposition["name"]:
+                    dispositions.append(disposition)
+
+            logger.info(
+                "Fetched recruiting dispositions",
+                count=len(dispositions),
+            )
+            return dispositions
+
+        except httpx.HTTPError as e:
+            logger.error(
+                "Get_References HTTP error",
+                error=str(e),
+            )
+            return []
+
     async def move_candidate(
         self,
         application_id: str,

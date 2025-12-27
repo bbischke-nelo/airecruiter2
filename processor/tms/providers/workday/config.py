@@ -48,3 +48,13 @@ class WorkdayConfig:
     def recruiting_service_url(self) -> str:
         """Get Recruiting service URL."""
         return f"{self.tenant_url}/ccx/service/{self.tenant_id}/Recruiting/{self.api_version}"
+
+    @property
+    def integrations_wsdl_url(self) -> str:
+        """Get Integrations WSDL URL (for Get_References)."""
+        return f"{self.tenant_url}/ccx/service/{self.tenant_id}/Integrations/{self.api_version}?wsdl"
+
+    @property
+    def integrations_service_url(self) -> str:
+        """Get Integrations service URL."""
+        return f"{self.tenant_url}/ccx/service/{self.tenant_id}/Integrations/{self.api_version}"

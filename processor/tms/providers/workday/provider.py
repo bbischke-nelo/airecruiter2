@@ -396,6 +396,14 @@ class WorkdayProvider(TMSProvider):
 
         return result
 
+    async def get_dispositions(self) -> List[Dict[str, Any]]:
+        """Fetch available recruiting dispositions from Workday.
+
+        Returns:
+            List of disposition dictionaries with id, name, and workday_id
+        """
+        return await self._client.get_recruiting_dispositions()
+
     def _is_resume(self, filename: str, content_type: str) -> bool:
         """Check if a file is likely a resume."""
         filename_lower = filename.lower()

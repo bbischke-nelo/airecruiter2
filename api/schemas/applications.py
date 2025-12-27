@@ -1,7 +1,6 @@
 """Pydantic schemas for Application endpoints."""
 
 from datetime import datetime
-from enum import Enum
 from typing import Optional, Any, List
 
 from pydantic import field_validator
@@ -16,19 +15,9 @@ def _coerce_bool(v: Any) -> bool:
     return bool(v)
 
 
-# Valid rejection reason codes (must match rejection_reasons table in database)
-# These map to Workday disposition IDs for TMS sync
+# Rejection reason codes are now fetched dynamically from Workday
+# via the GET /settings/dispositions endpoint.
 # No free-form comments allowed - they become discovery liabilities in litigation
-class RejectionReasonCode(str, Enum):
-    """Rejection reason codes matching rejection_reasons table."""
-    EXPERIENCE_SKILLS = "EXPERIENCE_SKILLS"
-    NOT_INTERESTED = "NOT_INTERESTED"
-    OFF_THE_MARKET = "OFF_THE_MARKET"
-    DIDNT_MEET_GUIDELINES = "DIDNT_MEET_GUIDELINES"
-    CANDIDATE_WITHDRAWN = "CANDIDATE_WITHDRAWN"
-    REQUISITION_CLOSED = "REQUISITION_CLOSED"
-    ANOTHER_CANDIDATE_HIRED = "ANOTHER_CANDIDATE_HIRED"
-    NO_SHOW = "NO_SHOW"
 
 
 class ApplicationListItem(CamelModel):
@@ -116,10 +105,11 @@ class RejectRequest(CamelModel):
     """Request to reject an application.
 
     Note: No comment field - free-form comments are discovery liabilities.
-    The reason codes are designed to be legally defensible on their own.
+    The reason codes come from Workday dispositions and are designed to be
+    legally defensible on their own.
     """
 
-    reason_code: RejectionReasonCode
+    reason_code: str  # Disposition ID from Workday (e.g., "Not Interested in Position")
 
 
 class HoldRequest(CamelModel):

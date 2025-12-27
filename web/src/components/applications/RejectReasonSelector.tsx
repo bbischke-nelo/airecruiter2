@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -19,21 +20,16 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
+import { api } from '@/lib/api';
 
-// Must match api/schemas/applications.py RejectionReasonCode AND rejection_reasons table
-// These map to Workday disposition IDs for TMS sync
-export const REJECTION_REASON_CODES = {
-  EXPERIENCE_SKILLS: 'Experience/Skills',
-  NOT_INTERESTED: 'Not Interested in Position',
-  OFF_THE_MARKET: 'Off the Market',
-  DIDNT_MEET_GUIDELINES: "Didn't Meet Hiring Guidelines",
-  CANDIDATE_WITHDRAWN: 'Candidate Withdrawn',
-  REQUISITION_CLOSED: 'Requisition Closed',
-  ANOTHER_CANDIDATE_HIRED: 'Another Candidate Hired',
-  NO_SHOW: 'No Show',
-} as const;
+interface DispositionOption {
+  id: string;
+  name: string;
+  workdayId?: string;
+}
 
-export type RejectionReasonCode = keyof typeof REJECTION_REASON_CODES;
+// The reason code is now the disposition ID from Workday
+export type RejectionReasonCode = string;
 
 interface RejectReasonSelectorProps {
   open: boolean;
@@ -50,7 +46,17 @@ export function RejectReasonSelector({
   isLoading = false,
   candidateName,
 }: RejectReasonSelectorProps) {
-  const [reasonCode, setReasonCode] = useState<RejectionReasonCode | ''>('');
+  const [reasonCode, setReasonCode] = useState<string>('');
+
+  // Fetch dispositions from Workday via API
+  const { data: dispositions, isLoading: dispositionsLoading } = useQuery<DispositionOption[]>({
+    queryKey: ['dispositions'],
+    queryFn: async () => {
+      const response = await api.get('/settings/dispositions');
+      return response.data;
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
 
   const handleConfirm = () => {
     if (reasonCode) {
@@ -81,15 +87,16 @@ export function RejectReasonSelector({
             <Label htmlFor="reason-code">Rejection Reason</Label>
             <Select
               value={reasonCode}
-              onValueChange={(value) => setReasonCode(value as RejectionReasonCode)}
+              onValueChange={(value) => setReasonCode(value)}
+              disabled={dispositionsLoading}
             >
               <SelectTrigger id="reason-code">
-                <SelectValue placeholder="Select a reason..." />
+                <SelectValue placeholder={dispositionsLoading ? "Loading..." : "Select a reason..."} />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(REJECTION_REASON_CODES).map(([code, label]) => (
-                  <SelectItem key={code} value={code}>
-                    {label}
+                {dispositions?.map((disposition) => (
+                  <SelectItem key={disposition.id} value={disposition.id}>
+                    {disposition.name}
                   </SelectItem>
                 ))}
               </SelectContent>

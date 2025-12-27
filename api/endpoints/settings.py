@@ -1,7 +1,11 @@
 """System settings endpoints."""
 
+import asyncio
+from typing import List
+
 import structlog
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from api.config.database import get_db
@@ -11,6 +15,13 @@ from api.services.rbac import require_role, require_admin
 
 logger = structlog.get_logger()
 router = APIRouter()
+
+
+class DispositionOption(BaseModel):
+    """A disposition option from Workday."""
+    id: str
+    name: str
+    workday_id: str | None = None
 
 
 def get_setting_value(db: Session, key: str, default: str = "") -> str:
@@ -87,3 +98,50 @@ async def seed_settings(
     db.commit()
     logger.info("Settings seeded")
     return {"message": "Settings seeded successfully"}
+
+
+@router.get("/dispositions", response_model=List[DispositionOption])
+async def get_dispositions(
+    user: dict = Depends(require_role(["admin", "recruiter"])),
+):
+    """Fetch available disposition options from Workday.
+
+    These are the valid rejection reasons that can be used when rejecting
+    a candidate. The values come directly from your Workday configuration.
+    """
+    try:
+        # Import here to avoid circular imports and only when needed
+        from processor.tms.providers.workday.provider import WorkdayProvider
+        from processor.tms.providers.workday.config import WorkdayConfig
+        from api.config.settings import settings
+
+        # Create provider with config from environment
+        config = WorkdayConfig(
+            tenant_url=settings.WORKDAY_TENANT_URL,
+            tenant_id=settings.WORKDAY_TENANT_ID,
+            client_id=settings.WORKDAY_CLIENT_ID,
+            client_secret=settings.WORKDAY_CLIENT_SECRET,
+            refresh_token=settings.WORKDAY_REFRESH_TOKEN,
+            api_version=settings.WORKDAY_API_VERSION,
+        )
+        provider = WorkdayProvider(config)
+        await provider.initialize()
+
+        dispositions = await provider.get_dispositions()
+
+        return [
+            DispositionOption(
+                id=d.get("id") or d.get("name", ""),
+                name=d.get("name", ""),
+                workday_id=d.get("workday_id"),
+            )
+            for d in dispositions
+            if d.get("id") or d.get("name")
+        ]
+
+    except Exception as e:
+        logger.error("Failed to fetch dispositions from Workday", error=str(e))
+        raise HTTPException(
+            status_code=503,
+            detail=f"Failed to fetch dispositions from Workday: {str(e)}"
+        )
