@@ -88,11 +88,15 @@ export function SendInterviewModal({
       setResult(data);
       setError(null);
       queryClient.invalidateQueries({ queryKey: ['applications'] });
-      // Auto-copy link for link_only mode
+      // Try to auto-copy link for link_only mode (may fail if no user gesture)
       if (mode === 'link_only' && data.interviewUrl) {
-        await navigator.clipboard.writeText(data.interviewUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 3000);
+        try {
+          await navigator.clipboard.writeText(data.interviewUrl);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 3000);
+        } catch {
+          // Clipboard access denied - user can still copy manually
+        }
       }
     },
     onError: (err: Error) => {
@@ -211,7 +215,7 @@ export function SendInterviewModal({
                 <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
                 <div>
                   <div className="font-medium text-green-800 dark:text-green-200">
-                    {result.emailSent ? 'Email sent!' : 'Link copied to clipboard!'}
+                    {result.emailSent ? 'Email sent!' : (copied ? 'Link copied!' : 'Link ready!')}
                   </div>
                   {result.emailSent && result.emailSentTo && (
                     <div className="text-sm text-green-700 dark:text-green-300">
